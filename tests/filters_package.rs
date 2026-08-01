@@ -210,8 +210,8 @@ fn pip_list_and_outdated_tables_preserve_every_row_fact() {
         )
         .unwrap(),
         StreamFilterOutput::new(
-            b"pip 23.0 24.0 wheel\nwarning from index\n".to_vec(),
-            Vec::new(),
+            b"pip 23.0 24.0 wheel\n".to_vec(),
+            b"warning from index\n".to_vec(),
             EvidenceClass::FactComplete,
         ),
     );
@@ -310,7 +310,7 @@ fn nonzero_unrecognized_stderr_stays_raw_but_recognized_errors_are_owned() {
     let recognized = b"npm ERR! code E404\nnpm ERR! 404 Not Found\n";
     assert_eq!(
         package::dispatch_streams_argv(&[b"npm", b"install"], b"", recognized, 1, false).unwrap(),
-        StreamFilterOutput::new(recognized.to_vec(), Vec::new(), EvidenceClass::FactComplete,),
+        StreamFilterOutput::new(Vec::new(), recognized.to_vec(), EvidenceClass::FactComplete,),
     );
 }
 
@@ -360,4 +360,24 @@ fn every_declared_package_action_routes_to_its_family_filter() {
         .unwrap();
         assert_eq!(output.evidence, EvidenceClass::PotentiallyLossy);
     }
+}
+
+#[test]
+fn package_truncation_notice_names_tapas_raw_mode() {
+    let mut input = Vec::new();
+    for index in 0..61 {
+        input.extend_from_slice(
+            format!("Your requirements could not be resolved: conflict {index}\n").as_bytes(),
+        );
+    }
+
+    let output =
+        package::dispatch_streams_argv(&[b"composer", b"install"], &input, b"", 1, false).unwrap();
+
+    assert!(
+        output
+            .stdout
+            .windows(b"(tapas: omitted 1 relevant lines; rerun with tapas --raw)".len())
+            .any(|window| window == b"(tapas: omitted 1 relevant lines; rerun with tapas --raw)")
+    );
 }

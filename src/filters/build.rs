@@ -65,10 +65,11 @@ pub fn dispatch_streams_argv(
         || command == b"go" && arg1 == b"build"
         || command == b"zig" && arg1 == b"build";
     if generic_build_route && matches_build_compact(stdout, stderr) {
-        return Ok(StreamFilterOutput::new(
-            compact_build(stdout, stderr),
-            Vec::new(),
+        return Ok(StreamFilterOutput::compact_single_stream(
+            stdout,
+            stderr,
             compact_evidence(exit_code),
+            compact_build,
         ));
     }
 
@@ -80,48 +81,54 @@ pub fn dispatch_streams_argv(
         || command == b"next" && arg1 == b"build"
         || js_build_route;
     if frontend_build_route && (matches_build_output(stdout) || matches_build_output(stderr)) {
-        return Ok(StreamFilterOutput::new(
-            compact_build_output(stdout, stderr),
-            Vec::new(),
+        return Ok(StreamFilterOutput::compact_single_stream(
+            stdout,
+            stderr,
             compact_evidence(exit_code),
+            compact_build_output,
         ));
     }
 
     if command == b"dotnet" && matches!(arg1, b"build" | b"test" | b"format" | b"restore") {
-        return Ok(StreamFilterOutput::new(
-            compact_dotnet(stdout, stderr),
-            Vec::new(),
+        return Ok(StreamFilterOutput::compact_single_stream(
+            stdout,
+            stderr,
             compact_evidence(exit_code),
+            compact_dotnet,
         ));
     }
     if matches!(command, b"gradle" | b"gradlew")
         && (matches_gradle(stdout) || matches_gradle(stderr))
     {
-        return Ok(StreamFilterOutput::new(
-            compact_gradle(stdout, stderr),
-            Vec::new(),
+        return Ok(StreamFilterOutput::compact_single_stream(
+            stdout,
+            stderr,
             compact_evidence(exit_code),
+            compact_gradle,
         ));
     }
     if matches!(command, b"mvn" | b"mvnw") && (matches_maven(stdout) || matches_maven(stderr)) {
-        return Ok(StreamFilterOutput::new(
-            compact_maven(stdout, stderr),
-            Vec::new(),
+        return Ok(StreamFilterOutput::compact_single_stream(
+            stdout,
+            stderr,
             compact_evidence(exit_code),
+            compact_maven,
         ));
     }
     if matches!(command, b"swift" | b"xcodebuild") {
-        return Ok(StreamFilterOutput::new(
-            compact_apple_build(stdout, stderr),
-            Vec::new(),
+        return Ok(StreamFilterOutput::compact_single_stream(
+            stdout,
+            stderr,
             compact_evidence(exit_code),
+            compact_apple_build,
         ));
     }
     if matches!(command, b"uv" | b"uvx") || runner_package_prelude {
-        return Ok(StreamFilterOutput::new(
-            compact_package_tool(stdout, stderr),
-            Vec::new(),
+        return Ok(StreamFilterOutput::compact_single_stream(
+            stdout,
+            stderr,
             compact_evidence(exit_code),
+            compact_package_tool,
         ));
     }
 
@@ -772,9 +779,9 @@ fn head_tail(data: Vec<u8>, head_lines: usize, tail_lines: usize) -> Vec<u8> {
     let tail_start = byte_after_lines(&data, line_count - tail_lines);
     let mut output = Vec::with_capacity(data.len());
     output.extend_from_slice(&data[..head_end]);
-    output.extend_from_slice(b"(smll: omitted ");
+    output.extend_from_slice(b"(tapas: omitted ");
     output.extend_from_slice(omitted.to_string().as_bytes());
-    output.extend_from_slice(b" relevant lines; rerun with smll --raw)\n");
+    output.extend_from_slice(b" relevant lines; rerun with tapas --raw)\n");
     output.extend_from_slice(&data[tail_start..]);
     output
 }
