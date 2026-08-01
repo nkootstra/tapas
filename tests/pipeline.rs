@@ -217,3 +217,50 @@ fn signal_classifier_accepts_the_frozen_positive_fixtures() {
         assert!(gate(Signals::compute(input)));
     }
 }
+
+#[test]
+fn pipe_chain_matches_container_package_and_curl_oracles() {
+    let kubectl = include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/kubectl_pods.txt");
+    let kubectl_output = pipeline::filter_bytes(kubectl);
+    assert!(kubectl_output.starts_with(b"k9r "));
+
+    let docker = include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/docker_ps.txt");
+    assert_eq!(
+        pipeline::filter_bytes(docker),
+        b"d4up helios-assistant helios-convex-dashboard helios-convex-backend helios-mysql\n"
+    );
+
+    let images = include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/docker_images.txt");
+    assert_eq!(pipeline::filter_bytes(images), images);
+
+    let npm = include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/npm_install.txt");
+    assert_eq!(
+        pipeline::filter_bytes(npm),
+        concat!(
+            "deprecated x5: lodash.isequal, rimraf, inflight, glob, querystring\n",
+            "added 847 packages, and audited 848 packages in 12s\n",
+            "found 2 vulnerabilities (1 moderate, 1 high)\n",
+        )
+        .as_bytes()
+    );
+
+    let curl =
+        include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/curl_v_example.stderr.txt");
+    assert_eq!(
+        pipeline::filter_bytes(curl),
+        concat!(
+            "* Connected to example.com (93.184.216.34) port 443\n",
+            "> GET / HTTP/2\n",
+            "> Host: example.com\n",
+            "> User-Agent: curl/8.0.1\n",
+            "> accept: */*\n",
+            ">\n",
+            "< HTTP/2 200\n",
+            "< content-type: text/html; charset=UTF-8\n",
+            "< content-length: 182\n",
+            "< date: Mon, 22 Apr 2024 12:00:00 GMT\n",
+            "<\n",
+        )
+        .as_bytes()
+    );
+}

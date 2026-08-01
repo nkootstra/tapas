@@ -1,4 +1,4 @@
-use super::{EvidenceClass, FilterError, StreamFilterOutput};
+use super::{EvidenceClass, FilterError, FilterOutput, StreamFilterOutput};
 
 pub fn dispatch_streams_argv(
     argv: &[&[u8]],
@@ -44,6 +44,160 @@ pub fn dispatch_streams_argv(
         || passthrough(stdout, stderr),
         |stdout| StreamFilterOutput::new(stdout, Vec::new(), EvidenceClass::FactComplete),
     ))
+}
+
+pub fn matches_container_pipe(input: &[u8]) -> bool {
+    matches_kubectl(input) || matches_docker_ps(input)
+}
+
+pub fn apply_container_pipe(input: &[u8]) -> Result<FilterOutput, FilterError> {
+    let bytes = if matches_kubectl(input) {
+        compact_kubectl(input)
+    } else if matches_docker_ps(input) {
+        compact_docker_ps(input)
+    } else {
+        return Err(FilterError::InvalidInput);
+    };
+    Ok(FilterOutput::new(bytes, EvidenceClass::FactComplete))
+}
+
+pub fn matches_curl_pipe(input: &[u8]) -> bool {
+    input
+        .split(|byte| *byte == b'\n')
+        .any(|line| matches!(line.first(), Some(b'*' | b'>' | b'<')))
+}
+
+pub fn apply_curl_pipe(input: &[u8]) -> Result<FilterOutput, FilterError> {
+    if !matches_curl_pipe(input) {
+        return Err(FilterError::InvalidInput);
+    }
+    Ok(FilterOutput::new(
+        compact_curl_trace(input),
+        EvidenceClass::FactComplete,
+    ))
+}
+
+fn compact_curl_trace(input: &[u8]) -> Vec<u8> {
+    let mut output = Vec::with_capacity(input.len());
+    let mut in_certificate = false;
+    let mut in_server_certificate = false;
+    let mut requests = 0usize;
+
+    for raw in input.split(|byte| *byte == b'\n') {
+        let line = raw.strip_suffix(b"\r").unwrap_or(raw);
+        if line.is_empty() {
+            continue;
+        }
+        if find_subslice(line, b"-----BEGIN CERTIFICATE-----").is_some() {
+            in_certificate = true;
+            continue;
+        }
+        if in_certificate {
+            if find_subslice(line, b"-----END CERTIFICATE-----").is_some() {
+                in_certificate = false;
+            }
+            continue;
+        }
+        if line.starts_with(b"* Server certificate:") {
+            in_server_certificate = true;
+            continue;
+        }
+        if in_server_certificate {
+            if line.first() == Some(&b'*') {
+                continue;
+            }
+            in_server_certificate = false;
+        }
+
+        match line[0] {
+            b'>' => {
+                if is_curl_request_line(line) {
+                    requests += 1;
+                    if requests <= 5 {
+                        append_line(&mut output, line);
+                    }
+                } else if requests <= 1 {
+                    append_line(&mut output, line);
+                }
+            }
+            b'<' => {
+                if line.starts_with(b"< HTTP/") {
+                    if requests <= 5 {
+                        append_line(&mut output, line);
+                    }
+                } else if requests <= 1
+                    || line.starts_with(b"< location:")
+                    || line.starts_with(b"< Location:")
+                {
+                    append_line(&mut output, line);
+                }
+            }
+            b'*' => {
+                if !drop_curl_meta(line) && keep_curl_meta(line) && requests <= 1 {
+                    append_line(&mut output, line);
+                }
+            }
+            _ => append_line(&mut output, line),
+        }
+    }
+    if requests > 1 {
+        output.push(b'(');
+        output.extend_from_slice(requests.to_string().as_bytes());
+        output.extend_from_slice(b" requests total)\n");
+    }
+    output
+}
+
+fn is_curl_request_line(line: &[u8]) -> bool {
+    let Some(after) = line.strip_prefix(b"> ") else {
+        return false;
+    };
+    let Some(space) = after.iter().position(|byte| *byte == b' ') else {
+        return false;
+    };
+    space > 0 && after[..space].iter().all(u8::is_ascii_uppercase)
+}
+
+fn keep_curl_meta(line: &[u8]) -> bool {
+    [
+        b"* Connected to".as_slice(),
+        b"* Trying",
+        b"* Closing",
+        b"* Host:",
+        b"* Request completely sent",
+        b"* HTTP/",
+        b"* Mark bundle",
+        b"* schannel:",
+        b"* Rebuilt URL to:",
+        b"* Re-using existing connection",
+    ]
+    .iter()
+    .any(|prefix| line.starts_with(prefix))
+}
+
+fn drop_curl_meta(line: &[u8]) -> bool {
+    [
+        b"* TLSv".as_slice(),
+        b"* SSL connection",
+        b"* ALPN",
+        b"* Server certificate:",
+        b"*   subject:",
+        b"*   issuer:",
+        b"*   SSL certificate verify",
+        b"*   start date:",
+        b"*   expire date:",
+        b"*   common name:",
+        b"*   subjectAltName:",
+        b"*   using ",
+        b"* Server auth using",
+        b"* Using HTTP",
+        b"* schannel: encrypted data",
+        b"* schannel: decrypted data",
+        b"*  CAfile:",
+        b"*  CApath:",
+    ]
+    .iter()
+    .any(|prefix| line.starts_with(prefix))
 }
 
 fn is_logs_invocation(command: &[u8], argv: &[&[u8]]) -> bool {

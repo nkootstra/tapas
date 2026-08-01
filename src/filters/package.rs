@@ -1,4 +1,4 @@
-use super::{EvidenceClass, FilterError, StreamFilterOutput};
+use super::{EvidenceClass, FilterError, FilterOutput, StreamFilterOutput};
 
 const TREE_PREFIXES: &[&[u8]] = &[
     b"\xe2\x94\x9c\xe2\x94\x80\xe2\x94\x80 ",
@@ -88,6 +88,20 @@ pub fn dispatch_streams_argv(
     }
 
     Ok(passthrough(stdout, stderr))
+}
+
+pub fn matches_pipe(input: &[u8]) -> bool {
+    matches_npm_install(input)
+}
+
+pub fn apply_pipe(input: &[u8]) -> Result<FilterOutput, FilterError> {
+    if !matches_pipe(input) {
+        return Err(FilterError::InvalidInput);
+    }
+    Ok(FilterOutput::new(
+        compact_npm_install(input, b""),
+        EvidenceClass::PotentiallyLossy,
+    ))
 }
 
 fn compact_pip_table(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
