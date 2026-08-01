@@ -1,0 +1,6792 @@
+{
+  "cases": [
+    {
+      "argv": [
+        "npx",
+        "--future",
+        "pytest"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "exact_output_bypass:ambiguous_runner"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": true,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": true,
+          "facts": [
+            "policy output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "bypass:ambiguous-runner",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "ambiguous_runner"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "find",
+        ".",
+        "-printf",
+        "%p\\n"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "exact_output_bypass:find_exact_output"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": true,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": true,
+          "facts": [
+            "policy output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "bypass:find",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "find_exact_output"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "log",
+        "--oneline"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "exact_output_bypass:git_alternate_format"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": true,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": true,
+          "facts": [
+            "policy output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "bypass:git-format",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "git_alternate_format"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "ls",
+        "-l"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "exact_output_bypass:ls_exact_output"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": true,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": true,
+          "facts": [
+            "policy output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "bypass:ls",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "ls_exact_output"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "jq",
+        "."
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "exact_output_bypass:machine_output"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": true,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": true,
+          "facts": [
+            "policy output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "bypass:machine",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "machine_output"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "pytest",
+        "--version"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "exact_output_bypass:query"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": true,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": true,
+          "facts": [
+            "policy output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "bypass:query",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "query"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "tree",
+        "--inodes"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "exact_output_bypass:tree_exact_output"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": true,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": true,
+          "facts": [
+            "policy output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "bypass:tree",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "tree_exact_output"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "docker-compose"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "ZG9ja2VyLWNvbXBvc2Ugb3V0cHV0Cg=="
+        }
+      },
+      "covers": [
+        "claude_eligibility:docker-compose",
+        "wrapper_dispatch:columnar"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": [
+            "docker-compose output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "catalog:docker-compose",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "mocha"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "bW9jaGEgb3V0cHV0Cg=="
+        }
+      },
+      "covers": [
+        "claude_eligibility:mocha",
+        "wrapper_dispatch:tests"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": [
+            "mocha output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "catalog:mocha",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "ninja"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "bmluamEgb3V0cHV0Cg=="
+        }
+      },
+      "covers": [
+        "claude_eligibility:ninja",
+        "wrapper_dispatch:build_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": [
+            "ninja output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "catalog:ninja",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "pup"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cHVwIG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "claude_eligibility:pup",
+        "wrapper_dispatch:plans_and_data"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": [
+            "pup output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "catalog:pup",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "webpack"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "d2VicGFjayBvdXRwdXQK"
+        }
+      },
+      "covers": [
+        "claude_eligibility:webpack",
+        "wrapper_dispatch:build_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": [
+            "webpack output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "catalog:webpack",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "switch"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "Z2l0IHN3aXRjaCBvdXRwdXQK"
+        }
+      },
+      "covers": [
+        "git_subcommand:switch"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "git:switch",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "npx",
+        "pytest",
+        "-q"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "transparent_runner:npx"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "runner:npx",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "npx"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "pytest",
+        "-q"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "transparent_runner:pnpm exec"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "runner:pnpm-exec",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "pnpm exec"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "poetry",
+        "run",
+        "pytest",
+        "-q"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "transparent_runner:poetry run"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "runner:poetry",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "poetry run"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "uv",
+        "run",
+        "pytest",
+        "-q"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "transparent_runner:uv run"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "runner:uv-run",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "uv run"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "uvx",
+        "ruff",
+        "check"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "transparent_runner:uvx"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "runner:uvx",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "uvx"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "acli",
+        "confluence",
+        "page",
+        "view",
+        "--id",
+        "100000001"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/acli_confluence_page_view.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:acli",
+        "wrapper_dispatch:plans_and_data"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:acli-confluence-page-view",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:acli-confluence-page-view"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "acli",
+        "jira",
+        "workitem",
+        "search",
+        "--jql",
+        "project = EXAMPLE"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/acli_jira_workitem_search.txt"
+        }
+      },
+      "covers": [],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:acli-jira-workitem-search",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:acli-jira-workitem-search"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "aws",
+        "sts",
+        "get-caller-identity"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "ewogICJBY2NvdW50IjogIjEyMzQ1Njc4OTAxMiIsCiAgIkFybiI6ICJhcm46YXdzOmlhbTo6MTIzNDU2Nzg5MDEyOnVzZXIvdGVzdCIKfQo="
+        }
+      },
+      "covers": [
+        "claude_eligibility:aws",
+        "wrapper_dispatch:plans_and_data"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:aws-json",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:aws-json"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "biome",
+        "check",
+        "."
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "c3JjL2FwcC50czoxOjcgbGludC9jb3JyZWN0bmVzcy9ub1VudXNlZFZhcmlhYmxlcwogIFRoaXMgdmFyaWFibGUgaXMgdW51c2VkLgpDaGVja2VkIDEgZmlsZS4K"
+        }
+      },
+      "covers": [
+        "claude_eligibility:biome",
+        "wrapper_dispatch:build_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:biome",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:biome"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "brew",
+        "outdated"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "bm9kZSAyMi4xLjAgPCAyMi4yLjAKemlnIDAuMTUuMCA8IDAuMTYuMAo="
+        }
+      },
+      "covers": [
+        "claude_eligibility:brew",
+        "wrapper_dispatch:columnar"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:brew",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:brew"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "bun",
+        "add",
+        "react"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/bun_install.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:bun",
+        "wrapper_dispatch:tests",
+        "wrapper_dispatch:package_tools",
+        "wrapper_dispatch:columnar"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:bun-add",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:bun-add"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "bun",
+        "pm",
+        "ls"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/bun_pm_ls.txt"
+        }
+      },
+      "covers": [],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:bun-pm-ls",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:bun-pm-ls"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "cargo",
+        "build"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/cargo_build.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:cargo",
+        "wrapper_dispatch:tests",
+        "wrapper_dispatch:build_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:cargo-build",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:cargo-build"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "cargo",
+        "test"
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/cargo_test_failing.txt"
+        }
+      },
+      "covers": [],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:cargo-test",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:cargo-test"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "cat",
+        "main.zig"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "Y29uc3Qgc3RkID0gQGltcG9ydCgic3RkIik7CmZuIG1haW4oKSB2b2lkIHsgZG9UaGluZygpOyB9Cg=="
+        }
+      },
+      "covers": [
+        "claude_eligibility:cat",
+        "wrapper_dispatch:utilities",
+        "exact_output_bypass:lossless_or_raw"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:cat-code",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:cat-code"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "composer",
+        "require",
+        "guzzlehttp/guzzle"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/composer_require.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:composer",
+        "wrapper_dispatch:package_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:composer-require",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:composer-require"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "curl",
+        "-v",
+        "https://example.com"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "fixture": "fixtures/tests/fixtures/curl_v_example.stderr.txt"
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/curl_v_example.stdout.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:curl",
+        "wrapper_dispatch:utilities"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:curl-v",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:curl-v"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "df",
+        "-h"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "RmlsZXN5c3RlbSBTaXplIFVzZWQgQXZhaWwgVXNlJSBNb3VudGVkIG9uCi9kZXYvZGlzazFzMSAxMDBHIDcwRyAzMEcgNzAlIC8K"
+        }
+      },
+      "covers": [
+        "claude_eligibility:df",
+        "wrapper_dispatch:columnar"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:df-h",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:df-h"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "docker",
+        "logs",
+        "app"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/docker_logs.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:docker",
+        "wrapper_dispatch:columnar"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:docker-logs",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:docker-logs"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "docker",
+        "ps"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/docker_ps.txt"
+        }
+      },
+      "covers": [],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:docker-ps",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:docker-ps"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "dotnet",
+        "build"
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/dotnet_build_failed.txt"
+        }
+      },
+      "covers": [
+        "wrapper_dispatch:build_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:dotnet-build",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:dotnet-build"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "dotnet",
+        "format"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "Rm9ybWF0dGluZyBjb2RlIGZpbGVzIGluIHdvcmtzcGFjZQpXYXJuaW5ncyB3ZXJlIGVuY291bnRlcmVkIHdoaWxlIGxvYWRpbmcgdGhlIHdvcmtzcGFjZS4K"
+        }
+      },
+      "covers": [],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:dotnet-format",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:dotnet-format"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "dotnet",
+        "restore"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "RGV0ZXJtaW5pbmcgcHJvamVjdHMgdG8gcmVzdG9yZS4uLgpSZXN0b3JlZCBhcHAuY3Nwcm9qIChpbiAxLjIgc2VjKS4K"
+        }
+      },
+      "covers": [],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:dotnet-restore",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:dotnet-restore"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "dotnet",
+        "test"
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/dotnet_test_failed.txt"
+        }
+      },
+      "covers": [],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:dotnet-test",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:dotnet-test"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "du",
+        "-sh",
+        "."
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/du_sh.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:du",
+        "wrapper_dispatch:utilities"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:du",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:du"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "env"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "UEFUSD0vdG1wL2JpbgpBUElfVE9LRU49c2VjcmV0LXZhbHVlCk5PUk1BTD12YWx1ZQo="
+        }
+      },
+      "covers": [
+        "wrapper_dispatch:utilities"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:env",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:env"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "eslint",
+        "."
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "L3JlcG8vc3JjL2FwcC50cwogIDE6NyAgZXJyb3IgIHggaXMgYXNzaWduZWQgYSB2YWx1ZSBidXQgbmV2ZXIgdXNlZCAgbm8tdW51c2VkLXZhcnMKCjEgcHJvYmxlbSAoMSBlcnJvciwgMCB3YXJuaW5ncykK"
+        }
+      },
+      "covers": [
+        "claude_eligibility:eslint",
+        "wrapper_dispatch:build_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:eslint",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:eslint"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "find",
+        ".",
+        "-ls"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/find_ls.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:find",
+        "wrapper_dispatch:path_list"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:find-ls",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:find-ls"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "gh",
+        "pr",
+        "list"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/gh_pr_list.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:gh",
+        "wrapper_dispatch:github",
+        "wrapper_dispatch:columnar"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:gh-pr-list",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:gh-pr-list"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "gh",
+        "run",
+        "list"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/gh_run_list.txt"
+        }
+      },
+      "covers": [],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:gh-run-list",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:gh-run-list"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "add",
+        "missing.txt"
+      ],
+      "child": {
+        "exit_code": 128,
+        "stderr": {
+          "fixture": "fixtures/tests/fixtures/git_add_error.stderr.txt"
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/git_add_error.stdout.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:git",
+        "wrapper_dispatch:git",
+        "git_subcommand:add",
+        "pipe_detector:git_branch",
+        "pipe_detector:git_reflog",
+        "pipe_detector:git_show",
+        "pipe_detector:GitDiffPipe",
+        "pipe_detector:GitLogCompact",
+        "pipe_detector:git_commit",
+        "pipe_detector:git_merge",
+        "pipe_detector:git_blame",
+        "pipe_detector:cargo_test",
+        "pipe_detector:jest",
+        "pipe_detector:js_test",
+        "pipe_detector:tsc",
+        "pipe_detector:go_test",
+        "pipe_detector:pytest",
+        "pipe_detector:kubectl_compact",
+        "pipe_detector:docker_compact",
+        "pipe_detector:npm_install",
+        "pipe_detector:tree",
+        "pipe_detector:ls_compact",
+        "pipe_detector:FindCompactPipe",
+        "pipe_detector:DuCompactPipe",
+        "pipe_detector:CurlCompactPipe",
+        "pipe_detector:GenericCompactPipe"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 128,
+          "signal": null
+        }
+      },
+      "id": "smoke:git-add-error",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:git-add-error"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "blame",
+        "src/main.zig"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/git_blame_simple.txt"
+        }
+      },
+      "covers": [
+        "git_subcommand:blame"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:git-blame",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:git-blame"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "branch"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/git_branch_list.txt"
+        }
+      },
+      "covers": [
+        "git_subcommand:branch"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:git-branch",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:git-branch"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "checkout",
+        "feature"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "fixture": "fixtures/tests/fixtures/git_checkout_switch.stderr.txt"
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/git_checkout_switch.stdout.txt"
+        }
+      },
+      "covers": [
+        "git_subcommand:checkout"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:git-checkout",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:git-checkout"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "commit"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/git_commit_simple.txt"
+        }
+      },
+      "covers": [
+        "git_subcommand:commit"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:git-commit",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:git-commit"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "diff"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/git_diff_simple.txt"
+        }
+      },
+      "covers": [
+        "git_subcommand:diff"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:git-diff",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:git-diff"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "fetch"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "fixture": "fixtures/tests/fixtures/git_fetch_simple.stderr.txt"
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/git_fetch_simple.stdout.txt"
+        }
+      },
+      "covers": [
+        "git_subcommand:fetch"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:git-fetch",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:git-fetch"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "grep",
+        "-n",
+        "TODO"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "c3JjL21haW4uemlnOjEwOi8vIFRPRE86IHRpZ2h0ZW4gcGFyc2VyCnNyYy91dGlsLnppZzo0Oi8vIFRPRE86IHNoYXJlIGhlbHBlcgo="
+        }
+      },
+      "covers": [
+        "git_subcommand:grep"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:git-grep",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:git-grep"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "log"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/git_log_linear.txt"
+        }
+      },
+      "covers": [
+        "git_subcommand:log"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:git-log",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:git-log"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "merge",
+        "feature"
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "fixture": "fixtures/tests/fixtures/git_merge_conflict.stderr.txt"
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/git_merge_conflict.stdout.txt"
+        }
+      },
+      "covers": [
+        "git_subcommand:merge"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:git-merge",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:git-merge"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "pull"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "fixture": "fixtures/tests/fixtures/git_pull_ff.stderr.txt"
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/git_pull_ff.stdout.txt"
+        }
+      },
+      "covers": [
+        "git_subcommand:pull"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:git-pull",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:git-pull"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "push"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "fixture": "fixtures/tests/fixtures/git_push_simple.stderr.txt"
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/git_push_simple.stdout.txt"
+        }
+      },
+      "covers": [
+        "git_subcommand:push"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:git-push",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:git-push"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "rebase",
+        "main"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/git_rebase_simple.txt"
+        }
+      },
+      "covers": [
+        "git_subcommand:rebase"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:git-rebase",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:git-rebase"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "reflog"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/git_reflog.txt"
+        }
+      },
+      "covers": [
+        "git_subcommand:reflog"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:git-reflog",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:git-reflog"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "show"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/git_show_body.txt"
+        }
+      },
+      "covers": [
+        "git_subcommand:show"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:git-show",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:git-show"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "stash",
+        "list"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/git_stash_list.txt"
+        }
+      },
+      "covers": [
+        "git_subcommand:stash"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:git-stash",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:git-stash"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "git",
+        "status"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/git_status_dirty.txt"
+        }
+      },
+      "covers": [
+        "git_subcommand:status",
+        "pipe_detector:git_status",
+        "generic_fallback:arbitrary_command"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:git-status",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:git-status"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/go_build.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:go",
+        "wrapper_dispatch:tests",
+        "wrapper_dispatch:build_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:go-build",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:go-build"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-v"
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/go_test_v.txt"
+        }
+      },
+      "covers": [],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:go-test",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:go-test"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "gradle",
+        "build"
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/gradle_build_failed.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:gradle",
+        "wrapper_dispatch:build_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:gradle-build",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:gradle-build"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "gradlew",
+        "test"
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/gradle_test_failed.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:gradlew",
+        "wrapper_dispatch:build_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:gradlew-test",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:gradlew-test"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "head",
+        "file.txt"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "YWxwaGEKYmV0YQo="
+        }
+      },
+      "covers": [
+        "wrapper_dispatch:exact_head_tail"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:head",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:head"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "jest"
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/jest_failing.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:jest",
+        "wrapper_dispatch:tests"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:jest",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:jest"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "jq",
+        "."
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "ewogICJvayI6IHRydWUsCiAgIml0ZW1zIjogWzEsIDIsIDNdCn0K"
+        }
+      },
+      "covers": [
+        "claude_eligibility:jq",
+        "wrapper_dispatch:plans_and_data"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:jq-json",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:jq-json"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "kubectl",
+        "get",
+        "pods"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/kubectl_pods.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:kubectl",
+        "wrapper_dispatch:columnar"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:kubectl-get",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:kubectl-get"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "kubectl",
+        "logs",
+        "app"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/docker_logs.txt"
+        }
+      },
+      "covers": [],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:kubectl-logs",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:kubectl-logs"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "ls",
+        "-la"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/ls_la.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:ls",
+        "wrapper_dispatch:utilities"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:ls-la",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:ls-la"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "ls",
+        "-R",
+        "src"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/ls_R.txt"
+        }
+      },
+      "covers": [],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:ls-recursive",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:ls-recursive"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "lsof",
+        "-i"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "Q09NTUFORCBQSUQgVVNFUiBGRCBUWVBFIERFVklDRSBTSVpFL09GRiBOT0RFIE5BTUUKbm9kZSAxMjMgdXNlciAxMHUgSVB2NCAwIDB0MCBUQ1AgKjozMDAwIChMSVNURU4pCg=="
+        }
+      },
+      "covers": [
+        "claude_eligibility:lsof",
+        "wrapper_dispatch:columnar"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:lsof",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:lsof"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "make"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/make_build.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:make",
+        "wrapper_dispatch:build_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:make",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:make"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "mvn",
+        "package"
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/mvn_build_failed.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:mvn",
+        "wrapper_dispatch:build_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:mvn-package",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:mvn-package"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "mvnw",
+        "package"
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/mvn_build_failed.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:mvnw",
+        "wrapper_dispatch:build_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:mvnw-package",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:mvnw-package"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "mypy",
+        "src"
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "c3JjL2FwcC5weToxMDogZXJyb3I6IEluY29tcGF0aWJsZSByZXR1cm4gdmFsdWUgdHlwZQpGb3VuZCAxIGVycm9yIGluIDEgZmlsZQo="
+        }
+      },
+      "covers": [
+        "wrapper_dispatch:python_diagnostics"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:mypy",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:mypy"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "next",
+        "build"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/next_build.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:next",
+        "wrapper_dispatch:build_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:next-build",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:next-build"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/vite_build.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:npm",
+        "wrapper_dispatch:tests",
+        "wrapper_dispatch:columnar"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:npm-build",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:npm-build"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "npm",
+        "install"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/npm_install.txt"
+        }
+      },
+      "covers": [],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:npm-install",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:npm-install"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "pip",
+        "install",
+        "-r",
+        "requirements.txt"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/large/generic_pip_install.txt"
+        }
+      },
+      "covers": [
+        "wrapper_dispatch:package_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:pip-install",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:pip-install"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "pip3",
+        "list"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "UGFja2FnZSAgICBWZXJzaW9uCi0tLS0tLS0tLS0gLS0tLS0tLQpyZXF1ZXN0cyAgIDIuMzQuMgo="
+        }
+      },
+      "covers": [
+        "wrapper_dispatch:package_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:pip3-list",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:pip3-list"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "pnpm",
+        "install"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/pnpm_install.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:pnpm",
+        "wrapper_dispatch:tests",
+        "wrapper_dispatch:package_tools",
+        "wrapper_dispatch:columnar"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:pnpm-install",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:pnpm-install"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "pre-commit",
+        "run",
+        "--all-files"
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/pre_commit_failed.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:pre-commit",
+        "wrapper_dispatch:build_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:pre-commit",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:pre-commit"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "prettier",
+        "--check",
+        "."
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "Q2hlY2tpbmcgZm9ybWF0dGluZy4uLgpbd2Fybl0gc3JjL2FwcC50cwpbd2Fybl0gQ29kZSBzdHlsZSBpc3N1ZXMgZm91bmQgaW4gdGhlIGFib3ZlIGZpbGUuCg=="
+        }
+      },
+      "covers": [
+        "wrapper_dispatch:build_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:prettier",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:prettier"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "ps",
+        "aux"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/ps_aux.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:ps",
+        "wrapper_dispatch:columnar"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:ps-aux",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:ps-aux"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "psql",
+        "-c",
+        "select 1"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "IGlkIHwgbmFtZQotLS0tKy0tLS0tLQogIDEgfCBhcHAKKDEgcm93KQo="
+        }
+      },
+      "covers": [
+        "claude_eligibility:psql",
+        "wrapper_dispatch:columnar"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:psql",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:psql"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "pytest",
+        "-v"
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/pytest_failing.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:pytest",
+        "wrapper_dispatch:tests"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:pytest",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:pytest"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "rg",
+        "--files"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/rg_files.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:rg",
+        "wrapper_dispatch:path_list"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:rg-files",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:rg-files"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "ruff",
+        "check",
+        "."
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "c3JjL2FwcC5weToxOjE6IEY0MDEgYG9zYCBpbXBvcnRlZCBidXQgdW51c2VkCkZvdW5kIDEgZXJyb3IuCg=="
+        }
+      },
+      "covers": [
+        "wrapper_dispatch:python_diagnostics"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:ruff",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:ruff"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "swift",
+        "build"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "Q29tcGlsZSBTd2lmdCBNb2R1bGUgQXBwCkJ1aWxkIGNvbXBsZXRlIQo="
+        }
+      },
+      "covers": [
+        "wrapper_dispatch:build_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:swift-build",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:swift-build"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "systemctl",
+        "status"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "VU5JVCBMT0FEIEFDVElWRSBTVUIgREVTQ1JJUFRJT04KYXBwLnNlcnZpY2UgbG9hZGVkIGFjdGl2ZSBydW5uaW5nIEFwcAo="
+        }
+      },
+      "covers": [
+        "claude_eligibility:systemctl",
+        "wrapper_dispatch:columnar"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:systemctl",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:systemctl"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "tail",
+        "file.txt"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "b21lZ2EK"
+        }
+      },
+      "covers": [
+        "wrapper_dispatch:exact_head_tail"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:tail",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:tail"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "terraform",
+        "plan"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/terraform_plan.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:terraform",
+        "wrapper_dispatch:plans_and_data"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:terraform-plan",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:terraform-plan"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "tofu",
+        "plan"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/terraform_plan.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:tofu",
+        "wrapper_dispatch:plans_and_data"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:tofu-plan",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:tofu-plan"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "tree",
+        "src"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/tree_src.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:tree",
+        "wrapper_dispatch:tree"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:tree-src",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:tree-src"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "tsc",
+        "--noEmit"
+      ],
+      "child": {
+        "exit_code": 2,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/tsc_errors.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:tsc",
+        "wrapper_dispatch:tests"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 2,
+          "signal": null
+        }
+      },
+      "id": "smoke:tsc",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:tsc"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "uv",
+        "pip",
+        "install",
+        "-r",
+        "requirements.txt"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/uv_pip_install.txt"
+        }
+      },
+      "covers": [
+        "wrapper_dispatch:package_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:uv-pip-install",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:uv-pip-install"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "uvx",
+        "ruff",
+        "check"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "SW5zdGFsbGVkIDEgcGFja2FnZSBpbiA5bXMKQWxsIGNoZWNrcyBwYXNzZWQhCg=="
+        }
+      },
+      "covers": [
+        "wrapper_dispatch:package_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:uvx",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:uvx"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "vitest"
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/jest_failing.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:vitest",
+        "wrapper_dispatch:tests"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:vitest",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:vitest"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "wc",
+        "-l",
+        "file.txt"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "ICAgICA0MiBmaWxlLnR4dAo="
+        }
+      },
+      "covers": [
+        "wrapper_dispatch:utilities"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:wc",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:wc"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "xcodebuild"
+      ],
+      "child": {
+        "exit_code": 65,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "Q29tcGlsZVN3aWZ0U291cmNlcyBub3JtYWwgYXJtNjQKKiogQlVJTEQgRkFJTEVEICoqCg=="
+        }
+      },
+      "covers": [
+        "wrapper_dispatch:build_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 65,
+          "signal": null
+        }
+      },
+      "id": "smoke:xcodebuild",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:xcodebuild"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "yarn",
+        "add",
+        "react"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "fixture": "fixtures/tests/fixtures/yarn_install.txt"
+        }
+      },
+      "covers": [
+        "claude_eligibility:yarn",
+        "wrapper_dispatch:tests",
+        "wrapper_dispatch:package_tools",
+        "wrapper_dispatch:columnar"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "smoke:yarn-add",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:yarn-add"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "zig",
+        "build"
+      ],
+      "child": {
+        "exit_code": 1,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "aW5mbzogY29tcGlsaW5nIGFwcAplcnJvcjogZXhwZWN0ZWQgdHlwZSBib29sCg=="
+        }
+      },
+      "covers": [
+        "claude_eligibility:zig",
+        "wrapper_dispatch:build_tools"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": false,
+          "facts": []
+        },
+        "termination": {
+          "exit_code": 1,
+          "signal": null
+        }
+      },
+      "id": "smoke:zig-build",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "case:zig-build"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "docker",
+        "logs",
+        "-f",
+        "app"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "stream_watch_policy:docker_logs_follow"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": true,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": true,
+          "facts": [
+            "policy output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "stream:docker",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "docker_logs_follow"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "docker",
+        "compose",
+        "logs",
+        "--follow"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "stream_watch_policy:docker_compose_logs_follow"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": true,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": true,
+          "facts": [
+            "policy output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "stream:docker-compose",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "docker_compose_logs_follow"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "gh",
+        "run",
+        "watch",
+        "1"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "stream_watch_policy:gh_run_watch"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": true,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": true,
+          "facts": [
+            "policy output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "stream:gh",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "gh_run_watch"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
+        "dev"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "stream_watch_policy:unsupported_watch_inherit"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": true,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": true,
+          "facts": [
+            "policy output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "stream:inherit",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "unsupported_watch_inherit"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "jest",
+        "--watch"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "stream_watch_policy:jest_watch"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": true,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": true,
+          "facts": [
+            "policy output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "stream:jest",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "jest_watch"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "journalctl",
+        "-f",
+        "-u",
+        "app"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "stream_watch_policy:journalctl_follow"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": true,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": true,
+          "facts": [
+            "policy output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "stream:journalctl",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "journalctl_follow"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "kubectl",
+        "logs",
+        "-f",
+        "app"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "stream_watch_policy:kubectl_logs_follow"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": true,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": true,
+          "facts": [
+            "policy output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "stream:kubectl",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "kubectl_logs_follow"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "tail",
+        "-f",
+        "app.log"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "stream_watch_policy:tail_follow"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": true,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": true,
+          "facts": [
+            "policy output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "stream:tail",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "tail_follow"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "tsc",
+        "--watch"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "stream_watch_policy:tsc_watch"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": true,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": true,
+          "facts": [
+            "policy output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "stream:tsc",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "tsc_watch"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "vitest",
+        "-w"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "stream_watch_policy:vitest_watch"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": true,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": true,
+          "facts": [
+            "policy output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "stream:vitest",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "vitest_watch"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    },
+    {
+      "argv": [
+        "sh",
+        "-c",
+        "printf policy"
+      ],
+      "child": {
+        "exit_code": 0,
+        "stderr": {
+          "base64": ""
+        },
+        "stdout": {
+          "base64": "cG9saWN5IG91dHB1dAo="
+        }
+      },
+      "covers": [
+        "wrapper_dispatch:shell_redispatch",
+        "wrapper_dispatch:shell_redispatch"
+      ],
+      "env": {
+        "set": {
+          "DO_NOT_TRACK": "1",
+          "SMLL_TEE": "0"
+        },
+        "unset": [
+          "SMLL_LOSSLESS",
+          "SMLL_STREAM"
+        ]
+      },
+      "expect": {
+        "incomplete_output": {
+          "diagnostic_facts": [],
+          "expected": false
+        },
+        "stderr": {
+          "byte_exact": true,
+          "facts": []
+        },
+        "stdout": {
+          "byte_exact": true,
+          "facts": [
+            "policy output"
+          ]
+        },
+        "termination": {
+          "exit_code": 0,
+          "signal": null
+        }
+      },
+      "id": "wrapper:shell-redispatch",
+      "mode": "wrapper",
+      "oracle": "smll",
+      "source_anchors": [
+        {
+          "path": "src/wrapper_util.zig",
+          "symbol": "shell_redispatch"
+        }
+      ],
+      "stdin": {
+        "base64": ""
+      }
+    }
+  ],
+  "schema_version": 1,
+  "source_commit": "dbe73932586043f2d8e482df0e246c372125e1b2"
+}
