@@ -1,4 +1,7 @@
-use super::{EvidenceClass, FilterError, FilterOutput, StreamFilterOutput};
+use super::{
+    EvidenceClass, FilterError, FilterOutput, StreamFilterOutput, append_line, byte_after_lines,
+    command_basename, find_subslice, strip_ansi, trim_ascii_end_space as trim_end,
+};
 
 const TREE_PREFIXES: &[&[u8]] = &[
     b"\xe2\x94\x9c\xe2\x94\x80\xe2\x94\x80 ",
@@ -8,6 +11,18 @@ const TREE_PREFIXES: &[&[u8]] = &[
     b"\xe2\x94\x9c\xe2\x94\x80 ",
     b"\xe2\x94\x94\xe2\x94\x80 ",
 ];
+
+pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
+    argv.first()
+        .copied()
+        .map(command_basename)
+        .is_some_and(|command| {
+            matches!(
+                command,
+                b"npm" | b"pnpm" | b"yarn" | b"bun" | b"composer" | b"pip" | b"pip3"
+            )
+        })
+}
 
 pub fn dispatch_streams_argv(
     argv: &[&[u8]],
@@ -20,7 +35,7 @@ pub fn dispatch_streams_argv(
         return Err(FilterError::InvalidInput);
     }
     if lossless || requests_exact_output(argv) {
-        return Ok(passthrough(stdout, stderr));
+        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
 
     let command = command_basename(argv[0]);
@@ -28,7 +43,7 @@ pub fn dispatch_streams_argv(
     let arg2 = argv.get(2).copied().unwrap_or_default();
     let recognized_error = has_package_error_marker(stdout) || has_package_error_marker(stderr);
     if exit_code != 0 && !stderr.is_empty() && !recognized_error {
-        return Ok(passthrough(stdout, stderr));
+        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
 
     let package_tree_route = command == b"bun" && arg1 == b"pm" && arg2 == b"ls"
@@ -87,7 +102,7 @@ pub fn dispatch_streams_argv(
         ));
     }
 
-    Ok(passthrough(stdout, stderr))
+    Ok(StreamFilterOutput::passthrough(stdout, stderr))
 }
 
 pub fn matches_pipe(input: &[u8]) -> bool {
@@ -648,11 +663,6 @@ fn yarn_tree_package(line: &[u8]) -> Option<&[u8]> {
     Some(&rest[..end])
 }
 
-fn append_line(output: &mut Vec<u8>, line: &[u8]) {
-    output.extend_from_slice(line);
-    output.push(b'\n');
-}
-
 fn looks_like_npm(input: &[u8]) -> bool {
     [
         b"npm WARN".as_slice(),
@@ -846,22 +856,6 @@ fn head_tail(data: Vec<u8>, line_count: usize, head_lines: usize, tail_lines: us
     output
 }
 
-fn byte_after_lines(data: &[u8], line_count: usize) -> usize {
-    if line_count == 0 {
-        return 0;
-    }
-    let mut seen = 0usize;
-    for (index, byte) in data.iter().enumerate() {
-        if *byte == b'\n' {
-            seen += 1;
-            if seen == line_count {
-                return index + 1;
-            }
-        }
-    }
-    data.len()
-}
-
 fn has_package_error_marker(input: &[u8]) -> bool {
     [
         b"npm ERR!".as_slice(),
@@ -1031,23 +1025,6 @@ fn requests_exact_output(argv: &[&[u8]]) -> bool {
     matches!(argv.get(1), Some(&b"help") | Some(&b"version"))
 }
 
-fn command_basename(command: &[u8]) -> &[u8] {
-    command
-        .iter()
-        .rposition(|byte| matches!(byte, b'/' | b'\\'))
-        .map_or(command, |separator| &command[separator + 1..])
-}
-
-fn trim_end(mut input: &[u8]) -> &[u8] {
-    while input
-        .last()
-        .is_some_and(|byte| matches!(byte, b' ' | b'\t' | b'\r'))
-    {
-        input = &input[..input.len() - 1];
-    }
-    input
-}
-
 fn trim_ascii(mut input: &[u8]) -> &[u8] {
     while input
         .first()
@@ -1056,55 +1033,4 @@ fn trim_ascii(mut input: &[u8]) -> &[u8] {
         input = &input[1..];
     }
     trim_end(input)
-}
-
-fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    if needle.is_empty() {
-        return Some(0);
-    }
-    haystack
-        .windows(needle.len())
-        .position(|window| window == needle)
-}
-
-fn strip_ansi(input: &[u8]) -> Vec<u8> {
-    let mut output = Vec::with_capacity(input.len());
-    let mut index = 0usize;
-    while index < input.len() {
-        if input[index] != 0x1b {
-            output.push(input[index]);
-            index += 1;
-            continue;
-        }
-        match input.get(index + 1) {
-            Some(b'[') => {
-                index += 2;
-                while index < input.len() && !(0x40..=0x7e).contains(&input[index]) {
-                    index += 1;
-                }
-                index += usize::from(index < input.len());
-            }
-            Some(b']') => {
-                index += 2;
-                while index < input.len() {
-                    if input[index] == 0x07 {
-                        index += 1;
-                        break;
-                    }
-                    if input[index] == 0x1b && input.get(index + 1) == Some(&b'\\') {
-                        index += 2;
-                        break;
-                    }
-                    index += 1;
-                }
-            }
-            Some(_) => index += 2,
-            None => index += 1,
-        }
-    }
-    output
-}
-
-fn passthrough(stdout: &[u8], stderr: &[u8]) -> StreamFilterOutput {
-    StreamFilterOutput::new(stdout.to_vec(), stderr.to_vec(), EvidenceClass::ByteExact)
 }

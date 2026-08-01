@@ -7,6 +7,13 @@ pub mod infra;
 pub mod listing;
 pub mod package;
 pub mod test_tools;
+mod util;
+
+pub(crate) use util::{
+    append_line, byte_after_lines, command_basename, contains_ignore_ascii_case, find_subslice,
+    normalize_log_line, rfind_subslice, strip_ansi, strip_ansi_csi, timestamp_end,
+    trim_ascii_end_space,
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EvidenceClass {
@@ -41,6 +48,10 @@ impl StreamFilterOutput {
             stderr,
             evidence,
         }
+    }
+
+    pub fn passthrough(stdout: &[u8], stderr: &[u8]) -> Self {
+        Self::new(stdout.to_vec(), stderr.to_vec(), EvidenceClass::ByteExact)
     }
 }
 

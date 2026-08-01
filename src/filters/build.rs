@@ -1,4 +1,42 @@
-use super::{EvidenceClass, FilterError, StreamFilterOutput};
+use super::{
+    EvidenceClass, FilterError, StreamFilterOutput, append_line, byte_after_lines,
+    command_basename, contains_ignore_ascii_case, find_subslice,
+    trim_ascii_end_space as trim_ascii_end,
+};
+
+pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
+    argv.first()
+        .copied()
+        .map(command_basename)
+        .is_some_and(|command| {
+            matches!(
+                command,
+                b"make"
+                    | b"ninja"
+                    | b"cargo"
+                    | b"go"
+                    | b"zig"
+                    | b"npm"
+                    | b"pnpm"
+                    | b"yarn"
+                    | b"bun"
+                    | b"webpack"
+                    | b"turbo"
+                    | b"next"
+                    | b"dotnet"
+                    | b"gradle"
+                    | b"gradlew"
+                    | b"mvn"
+                    | b"mvnw"
+                    | b"swift"
+                    | b"xcodebuild"
+                    | b"uv"
+                    | b"uvx"
+                    | b"poetry"
+                    | b"npx"
+            )
+        })
+}
 
 pub fn dispatch_streams_argv(
     argv: &[&[u8]],
@@ -11,7 +49,7 @@ pub fn dispatch_streams_argv(
         return Err(FilterError::InvalidInput);
     }
     if lossless || requests_exact_output(argv) {
-        return Ok(passthrough(stdout, stderr));
+        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
 
     let command = command_basename(argv[0]);
@@ -20,7 +58,7 @@ pub fn dispatch_streams_argv(
         && (has_package_prelude(stdout) || has_package_prelude(stderr));
     let recognized_failure = has_recognized_failure(stdout) || has_recognized_failure(stderr);
     if exit_code != 0 && !stderr.is_empty() && !recognized_failure {
-        return Ok(passthrough(stdout, stderr));
+        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
     let generic_build_route = matches!(command, b"make" | b"ninja")
         || command == b"cargo" && matches!(arg1, b"build" | b"check" | b"clippy")
@@ -87,7 +125,7 @@ pub fn dispatch_streams_argv(
         ));
     }
 
-    Ok(passthrough(stdout, stderr))
+    Ok(StreamFilterOutput::passthrough(stdout, stderr))
 }
 
 pub(crate) fn has_package_prelude(input: &[u8]) -> bool {
@@ -429,13 +467,6 @@ fn should_keep_dotnet(line: &[u8]) -> bool {
         || contains_ignore_ascii_case(trimmed, b"would be formatted")
 }
 
-fn contains_ignore_ascii_case(haystack: &[u8], needle: &[u8]) -> bool {
-    !needle.is_empty()
-        && haystack
-            .windows(needle.len())
-            .any(|window| window.eq_ignore_ascii_case(needle))
-}
-
 fn compact_evidence(exit_code: i32) -> EvidenceClass {
     if exit_code == 0 {
         EvidenceClass::PotentiallyLossy
@@ -748,22 +779,6 @@ fn head_tail(data: Vec<u8>, head_lines: usize, tail_lines: usize) -> Vec<u8> {
     output
 }
 
-fn byte_after_lines(data: &[u8], line_count: usize) -> usize {
-    if line_count == 0 {
-        return 0;
-    }
-    let mut seen = 0usize;
-    for (index, byte) in data.iter().enumerate() {
-        if *byte == b'\n' {
-            seen += 1;
-            if seen == line_count {
-                return index + 1;
-            }
-        }
-    }
-    data.len()
-}
-
 fn matches_build_compact(stdout: &[u8], stderr: &[u8]) -> bool {
     [stdout, stderr]
         .into_iter()
@@ -986,43 +1001,12 @@ fn is_dotnet_query_switch(argument: &[u8]) -> bool {
         })
 }
 
-fn command_basename(command: &[u8]) -> &[u8] {
-    command
-        .iter()
-        .rposition(|byte| matches!(byte, b'/' | b'\\'))
-        .map_or(command, |separator| &command[separator + 1..])
-}
-
-fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    if needle.is_empty() {
-        return Some(0);
-    }
-    haystack
-        .windows(needle.len())
-        .position(|window| window == needle)
-}
-
-fn append_line(output: &mut Vec<u8>, line: &[u8]) {
-    output.extend_from_slice(line);
-    output.push(b'\n');
-}
-
 fn trim_ascii_start(mut input: &[u8]) -> &[u8] {
     while input
         .first()
         .is_some_and(|byte| matches!(byte, b' ' | b'\t' | b'\r'))
     {
         input = &input[1..];
-    }
-    input
-}
-
-fn trim_ascii_end(mut input: &[u8]) -> &[u8] {
-    while input
-        .last()
-        .is_some_and(|byte| matches!(byte, b' ' | b'\t' | b'\r'))
-    {
-        input = &input[..input.len() - 1];
     }
     input
 }
@@ -1066,8 +1050,4 @@ fn strip_ansi(input: &[u8]) -> Vec<u8> {
         }
     }
     output
-}
-
-fn passthrough(stdout: &[u8], stderr: &[u8]) -> StreamFilterOutput {
-    StreamFilterOutput::new(stdout.to_vec(), stderr.to_vec(), EvidenceClass::ByteExact)
 }

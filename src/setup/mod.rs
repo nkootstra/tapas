@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use crate::filters::contains_ignore_ascii_case;
 use json::Value;
 
 const MAX_HOOK_INPUT: u64 = 64 * 1024;
@@ -68,7 +69,6 @@ pub fn configure(
         &executable,
         action,
         dry_run,
-        true,
         stdout,
         stderr,
     )
@@ -79,7 +79,6 @@ fn configure_at(
     executable: &Path,
     action: Action,
     dry_run: bool,
-    validate: bool,
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> io::Result<i32> {
@@ -93,7 +92,6 @@ fn configure_at(
             executable,
             &hook_command,
             dry_run,
-            validate,
             stdout,
             stderr,
         ),
@@ -101,18 +99,16 @@ fn configure_at(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn setup(
     config_path: &Path,
     ownership_path: &Path,
     executable: &Path,
     hook_command: &[u8],
     dry_run: bool,
-    validate: bool,
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> io::Result<i32> {
-    if validate && !validate_hook(executable)? {
+    if !validate_hook(executable)? {
         stderr.write_all(b"tapas hook evaluator self-check failed\n")?;
         return Ok(1);
     }
@@ -483,15 +479,6 @@ fn contains_conflicting_integration(input: &[u8]) -> bool {
     ]
     .iter()
     .any(|needle| contains_ignore_ascii_case(input, needle))
-}
-
-fn contains_ignore_ascii_case(input: &[u8], needle: &[u8]) -> bool {
-    input.windows(needle.len()).any(|window| {
-        window
-            .iter()
-            .zip(needle)
-            .all(|(left, right)| left.eq_ignore_ascii_case(right))
-    })
 }
 
 enum Ownership {

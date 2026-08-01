@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 
-use super::{EvidenceClass, FilterError, FilterOutput, StreamFilterOutput};
+use super::{
+    EvidenceClass, FilterError, FilterOutput, StreamFilterOutput, find_subslice, rfind_subslice,
+    strip_ansi,
+};
 
 pub fn matches(input: &[u8]) -> bool {
     matches_status(input)
@@ -2364,56 +2367,4 @@ fn first_nonempty_line(input: &[u8]) -> Option<&[u8]> {
     input
         .split(|byte| *byte == b'\n')
         .find(|line| !line.is_empty())
-}
-
-fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack
-        .windows(needle.len())
-        .position(|window| window == needle)
-}
-
-fn rfind_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack
-        .windows(needle.len())
-        .rposition(|window| window == needle)
-}
-
-fn strip_ansi(input: &[u8]) -> Vec<u8> {
-    let mut output = Vec::with_capacity(input.len());
-    let mut index = 0;
-    while index < input.len() {
-        let Some(relative) = input[index..].iter().position(|byte| *byte == 0x1b) else {
-            output.extend_from_slice(&input[index..]);
-            break;
-        };
-        let escape = index + relative;
-        output.extend_from_slice(&input[index..escape]);
-        index = escape;
-        match input.get(index + 1) {
-            Some(b'[') => {
-                index += 2;
-                while index < input.len() && !(0x40..=0x7e).contains(&input[index]) {
-                    index += 1;
-                }
-                index += usize::from(index < input.len());
-            }
-            Some(b']') => {
-                index += 2;
-                while index < input.len() {
-                    if input[index] == 0x07 {
-                        index += 1;
-                        break;
-                    }
-                    if input[index] == 0x1b && input.get(index + 1) == Some(&b'\\') {
-                        index += 2;
-                        break;
-                    }
-                    index += 1;
-                }
-            }
-            Some(_) => index += 2,
-            None => break,
-        }
-    }
-    output
 }

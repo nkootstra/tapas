@@ -13,8 +13,38 @@ env:
   TAPAS_VERSION: 0.1.0
 
 jobs:
+  quality:
+    name: Quality and inventory
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out the tested commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Install formatting and linting components
+        run: rustup component add rustfmt clippy
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Lint
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Report runtime dependencies
+        run: cargo tree --locked --edges normal
+
+      - name: Audit the pinned command inventory
+        run: |
+          python3 scripts/audit_inventory.py \
+            --contract tests/compat/smll-v1.9.0 \
+            --rust-catalog src/catalog.generated.rs
+
   test-and-package:
     name: ${{ matrix.target }}
+    needs: quality
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -38,9 +68,8 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
-      - name: Install the locked Rust toolchain
+      - name: Install the target
         run: |
-          rustup component add rustfmt clippy
           rustup target add "${TARGET}"
         env:
           TARGET: ${{ matrix.target }}
@@ -51,23 +80,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes musl-tools
 
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-
-      - name: Lint
-        run: cargo clippy --locked --all-targets -- -D warnings
-
       - name: Test
         run: cargo test --locked
-
-      - name: Report runtime dependencies
-        run: cargo tree --locked --edges normal
-
-      - name: Audit the pinned command inventory
-        run: |
-          python3 scripts/audit_inventory.py \
-            --contract tests/compat/smll-v1.9.0 \
-            --rust-catalog src/catalog.generated.rs
 
       - name: Run the frozen compatibility contract
         run: python3 scripts/parity.py --binary target/debug/tapas --tool tapas

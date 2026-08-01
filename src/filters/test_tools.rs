@@ -1,54 +1,44 @@
 use std::collections::VecDeque;
 
-use super::{EvidenceClass, FilterError, FilterOutput, StreamFilterOutput};
+use super::{
+    EvidenceClass, FilterError, FilterOutput, StreamFilterOutput, command_basename, find_subslice,
+    strip_ansi,
+};
+
+type Matcher = fn(&[u8]) -> bool;
+type Apply = fn(&[u8], &[u8]) -> Vec<u8>;
+
+const PIPE_FILTERS: &[(Matcher, Apply)] = &[
+    (matches_cargo_test, apply_cargo_test),
+    (matches_jest, apply_jest),
+    (matches_js_test, apply_js_test),
+    (matches_tsc, apply_tsc),
+    (matches_go_test, apply_go_test),
+    (matches_pytest, apply_pytest),
+];
+
+pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
+    let Some(command) = argv.first().copied().map(command_basename) else {
+        return false;
+    };
+    let arg1 = argv.get(1).copied().unwrap_or_default();
+    matches!(command, b"pytest" | b"jest" | b"vitest" | b"mocha" | b"tsc")
+        || command == b"cargo" && arg1 == b"test"
+        || command == b"go" && arg1 == b"test"
+        || command == b"node" && arg1 == b"--test"
+        || matches!(command, b"npm" | b"pnpm" | b"yarn" | b"bun") && arg1 == b"test"
+}
 
 pub fn matches(input: &[u8]) -> bool {
-    matches_cargo_test(input)
-        || matches_jest(input)
-        || matches_js_test(input)
-        || matches_tsc(input)
-        || matches_go_test(input)
-        || matches_pytest(input)
+    PIPE_FILTERS.iter().any(|(matches, _)| matches(input))
 }
 
 pub fn apply_matched(input: &[u8]) -> Result<FilterOutput, FilterError> {
-    if matches_cargo_test(input) {
-        return Ok(FilterOutput::new(
-            apply_cargo_test(input, b""),
-            EvidenceClass::FactComplete,
-        ));
-    }
-    if matches_jest(input) {
-        return Ok(FilterOutput::new(
-            apply_jest(input, b""),
-            EvidenceClass::FactComplete,
-        ));
-    }
-    if matches_js_test(input) {
-        return Ok(FilterOutput::new(
-            apply_js_test(input, b""),
-            EvidenceClass::FactComplete,
-        ));
-    }
-    if matches_tsc(input) {
-        return Ok(FilterOutput::new(
-            apply_tsc(input, b""),
-            EvidenceClass::FactComplete,
-        ));
-    }
-    if matches_go_test(input) {
-        return Ok(FilterOutput::new(
-            apply_go_test(input, b""),
-            EvidenceClass::FactComplete,
-        ));
-    }
-    if matches_pytest(input) {
-        return Ok(FilterOutput::new(
-            apply_pytest(input, b""),
-            EvidenceClass::FactComplete,
-        ));
-    }
-    Err(FilterError::InvalidInput)
+    PIPE_FILTERS
+        .iter()
+        .find(|(matches, _)| matches(input))
+        .map(|(_, apply)| FilterOutput::new(apply(input, b""), EvidenceClass::FactComplete))
+        .ok_or(FilterError::InvalidInput)
 }
 
 pub fn dispatch_streams_argv(
@@ -62,11 +52,11 @@ pub fn dispatch_streams_argv(
         return Err(FilterError::InvalidInput);
     }
     if lossless {
-        return Ok(stream_passthrough(stdout, stderr));
+        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
     let command = command_basename(argv[0]);
     if requests_exact_output(command, argv) {
-        return Ok(stream_passthrough(stdout, stderr));
+        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
     let arg1 = argv.get(1).copied().unwrap_or_default();
     let script_test = arg1 == b"test" && matches!(command, b"npm" | b"pnpm" | b"yarn" | b"bun");
@@ -96,16 +86,9 @@ pub fn dispatch_streams_argv(
     };
 
     Ok(compact.map_or_else(
-        || stream_passthrough(stdout, stderr),
+        || StreamFilterOutput::passthrough(stdout, stderr),
         |stdout| StreamFilterOutput::new(stdout, Vec::new(), EvidenceClass::FactComplete),
     ))
-}
-
-fn command_basename(command: &[u8]) -> &[u8] {
-    command
-        .iter()
-        .rposition(|byte| matches!(byte, b'/' | b'\\'))
-        .map_or(command, |separator| &command[separator + 1..])
 }
 
 fn stream_matches(stdout: &[u8], stderr: &[u8], matcher: fn(&[u8]) -> bool) -> bool {
@@ -146,10 +129,6 @@ fn requests_exact_output(command: &[u8], argv: &[&[u8]]) -> bool {
         && argv[1..]
             .iter()
             .any(|argument| matches!(*argument, b"--showConfig" | b"--listFilesOnly"))
-}
-
-fn stream_passthrough(stdout: &[u8], stderr: &[u8]) -> StreamFilterOutput {
-    StreamFilterOutput::new(stdout.to_vec(), stderr.to_vec(), EvidenceClass::ByteExact)
 }
 
 fn matches_cargo_test(input: &[u8]) -> bool {
@@ -876,53 +855,6 @@ fn head_tail(input: Vec<u8>, head: usize, tail: usize) -> Vec<u8> {
     output.extend_from_slice(b" relevant lines; rerun with smll --raw)\n");
     for line in &lines[lines.len() - tail..] {
         write_line(&mut output, line);
-    }
-    output
-}
-
-fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    if needle.is_empty() {
-        return Some(0);
-    }
-    haystack
-        .windows(needle.len())
-        .position(|window| window == needle)
-}
-
-fn strip_ansi(input: &[u8]) -> Vec<u8> {
-    let mut output = Vec::with_capacity(input.len());
-    let mut index = 0;
-    while index < input.len() {
-        if input[index] != 0x1b {
-            output.push(input[index]);
-            index += 1;
-            continue;
-        }
-        match input.get(index + 1) {
-            Some(b'[') => {
-                index += 2;
-                while index < input.len() && !(0x40..=0x7e).contains(&input[index]) {
-                    index += 1;
-                }
-                index += usize::from(index < input.len());
-            }
-            Some(b']') => {
-                index += 2;
-                while index < input.len() {
-                    if input[index] == 0x07 {
-                        index += 1;
-                        break;
-                    }
-                    if input[index] == 0x1b && input.get(index + 1) == Some(&b'\\') {
-                        index += 2;
-                        break;
-                    }
-                    index += 1;
-                }
-            }
-            Some(_) => index += 2,
-            None => index += 1,
-        }
     }
     output
 }

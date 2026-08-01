@@ -387,8 +387,7 @@ def build_documents(repo: pathlib.Path) -> tuple[dict[str, Any], dict[str, Any],
         next(case for case in cases if case["id"] == case_id)["covers"].append(capability_id)
 
     pipe_anchor = anchor(sources["src/pipe_filters.zig"], "src/pipe_filters.zig", "pub const Filters", symbol="Filters")
-    # Detector ordering is a first-class typed capability.  The common pipe
-    # fixtures are copied in full and later parity units can add exact facts.
+    # Detector ordering is observable because pipe dispatch is first-match-wins.
     for order, detector in enumerate(pipe_detectors):
         case_id = "smoke:git-status" if detector == "git_status" else choose_case(cases, "git") or cases[0]["id"]
         capability_id = f"pipe_detector:{detector}"

@@ -1,4 +1,19 @@
-use super::{EvidenceClass, FilterError, FilterOutput, StreamFilterOutput};
+use super::{
+    EvidenceClass, FilterError, FilterOutput, StreamFilterOutput, append_line, command_basename,
+    find_subslice, normalize_log_line, strip_ansi_csi as strip_ansi, timestamp_end,
+};
+
+pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
+    argv.first()
+        .copied()
+        .map(command_basename)
+        .is_some_and(|command| {
+            matches!(
+                command,
+                b"curl" | b"docker" | b"docker-compose" | b"kubectl" | b"gh" | b"acli"
+            )
+        })
+}
 
 pub fn dispatch_streams_argv(
     argv: &[&[u8]],
@@ -11,14 +26,14 @@ pub fn dispatch_streams_argv(
         return Err(FilterError::InvalidInput);
     };
     if lossless || requests_exact_output(command, argv) {
-        return Ok(passthrough(stdout, stderr));
+        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
     let arg1 = argv.get(1).copied().unwrap_or_default();
     let arg2 = argv.get(2).copied().unwrap_or_default();
     let arg3 = argv.get(3).copied().unwrap_or_default();
 
     if exit_code != 0 && !stderr.is_empty() {
-        return Ok(passthrough(stdout, stderr));
+        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
 
     let output = if command == b"curl" && has_verbose_flag(argv) {
@@ -41,7 +56,7 @@ pub fn dispatch_streams_argv(
     };
 
     Ok(output.map_or_else(
-        || passthrough(stdout, stderr),
+        || StreamFilterOutput::passthrough(stdout, stderr),
         |stdout| StreamFilterOutput::new(stdout, Vec::new(), EvidenceClass::FactComplete),
     ))
 }
@@ -245,24 +260,6 @@ fn scan_logs(input: &[u8], output: &mut Vec<u8>, compose: bool) {
     flush_log(output, &mut pending, &mut pending_fingerprint, &mut repeats);
 }
 
-fn normalize_log_line(line: &[u8], compose: bool) -> Vec<u8> {
-    if compose && let Some(pipe) = line.iter().position(|byte| *byte == b'|') {
-        let service = line[..pipe].trim_ascii();
-        if !service.is_empty() {
-            let payload = line[pipe + 1..].trim_ascii_start();
-            let payload = &payload[timestamp_end(payload)..];
-            let mut result = service.to_vec();
-            result.push(b'|');
-            if !payload.is_empty() {
-                result.push(b' ');
-                result.extend_from_slice(payload);
-            }
-            return result;
-        }
-    }
-    line.to_vec()
-}
-
 fn flush_log(
     output: &mut Vec<u8>,
     pending: &mut Vec<u8>,
@@ -286,45 +283,6 @@ fn flush_log(
     pending.clear();
     fingerprint.clear();
     *repeats = 0;
-}
-
-fn timestamp_end(line: &[u8]) -> usize {
-    if !looks_like_date(line) {
-        return 0;
-    }
-    let mut cursor = if line.get(10) == Some(&b' ') && looks_like_clock(&line[11..]) {
-        19
-    } else {
-        0
-    };
-    while cursor < line.len() && !matches!(line[cursor], b' ' | b'\t') {
-        cursor += 1;
-    }
-    while line
-        .get(cursor)
-        .is_some_and(|byte| matches!(byte, b' ' | b'\t'))
-    {
-        cursor += 1;
-    }
-    cursor
-}
-
-fn looks_like_date(line: &[u8]) -> bool {
-    line.len() >= 10
-        && line[..4].iter().all(u8::is_ascii_digit)
-        && line[4] == b'-'
-        && line[5..7].iter().all(u8::is_ascii_digit)
-        && line[7] == b'-'
-        && line[8..10].iter().all(u8::is_ascii_digit)
-}
-
-fn looks_like_clock(line: &[u8]) -> bool {
-    line.len() >= 8
-        && line[..2].iter().all(u8::is_ascii_digit)
-        && line[2] == b':'
-        && line[3..5].iter().all(u8::is_ascii_digit)
-        && line[5] == b':'
-        && line[6..8].iter().all(u8::is_ascii_digit)
 }
 
 fn is_docker_ps(command: &[u8], argv: &[&[u8]]) -> bool {
@@ -1163,56 +1121,9 @@ fn last_field(line: &[u8]) -> &[u8] {
     line
 }
 
-fn append_line(output: &mut Vec<u8>, line: &[u8]) {
-    output.extend_from_slice(line);
-    output.push(b'\n');
-}
-
 fn strip_prefix_ignore_ascii_case<'a>(input: &'a [u8], prefix: &[u8]) -> Option<&'a [u8]> {
     input
         .get(..prefix.len())
         .filter(|head| head.eq_ignore_ascii_case(prefix))
         .map(|_| &input[prefix.len()..])
-}
-
-fn strip_ansi(input: &[u8]) -> Vec<u8> {
-    let mut output = Vec::with_capacity(input.len());
-    let mut cursor = 0;
-    while cursor < input.len() {
-        if input[cursor] == 0x1b && input.get(cursor + 1) == Some(&b'[') {
-            cursor += 2;
-            while cursor < input.len() {
-                let byte = input[cursor];
-                cursor += 1;
-                if (0x40..=0x7e).contains(&byte) {
-                    break;
-                }
-            }
-        } else {
-            output.push(input[cursor]);
-            cursor += 1;
-        }
-    }
-    output
-}
-
-fn command_basename(command: &[u8]) -> &[u8] {
-    command
-        .iter()
-        .rposition(|byte| matches!(byte, b'/' | b'\\'))
-        .map_or(command, |separator| &command[separator + 1..])
-}
-
-fn passthrough(stdout: &[u8], stderr: &[u8]) -> StreamFilterOutput {
-    StreamFilterOutput::new(stdout.to_vec(), stderr.to_vec(), EvidenceClass::ByteExact)
-}
-
-fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    (!needle.is_empty() && needle.len() <= haystack.len())
-        .then(|| {
-            haystack
-                .windows(needle.len())
-                .position(|window| window == needle)
-        })
-        .flatten()
 }

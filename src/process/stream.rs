@@ -6,9 +6,13 @@ use std::time::{Duration, Instant};
 
 use super::capture::{self, DRAIN_GRACE, READ_BUFFER_BYTES};
 use super::unix;
-use crate::filters::test_tools;
+use crate::filters::{
+    find_subslice, normalize_log_line, rfind_subslice, strip_ansi_csi as strip_ansi, test_tools,
+    timestamp_end,
+};
 
 const MAX_LINE_BYTES: usize = 64 * 1024;
+const MAX_FRAME_BYTES: usize = 512 * 1024;
 const IDLE_FLUSH: Duration = Duration::from_secs(2);
 
 pub(super) struct StreamedOutput {
@@ -390,16 +394,28 @@ impl TscState {
 struct JestState {
     frame: Vec<u8>,
     last_emitted: Vec<u8>,
+    raw_passthrough: bool,
 }
 
 impl JestState {
     fn feed_line(&mut self, raw: &[u8], writer: &mut dyn Write) -> io::Result<()> {
+        if self.raw_passthrough {
+            return append_written_line(writer, raw);
+        }
         let line = if let Some(index) = clear_frame_index(raw) {
             self.flush(writer)?;
             &raw[index..]
         } else {
             raw
         };
+        if self.frame.len().saturating_add(line.len() + 1) > MAX_FRAME_BYTES {
+            writer.write_all(&self.frame)?;
+            append_written_line(writer, line)?;
+            self.frame.clear();
+            self.last_emitted.clear();
+            self.raw_passthrough = true;
+            return Ok(());
+        }
         self.frame.extend_from_slice(line);
         self.frame.push(b'\n');
         Ok(())
@@ -454,16 +470,21 @@ impl JobStatus {
 #[derive(Default)]
 struct GhState {
     raw_fallback: Vec<u8>,
+    rendered_fallback: Vec<u8>,
     pending_name: Vec<u8>,
     pending_status: Option<JobStatus>,
     pending_has_steps: bool,
     states: Vec<(Vec<u8>, JobStatus)>,
     saw_jobs: bool,
     in_jobs: bool,
+    raw_passthrough: bool,
 }
 
 impl GhState {
     fn feed_line(&mut self, raw: &[u8], writer: &mut dyn Write) -> io::Result<()> {
+        if self.raw_passthrough {
+            return append_written_line(writer, raw);
+        }
         let clean = strip_ansi(raw);
         let line = clean.trim_ascii_end();
         let trimmed = line.trim_ascii();
@@ -472,12 +493,23 @@ impl GhState {
             self.saw_jobs = true;
             self.in_jobs = true;
             self.raw_fallback.clear();
+            self.rendered_fallback.clear();
             return Ok(());
         }
         if !self.saw_jobs {
-            if !line.is_empty() || !self.raw_fallback.is_empty() {
-                self.raw_fallback.extend_from_slice(line);
-                self.raw_fallback.push(b'\n');
+            if self.raw_fallback.len().saturating_add(raw.len() + 1) > MAX_FRAME_BYTES {
+                writer.write_all(&self.raw_fallback)?;
+                append_written_line(writer, raw)?;
+                self.raw_fallback.clear();
+                self.rendered_fallback.clear();
+                self.raw_passthrough = true;
+                return Ok(());
+            }
+            self.raw_fallback.extend_from_slice(raw);
+            self.raw_fallback.push(b'\n');
+            if !line.is_empty() || !self.rendered_fallback.is_empty() {
+                self.rendered_fallback.extend_from_slice(line);
+                self.rendered_fallback.push(b'\n');
             }
             return Ok(());
         }
@@ -541,7 +573,7 @@ impl GhState {
     fn finish(&mut self, writer: &mut dyn Write) -> io::Result<()> {
         self.flush_pending(writer)?;
         if !self.saw_jobs {
-            writer.write_all(&self.raw_fallback)?;
+            writer.write_all(&self.rendered_fallback)?;
         }
         Ok(())
     }
@@ -597,58 +629,6 @@ fn looks_like_duration(input: &[u8]) -> bool {
             .all(|byte| byte.is_ascii_digit() || matches!(byte, b'h' | b'm' | b's' | b'.' | b'u'))
 }
 
-fn normalize_log_line(line: &[u8], compose: bool) -> Vec<u8> {
-    if compose && let Some(pipe) = line.iter().position(|byte| *byte == b'|') {
-        let service = line[..pipe].trim_ascii();
-        if !service.is_empty() {
-            let payload = line[pipe + 1..].trim_ascii_start();
-            let payload = &payload[timestamp_end(payload)..];
-            let mut normalized = service.to_vec();
-            normalized.push(b'|');
-            if !payload.is_empty() {
-                normalized.push(b' ');
-                normalized.extend_from_slice(payload);
-            }
-            return normalized;
-        }
-    }
-    line.to_vec()
-}
-
-fn timestamp_end(line: &[u8]) -> usize {
-    if line.len() < 10
-        || !line[..4].iter().all(u8::is_ascii_digit)
-        || line[4] != b'-'
-        || !line[5..7].iter().all(u8::is_ascii_digit)
-        || line[7] != b'-'
-        || !line[8..10].iter().all(u8::is_ascii_digit)
-    {
-        return 0;
-    }
-    let mut cursor = if line.get(10) == Some(&b' ')
-        && line.len() >= 19
-        && line[11..13].iter().all(u8::is_ascii_digit)
-        && line[13] == b':'
-        && line[14..16].iter().all(u8::is_ascii_digit)
-        && line[16] == b':'
-        && line[17..19].iter().all(u8::is_ascii_digit)
-    {
-        19
-    } else {
-        0
-    };
-    while cursor < line.len() && !matches!(line[cursor], b' ' | b'\t') {
-        cursor += 1;
-    }
-    while line
-        .get(cursor)
-        .is_some_and(|byte| matches!(byte, b' ' | b'\t'))
-    {
-        cursor += 1;
-    }
-    cursor
-}
-
 fn clear_frame_index(line: &[u8]) -> Option<usize> {
     match (
         find_subslice(line, b"\x1b[2J"),
@@ -659,58 +639,14 @@ fn clear_frame_index(line: &[u8]) -> Option<usize> {
     }
 }
 
-fn strip_ansi(input: &[u8]) -> Vec<u8> {
-    let mut output = Vec::with_capacity(input.len());
-    let mut index = 0usize;
-    while index < input.len() {
-        if input[index] == 0x1b && input.get(index + 1) == Some(&b'[') {
-            let mut end = index + 2;
-            while end < input.len() {
-                let byte = input[end];
-                end += 1;
-                if (0x40..=0x7e).contains(&byte) {
-                    break;
-                }
-            }
-            if end <= input.len() {
-                index = end;
-                continue;
-            }
-        }
-        output.push(input[index]);
-        index += 1;
-    }
-    output
-}
-
 fn append_written_line(writer: &mut dyn Write, line: &[u8]) -> io::Result<()> {
     writer.write_all(line)?;
     writer.write_all(b"\n")
 }
 
-fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    (!needle.is_empty() && needle.len() <= haystack.len())
-        .then(|| {
-            haystack
-                .windows(needle.len())
-                .position(|window| window == needle)
-        })
-        .flatten()
-}
-
-fn rfind_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    (!needle.is_empty() && needle.len() <= haystack.len())
-        .then(|| {
-            haystack
-                .windows(needle.len())
-                .rposition(|window| window == needle)
-        })
-        .flatten()
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{MAX_LINE_BYTES, StreamKind, StreamSide};
+    use super::{MAX_FRAME_BYTES, MAX_LINE_BYTES, StreamKind, StreamSide};
 
     #[test]
     fn log_lines_are_assembled_bounded_and_deduplicated() {
@@ -808,5 +744,30 @@ mod tests {
         .unwrap();
         gh.finish(&mut output).unwrap();
         assert_eq!(output, b"build: running\nbuild: running->passed\n");
+    }
+
+    #[test]
+    fn watch_frames_fail_open_before_buffers_can_grow_unbounded() {
+        let mut gh = StreamSide::new(StreamKind::Gh);
+        let mut compact = Vec::new();
+        gh.feed(b"\x1b[31mwaiting\x1b[0m   \n", &mut compact)
+            .unwrap();
+        gh.finish(&mut compact).unwrap();
+        assert_eq!(compact, b"waiting\n");
+
+        let line = vec![b'x'; MAX_LINE_BYTES - 1];
+        let mut input = Vec::new();
+        while input.len() <= MAX_FRAME_BYTES {
+            input.extend_from_slice(&line);
+            input.push(b'\n');
+        }
+
+        for kind in [StreamKind::Jest, StreamKind::Gh] {
+            let mut side = StreamSide::new(kind);
+            let mut output = Vec::new();
+            side.feed(&input, &mut output).unwrap();
+            side.finish(&mut output).unwrap();
+            assert_eq!(output, input);
+        }
     }
 }
