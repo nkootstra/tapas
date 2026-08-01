@@ -1,0 +1,2286 @@
+{
+  "capabilities": [
+    {
+      "cases": [
+        "smoke:acli-confluence-page-view"
+      ],
+      "command": "acli",
+      "id": "claude_eligibility:acli",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:aws-json"
+      ],
+      "command": "aws",
+      "id": "claude_eligibility:aws",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:biome"
+      ],
+      "command": "biome",
+      "id": "claude_eligibility:biome",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:brew"
+      ],
+      "command": "brew",
+      "id": "claude_eligibility:brew",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:bun-add"
+      ],
+      "command": "bun",
+      "id": "claude_eligibility:bun",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:cargo-build"
+      ],
+      "command": "cargo",
+      "id": "claude_eligibility:cargo",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:cat-code"
+      ],
+      "command": "cat",
+      "id": "claude_eligibility:cat",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:composer-require"
+      ],
+      "command": "composer",
+      "id": "claude_eligibility:composer",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:curl-v"
+      ],
+      "command": "curl",
+      "id": "claude_eligibility:curl",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:df-h"
+      ],
+      "command": "df",
+      "id": "claude_eligibility:df",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:docker-logs"
+      ],
+      "command": "docker",
+      "id": "claude_eligibility:docker",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "catalog:docker-compose"
+      ],
+      "command": "docker-compose",
+      "id": "claude_eligibility:docker-compose",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:du"
+      ],
+      "command": "du",
+      "id": "claude_eligibility:du",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:eslint"
+      ],
+      "command": "eslint",
+      "id": "claude_eligibility:eslint",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:find-ls"
+      ],
+      "command": "find",
+      "id": "claude_eligibility:find",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:gh-pr-list"
+      ],
+      "command": "gh",
+      "id": "claude_eligibility:gh",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "command": "git",
+      "id": "claude_eligibility:git",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:go-build"
+      ],
+      "command": "go",
+      "id": "claude_eligibility:go",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:gradle-build"
+      ],
+      "command": "gradle",
+      "id": "claude_eligibility:gradle",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:gradlew-test"
+      ],
+      "command": "gradlew",
+      "id": "claude_eligibility:gradlew",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:jest"
+      ],
+      "command": "jest",
+      "id": "claude_eligibility:jest",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:jq-json"
+      ],
+      "command": "jq",
+      "id": "claude_eligibility:jq",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:kubectl-get"
+      ],
+      "command": "kubectl",
+      "id": "claude_eligibility:kubectl",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:ls-la"
+      ],
+      "command": "ls",
+      "id": "claude_eligibility:ls",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:lsof"
+      ],
+      "command": "lsof",
+      "id": "claude_eligibility:lsof",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:make"
+      ],
+      "command": "make",
+      "id": "claude_eligibility:make",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "catalog:mocha"
+      ],
+      "command": "mocha",
+      "id": "claude_eligibility:mocha",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:mvn-package"
+      ],
+      "command": "mvn",
+      "id": "claude_eligibility:mvn",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:mvnw-package"
+      ],
+      "command": "mvnw",
+      "id": "claude_eligibility:mvnw",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:next-build"
+      ],
+      "command": "next",
+      "id": "claude_eligibility:next",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "catalog:ninja"
+      ],
+      "command": "ninja",
+      "id": "claude_eligibility:ninja",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:npm-build"
+      ],
+      "command": "npm",
+      "id": "claude_eligibility:npm",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:pnpm-install"
+      ],
+      "command": "pnpm",
+      "id": "claude_eligibility:pnpm",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:pre-commit"
+      ],
+      "command": "pre-commit",
+      "id": "claude_eligibility:pre-commit",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:ps-aux"
+      ],
+      "command": "ps",
+      "id": "claude_eligibility:ps",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:psql"
+      ],
+      "command": "psql",
+      "id": "claude_eligibility:psql",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "catalog:pup"
+      ],
+      "command": "pup",
+      "id": "claude_eligibility:pup",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:pytest"
+      ],
+      "command": "pytest",
+      "id": "claude_eligibility:pytest",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:rg-files"
+      ],
+      "command": "rg",
+      "id": "claude_eligibility:rg",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:systemctl"
+      ],
+      "command": "systemctl",
+      "id": "claude_eligibility:systemctl",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:terraform-plan"
+      ],
+      "command": "terraform",
+      "id": "claude_eligibility:terraform",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:tofu-plan"
+      ],
+      "command": "tofu",
+      "id": "claude_eligibility:tofu",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:tree-src"
+      ],
+      "command": "tree",
+      "id": "claude_eligibility:tree",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:tsc"
+      ],
+      "command": "tsc",
+      "id": "claude_eligibility:tsc",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:vitest"
+      ],
+      "command": "vitest",
+      "id": "claude_eligibility:vitest",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "catalog:webpack"
+      ],
+      "command": "webpack",
+      "id": "claude_eligibility:webpack",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:yarn-add"
+      ],
+      "command": "yarn",
+      "id": "claude_eligibility:yarn",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "smoke:zig-build"
+      ],
+      "command": "zig",
+      "id": "claude_eligibility:zig",
+      "policy": "eligible",
+      "source_anchors": [
+        {
+          "line": 3,
+          "path": "src/filter_catalog.zig",
+          "symbol": "auto_wrap_shell_case"
+        }
+      ],
+      "type": "claude_eligibility"
+    },
+    {
+      "cases": [
+        "bypass:ambiguous-runner"
+      ],
+      "id": "exact_output_bypass:ambiguous_runner",
+      "policy": "ambiguous_runner",
+      "source_anchors": [
+        {
+          "line": 50,
+          "path": "src/wrapper_util.zig",
+          "symbol": "ambiguous_runner"
+        }
+      ],
+      "type": "exact_output_bypass"
+    },
+    {
+      "cases": [
+        "bypass:find"
+      ],
+      "id": "exact_output_bypass:find_exact_output",
+      "policy": "find_exact_output",
+      "source_anchors": [
+        {
+          "line": 14,
+          "path": "src/wrapper.zig",
+          "symbol": "find_exact_output"
+        }
+      ],
+      "type": "exact_output_bypass"
+    },
+    {
+      "cases": [
+        "bypass:git-format"
+      ],
+      "id": "exact_output_bypass:git_alternate_format",
+      "policy": "git_alternate_format",
+      "source_anchors": [
+        {
+          "line": 5,
+          "path": "src/wrapper.zig",
+          "symbol": "git_alternate_format"
+        }
+      ],
+      "type": "exact_output_bypass"
+    },
+    {
+      "cases": [
+        "smoke:cat-code"
+      ],
+      "id": "exact_output_bypass:lossless_or_raw",
+      "policy": "lossless_or_raw",
+      "source_anchors": [
+        {
+          "line": 56,
+          "path": "src/wrapper.zig",
+          "symbol": "lossless_or_raw"
+        }
+      ],
+      "type": "exact_output_bypass"
+    },
+    {
+      "cases": [
+        "bypass:ls"
+      ],
+      "id": "exact_output_bypass:ls_exact_output",
+      "policy": "ls_exact_output",
+      "source_anchors": [
+        {
+          "line": 13,
+          "path": "src/wrapper.zig",
+          "symbol": "ls_exact_output"
+        }
+      ],
+      "type": "exact_output_bypass"
+    },
+    {
+      "cases": [
+        "bypass:machine"
+      ],
+      "id": "exact_output_bypass:machine_output",
+      "policy": "machine_output",
+      "source_anchors": [
+        {
+          "line": 49,
+          "path": "src/wrapper_util.zig",
+          "symbol": "machine_output"
+        }
+      ],
+      "type": "exact_output_bypass"
+    },
+    {
+      "cases": [
+        "bypass:query"
+      ],
+      "id": "exact_output_bypass:query",
+      "policy": "query",
+      "source_anchors": [
+        {
+          "line": 48,
+          "path": "src/wrapper_util.zig",
+          "symbol": "query"
+        }
+      ],
+      "type": "exact_output_bypass"
+    },
+    {
+      "cases": [
+        "bypass:tree"
+      ],
+      "id": "exact_output_bypass:tree_exact_output",
+      "policy": "tree_exact_output",
+      "source_anchors": [
+        {
+          "line": 10,
+          "path": "src/wrapper.zig",
+          "symbol": "tree_exact_output"
+        }
+      ],
+      "type": "exact_output_bypass"
+    },
+    {
+      "cases": [
+        "smoke:git-status"
+      ],
+      "id": "generic_fallback:arbitrary_command",
+      "policy": "one_size_gated_capability",
+      "source_anchors": [
+        {
+          "line": 1379,
+          "path": "src/wrapper.zig",
+          "symbol": "generic fallback"
+        }
+      ],
+      "type": "generic_fallback"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "id": "git_subcommand:add",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "subcommand": "add",
+      "type": "git_subcommand"
+    },
+    {
+      "cases": [
+        "smoke:git-blame"
+      ],
+      "id": "git_subcommand:blame",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "subcommand": "blame",
+      "type": "git_subcommand"
+    },
+    {
+      "cases": [
+        "smoke:git-branch"
+      ],
+      "id": "git_subcommand:branch",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "subcommand": "branch",
+      "type": "git_subcommand"
+    },
+    {
+      "cases": [
+        "smoke:git-checkout"
+      ],
+      "id": "git_subcommand:checkout",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "subcommand": "checkout",
+      "type": "git_subcommand"
+    },
+    {
+      "cases": [
+        "smoke:git-commit"
+      ],
+      "id": "git_subcommand:commit",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "subcommand": "commit",
+      "type": "git_subcommand"
+    },
+    {
+      "cases": [
+        "smoke:git-diff"
+      ],
+      "id": "git_subcommand:diff",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "subcommand": "diff",
+      "type": "git_subcommand"
+    },
+    {
+      "cases": [
+        "smoke:git-fetch"
+      ],
+      "id": "git_subcommand:fetch",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "subcommand": "fetch",
+      "type": "git_subcommand"
+    },
+    {
+      "cases": [
+        "smoke:git-grep"
+      ],
+      "id": "git_subcommand:grep",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "subcommand": "grep",
+      "type": "git_subcommand"
+    },
+    {
+      "cases": [
+        "smoke:git-log"
+      ],
+      "id": "git_subcommand:log",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "subcommand": "log",
+      "type": "git_subcommand"
+    },
+    {
+      "cases": [
+        "smoke:git-merge"
+      ],
+      "id": "git_subcommand:merge",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "subcommand": "merge",
+      "type": "git_subcommand"
+    },
+    {
+      "cases": [
+        "smoke:git-pull"
+      ],
+      "id": "git_subcommand:pull",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "subcommand": "pull",
+      "type": "git_subcommand"
+    },
+    {
+      "cases": [
+        "smoke:git-push"
+      ],
+      "id": "git_subcommand:push",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "subcommand": "push",
+      "type": "git_subcommand"
+    },
+    {
+      "cases": [
+        "smoke:git-rebase"
+      ],
+      "id": "git_subcommand:rebase",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "subcommand": "rebase",
+      "type": "git_subcommand"
+    },
+    {
+      "cases": [
+        "smoke:git-reflog"
+      ],
+      "id": "git_subcommand:reflog",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "subcommand": "reflog",
+      "type": "git_subcommand"
+    },
+    {
+      "cases": [
+        "smoke:git-show"
+      ],
+      "id": "git_subcommand:show",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "subcommand": "show",
+      "type": "git_subcommand"
+    },
+    {
+      "cases": [
+        "smoke:git-stash"
+      ],
+      "id": "git_subcommand:stash",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "subcommand": "stash",
+      "type": "git_subcommand"
+    },
+    {
+      "cases": [
+        "smoke:git-status"
+      ],
+      "id": "git_subcommand:status",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "subcommand": "status",
+      "type": "git_subcommand"
+    },
+    {
+      "cases": [
+        "git:switch"
+      ],
+      "id": "git_subcommand:switch",
+      "source_anchors": [
+        {
+          "line": 32,
+          "path": "src/wrapper_git.zig",
+          "symbol": "KnownSubcommand"
+        }
+      ],
+      "subcommand": "switch",
+      "type": "git_subcommand"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "CurlCompactPipe",
+      "id": "pipe_detector:CurlCompactPipe",
+      "order": 22,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "DuCompactPipe",
+      "id": "pipe_detector:DuCompactPipe",
+      "order": 21,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "FindCompactPipe",
+      "id": "pipe_detector:FindCompactPipe",
+      "order": 20,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "GenericCompactPipe",
+      "id": "pipe_detector:GenericCompactPipe",
+      "order": 23,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "GitDiffPipe",
+      "id": "pipe_detector:GitDiffPipe",
+      "order": 4,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "GitLogCompact",
+      "id": "pipe_detector:GitLogCompact",
+      "order": 5,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "cargo_test",
+      "id": "pipe_detector:cargo_test",
+      "order": 9,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "docker_compact",
+      "id": "pipe_detector:docker_compact",
+      "order": 16,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "git_blame",
+      "id": "pipe_detector:git_blame",
+      "order": 8,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "git_branch",
+      "id": "pipe_detector:git_branch",
+      "order": 1,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "git_commit",
+      "id": "pipe_detector:git_commit",
+      "order": 6,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "git_merge",
+      "id": "pipe_detector:git_merge",
+      "order": 7,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "git_reflog",
+      "id": "pipe_detector:git_reflog",
+      "order": 2,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "git_show",
+      "id": "pipe_detector:git_show",
+      "order": 3,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-status"
+      ],
+      "detector": "git_status",
+      "id": "pipe_detector:git_status",
+      "order": 0,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "go_test",
+      "id": "pipe_detector:go_test",
+      "order": 13,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "jest",
+      "id": "pipe_detector:jest",
+      "order": 10,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "js_test",
+      "id": "pipe_detector:js_test",
+      "order": 11,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "kubectl_compact",
+      "id": "pipe_detector:kubectl_compact",
+      "order": 15,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "ls_compact",
+      "id": "pipe_detector:ls_compact",
+      "order": 19,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "npm_install",
+      "id": "pipe_detector:npm_install",
+      "order": 17,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "pytest",
+      "id": "pipe_detector:pytest",
+      "order": 14,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "tree",
+      "id": "pipe_detector:tree",
+      "order": 18,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "detector": "tsc",
+      "id": "pipe_detector:tsc",
+      "order": 12,
+      "policy": "first_match_wins",
+      "source_anchors": [
+        {
+          "line": 108,
+          "path": "src/pipe_filters.zig",
+          "symbol": "Filters"
+        }
+      ],
+      "type": "pipe_detector"
+    },
+    {
+      "cases": [
+        "stream:docker-compose"
+      ],
+      "id": "stream_watch_policy:docker_compose_logs_follow",
+      "policy": "docker_compose_logs_follow",
+      "source_anchors": [
+        {
+          "line": 491,
+          "path": "src/wrapper_util.zig",
+          "symbol": "classifyStreamCommand"
+        }
+      ],
+      "type": "stream_watch_policy"
+    },
+    {
+      "cases": [
+        "stream:docker"
+      ],
+      "id": "stream_watch_policy:docker_logs_follow",
+      "policy": "docker_logs_follow",
+      "source_anchors": [
+        {
+          "line": 491,
+          "path": "src/wrapper_util.zig",
+          "symbol": "classifyStreamCommand"
+        }
+      ],
+      "type": "stream_watch_policy"
+    },
+    {
+      "cases": [
+        "stream:gh"
+      ],
+      "id": "stream_watch_policy:gh_run_watch",
+      "policy": "gh_run_watch",
+      "source_anchors": [
+        {
+          "line": 491,
+          "path": "src/wrapper_util.zig",
+          "symbol": "classifyStreamCommand"
+        }
+      ],
+      "type": "stream_watch_policy"
+    },
+    {
+      "cases": [
+        "stream:jest"
+      ],
+      "id": "stream_watch_policy:jest_watch",
+      "policy": "jest_watch",
+      "source_anchors": [
+        {
+          "line": 491,
+          "path": "src/wrapper_util.zig",
+          "symbol": "classifyStreamCommand"
+        }
+      ],
+      "type": "stream_watch_policy"
+    },
+    {
+      "cases": [
+        "stream:journalctl"
+      ],
+      "id": "stream_watch_policy:journalctl_follow",
+      "policy": "journalctl_follow",
+      "source_anchors": [
+        {
+          "line": 491,
+          "path": "src/wrapper_util.zig",
+          "symbol": "classifyStreamCommand"
+        }
+      ],
+      "type": "stream_watch_policy"
+    },
+    {
+      "cases": [
+        "stream:kubectl"
+      ],
+      "id": "stream_watch_policy:kubectl_logs_follow",
+      "policy": "kubectl_logs_follow",
+      "source_anchors": [
+        {
+          "line": 491,
+          "path": "src/wrapper_util.zig",
+          "symbol": "classifyStreamCommand"
+        }
+      ],
+      "type": "stream_watch_policy"
+    },
+    {
+      "cases": [
+        "stream:tail"
+      ],
+      "id": "stream_watch_policy:tail_follow",
+      "policy": "tail_follow",
+      "source_anchors": [
+        {
+          "line": 491,
+          "path": "src/wrapper_util.zig",
+          "symbol": "classifyStreamCommand"
+        }
+      ],
+      "type": "stream_watch_policy"
+    },
+    {
+      "cases": [
+        "stream:tsc"
+      ],
+      "id": "stream_watch_policy:tsc_watch",
+      "policy": "tsc_watch",
+      "source_anchors": [
+        {
+          "line": 491,
+          "path": "src/wrapper_util.zig",
+          "symbol": "classifyStreamCommand"
+        }
+      ],
+      "type": "stream_watch_policy"
+    },
+    {
+      "cases": [
+        "stream:inherit"
+      ],
+      "id": "stream_watch_policy:unsupported_watch_inherit",
+      "policy": "unsupported_watch_inherit",
+      "source_anchors": [
+        {
+          "line": 491,
+          "path": "src/wrapper_util.zig",
+          "symbol": "classifyStreamCommand"
+        }
+      ],
+      "type": "stream_watch_policy"
+    },
+    {
+      "cases": [
+        "stream:vitest"
+      ],
+      "id": "stream_watch_policy:vitest_watch",
+      "policy": "vitest_watch",
+      "source_anchors": [
+        {
+          "line": 491,
+          "path": "src/wrapper_util.zig",
+          "symbol": "classifyStreamCommand"
+        }
+      ],
+      "type": "stream_watch_policy"
+    },
+    {
+      "cases": [
+        "runner:npx"
+      ],
+      "id": "transparent_runner:npx",
+      "policy": "dispatch_inner_spawn_original",
+      "runner": "npx",
+      "source_anchors": [
+        {
+          "line": 100,
+          "path": "src/wrapper_util.zig",
+          "symbol": "classifyInvocation"
+        }
+      ],
+      "type": "transparent_runner"
+    },
+    {
+      "cases": [
+        "runner:pnpm-exec"
+      ],
+      "id": "transparent_runner:pnpm exec",
+      "policy": "dispatch_inner_spawn_original",
+      "runner": "pnpm exec",
+      "source_anchors": [
+        {
+          "line": 87,
+          "path": "src/wrapper_util.zig",
+          "symbol": "classifyInvocation"
+        }
+      ],
+      "type": "transparent_runner"
+    },
+    {
+      "cases": [
+        "runner:poetry"
+      ],
+      "id": "transparent_runner:poetry run",
+      "policy": "dispatch_inner_spawn_original",
+      "runner": "poetry run",
+      "source_anchors": [
+        {
+          "line": 76,
+          "path": "src/wrapper_util.zig",
+          "symbol": "classifyInvocation"
+        }
+      ],
+      "type": "transparent_runner"
+    },
+    {
+      "cases": [
+        "runner:uv-run"
+      ],
+      "id": "transparent_runner:uv run",
+      "policy": "dispatch_inner_spawn_original",
+      "runner": "uv run",
+      "source_anchors": [
+        {
+          "line": 66,
+          "path": "src/wrapper_util.zig",
+          "symbol": "classifyInvocation"
+        }
+      ],
+      "type": "transparent_runner"
+    },
+    {
+      "cases": [
+        "runner:uvx"
+      ],
+      "id": "transparent_runner:uvx",
+      "policy": "dispatch_inner_spawn_original",
+      "runner": "uvx",
+      "source_anchors": [
+        {
+          "line": 71,
+          "path": "src/wrapper_util.zig",
+          "symbol": "classifyInvocation"
+        }
+      ],
+      "type": "transparent_runner"
+    },
+    {
+      "cases": [
+        "catalog:ninja",
+        "catalog:webpack",
+        "smoke:biome",
+        "smoke:cargo-build",
+        "smoke:dotnet-build",
+        "smoke:eslint",
+        "smoke:go-build",
+        "smoke:gradle-build",
+        "smoke:gradlew-test",
+        "smoke:make",
+        "smoke:mvn-package",
+        "smoke:mvnw-package",
+        "smoke:next-build",
+        "smoke:pre-commit",
+        "smoke:prettier",
+        "smoke:swift-build",
+        "smoke:xcodebuild",
+        "smoke:zig-build"
+      ],
+      "commands": [
+        "turbo",
+        "swift",
+        "xcodebuild",
+        "dotnet",
+        "gradle",
+        "gradlew",
+        "mvn",
+        "mvnw",
+        "pre-commit",
+        "prettier",
+        "eslint",
+        "biome",
+        "webpack",
+        "next",
+        "make",
+        "ninja",
+        "cargo",
+        "go",
+        "zig"
+      ],
+      "id": "wrapper_dispatch:build_tools",
+      "policy": "typed_route",
+      "source_anchors": [
+        {
+          "line": 931,
+          "path": "src/wrapper.zig",
+          "symbol": "build_tools"
+        },
+        {
+          "line": 54,
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "build_cases"
+        }
+      ],
+      "type": "wrapper_dispatch"
+    },
+    {
+      "cases": [
+        "catalog:docker-compose",
+        "smoke:brew",
+        "smoke:bun-add",
+        "smoke:df-h",
+        "smoke:docker-logs",
+        "smoke:gh-pr-list",
+        "smoke:kubectl-get",
+        "smoke:lsof",
+        "smoke:npm-build",
+        "smoke:pnpm-install",
+        "smoke:ps-aux",
+        "smoke:psql",
+        "smoke:systemctl",
+        "smoke:yarn-add"
+      ],
+      "commands": [
+        "docker",
+        "docker-compose",
+        "kubectl",
+        "gh",
+        "ps",
+        "df",
+        "psql",
+        "systemctl",
+        "lsof",
+        "npm",
+        "pnpm",
+        "yarn",
+        "brew",
+        "bun"
+      ],
+      "id": "wrapper_dispatch:columnar",
+      "policy": "typed_route",
+      "source_anchors": [
+        {
+          "line": 12,
+          "path": "src/wrapper.zig",
+          "symbol": "columnar"
+        },
+        {
+          "line": 54,
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "build_cases"
+        }
+      ],
+      "type": "wrapper_dispatch"
+    },
+    {
+      "cases": [
+        "smoke:head",
+        "smoke:tail"
+      ],
+      "commands": [
+        "head",
+        "tail"
+      ],
+      "id": "wrapper_dispatch:exact_head_tail",
+      "policy": "typed_route",
+      "source_anchors": [
+        {
+          "line": 509,
+          "path": "src/wrapper.zig",
+          "symbol": "exact_head_tail"
+        },
+        {
+          "line": 54,
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "build_cases"
+        }
+      ],
+      "type": "wrapper_dispatch"
+    },
+    {
+      "cases": [
+        "smoke:git-add-error"
+      ],
+      "commands": [
+        "git"
+      ],
+      "id": "wrapper_dispatch:git",
+      "policy": "typed_route",
+      "source_anchors": [
+        {
+          "line": 5,
+          "path": "src/wrapper.zig",
+          "symbol": "git"
+        },
+        {
+          "line": 54,
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "build_cases"
+        }
+      ],
+      "type": "wrapper_dispatch"
+    },
+    {
+      "cases": [
+        "smoke:gh-pr-list"
+      ],
+      "commands": [
+        "gh"
+      ],
+      "id": "wrapper_dispatch:github",
+      "policy": "typed_route",
+      "source_anchors": [
+        {
+          "line": 25,
+          "path": "src/wrapper.zig",
+          "symbol": "github"
+        },
+        {
+          "line": 54,
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "build_cases"
+        }
+      ],
+      "type": "wrapper_dispatch"
+    },
+    {
+      "cases": [
+        "smoke:bun-add",
+        "smoke:composer-require",
+        "smoke:pip-install",
+        "smoke:pip3-list",
+        "smoke:pnpm-install",
+        "smoke:uv-pip-install",
+        "smoke:uvx",
+        "smoke:yarn-add"
+      ],
+      "commands": [
+        "pnpm",
+        "yarn",
+        "bun",
+        "uv",
+        "uvx",
+        "composer",
+        "pip",
+        "pip3"
+      ],
+      "id": "wrapper_dispatch:package_tools",
+      "policy": "typed_route",
+      "source_anchors": [
+        {
+          "line": 755,
+          "path": "src/wrapper.zig",
+          "symbol": "package_tools"
+        },
+        {
+          "line": 54,
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "build_cases"
+        }
+      ],
+      "type": "wrapper_dispatch"
+    },
+    {
+      "cases": [
+        "smoke:find-ls",
+        "smoke:rg-files"
+      ],
+      "commands": [
+        "rg",
+        "find"
+      ],
+      "id": "wrapper_dispatch:path_list",
+      "policy": "typed_route",
+      "source_anchors": [
+        {
+          "line": 9,
+          "path": "src/wrapper.zig",
+          "symbol": "path_list"
+        },
+        {
+          "line": 54,
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "build_cases"
+        }
+      ],
+      "type": "wrapper_dispatch"
+    },
+    {
+      "cases": [
+        "catalog:pup",
+        "smoke:acli-confluence-page-view",
+        "smoke:aws-json",
+        "smoke:jq-json",
+        "smoke:terraform-plan",
+        "smoke:tofu-plan"
+      ],
+      "commands": [
+        "terraform",
+        "tofu",
+        "aws",
+        "jq",
+        "pup",
+        "acli"
+      ],
+      "id": "wrapper_dispatch:plans_and_data",
+      "policy": "typed_route",
+      "source_anchors": [
+        {
+          "line": 1062,
+          "path": "src/wrapper.zig",
+          "symbol": "plans_and_data"
+        },
+        {
+          "line": 54,
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "build_cases"
+        }
+      ],
+      "type": "wrapper_dispatch"
+    },
+    {
+      "cases": [
+        "smoke:mypy",
+        "smoke:ruff"
+      ],
+      "commands": [
+        "mypy",
+        "ruff"
+      ],
+      "id": "wrapper_dispatch:python_diagnostics",
+      "policy": "typed_route",
+      "source_anchors": [
+        {
+          "line": 18,
+          "path": "src/wrapper.zig",
+          "symbol": "python_diagnostics"
+        },
+        {
+          "line": 54,
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "build_cases"
+        }
+      ],
+      "type": "wrapper_dispatch"
+    },
+    {
+      "cases": [
+        "wrapper:shell-redispatch"
+      ],
+      "commands": [
+        "sh",
+        "bash",
+        "zsh"
+      ],
+      "id": "wrapper_dispatch:shell_redispatch",
+      "policy": "typed_route",
+      "source_anchors": [
+        {
+          "line": 76,
+          "path": "src/wrapper.zig",
+          "symbol": "shell_redispatch"
+        },
+        {
+          "line": 54,
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "build_cases"
+        }
+      ],
+      "type": "wrapper_dispatch"
+    },
+    {
+      "cases": [
+        "catalog:mocha",
+        "smoke:bun-add",
+        "smoke:cargo-build",
+        "smoke:go-build",
+        "smoke:jest",
+        "smoke:npm-build",
+        "smoke:pnpm-install",
+        "smoke:pytest",
+        "smoke:tsc",
+        "smoke:vitest",
+        "smoke:yarn-add"
+      ],
+      "commands": [
+        "pytest",
+        "cargo",
+        "jest",
+        "vitest",
+        "npm",
+        "pnpm",
+        "yarn",
+        "bun",
+        "mocha",
+        "node",
+        "tsc",
+        "go"
+      ],
+      "id": "wrapper_dispatch:tests",
+      "policy": "typed_route",
+      "source_anchors": [
+        {
+          "line": 29,
+          "path": "src/wrapper.zig",
+          "symbol": "tests"
+        },
+        {
+          "line": 54,
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "build_cases"
+        }
+      ],
+      "type": "wrapper_dispatch"
+    },
+    {
+      "cases": [
+        "smoke:tree-src"
+      ],
+      "commands": [
+        "tree"
+      ],
+      "id": "wrapper_dispatch:tree",
+      "policy": "typed_route",
+      "source_anchors": [
+        {
+          "line": 10,
+          "path": "src/wrapper.zig",
+          "symbol": "tree"
+        },
+        {
+          "line": 54,
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "build_cases"
+        }
+      ],
+      "type": "wrapper_dispatch"
+    },
+    {
+      "cases": [
+        "smoke:cat-code",
+        "smoke:curl-v",
+        "smoke:du",
+        "smoke:env",
+        "smoke:ls-la",
+        "smoke:wc"
+      ],
+      "commands": [
+        "env",
+        "wc",
+        "curl",
+        "du",
+        "ls",
+        "cat"
+      ],
+      "id": "wrapper_dispatch:utilities",
+      "policy": "typed_route",
+      "source_anchors": [
+        {
+          "line": 17,
+          "path": "src/wrapper.zig",
+          "symbol": "utilities"
+        },
+        {
+          "line": 54,
+          "path": "scripts/smoke-supported-commands.py",
+          "symbol": "build_cases"
+        }
+      ],
+      "type": "wrapper_dispatch"
+    }
+  ],
+  "coverage_sources": [
+    {
+      "path": "src/filter_catalog.zig",
+      "role": "coverage_authority",
+      "sha256": "e36ae0fb18b589df3d28380eff139bfd2eeb37f537852697c47d719261469e9a"
+    },
+    {
+      "path": "src/wrapper.zig",
+      "role": "coverage_authority",
+      "sha256": "ec8ff69083907346ddb83aadb0f7930a3014820aeaa74f23dd25b1eac1cd2027"
+    },
+    {
+      "path": "src/wrapper_git.zig",
+      "role": "coverage_authority",
+      "sha256": "8f040b0bf1ba34e7314bdc2833a9314d07995dd8126376444e3419dfa030c463"
+    },
+    {
+      "path": "src/wrapper_util.zig",
+      "role": "coverage_authority",
+      "sha256": "bc5bae01a2ad33107289dbdde7d3c46ccbcd0a7012ae5edff78546273a5a603f"
+    },
+    {
+      "path": "src/pipe_filters.zig",
+      "role": "coverage_authority",
+      "sha256": "0a812e16e6a56c71c4f961f77491910687409554d1f3250d5308d1e1bb6f285b"
+    },
+    {
+      "path": "scripts/smoke-supported-commands.py",
+      "role": "coverage_authority",
+      "sha256": "244b191f23728f25d86e323d331734410556ebe504745af3c92174924b5b32f3"
+    },
+    {
+      "path": "tests/integration_test.zig",
+      "role": "coverage_authority",
+      "sha256": "d6aec5dba46abbdc3264723abc37a4ef437db21e97b4cd19ab4b6c6eebf50e97"
+    },
+    {
+      "path": "benchmarks/smll-vs-rtk/cases.json",
+      "role": "coverage_authority",
+      "sha256": "86e20d72a72c512a0146c718ba8bcbe45fa6331d89227bb1bd9301b1e0a0dd43"
+    }
+  ],
+  "schema_version": 1,
+  "source": {
+    "commit": "dbe73932586043f2d8e482df0e246c372125e1b2",
+    "project": "smll",
+    "version": "1.9.0"
+  }
+}

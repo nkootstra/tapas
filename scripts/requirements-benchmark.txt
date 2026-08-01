@@ -1,0 +1,2 @@
+# Runtime package is pinned; the encoding asset itself is vendored and hash-audited.
+tiktoken==0.12.0

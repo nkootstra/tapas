@@ -1,0 +1,145 @@
+On branch main
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+	new file:   src/components/comp_01.rs
+	new file:   src/components/comp_02.rs
+	new file:   src/components/comp_03.rs
+	new file:   src/components/comp_04.rs
+	new file:   src/components/comp_05.rs
+	new file:   src/components/comp_06.rs
+	new file:   src/components/comp_07.rs
+	new file:   src/components/comp_08.rs
+	new file:   src/components/comp_09.rs
+	new file:   src/components/comp_10.rs
+	new file:   src/components/comp_11.rs
+	new file:   src/components/comp_12.rs
+	new file:   src/components/comp_13.rs
+	new file:   src/components/comp_14.rs
+	new file:   src/components/comp_15.rs
+	new file:   src/components/comp_16.rs
+	new file:   src/components/comp_17.rs
+	new file:   src/components/comp_18.rs
+	new file:   src/components/comp_19.rs
+	new file:   src/components/comp_20.rs
+	new file:   src/components/comp_21.rs
+	new file:   src/components/comp_22.rs
+	new file:   src/components/comp_23.rs
+	new file:   src/components/comp_24.rs
+	new file:   src/components/comp_25.rs
+	new file:   src/components/comp_26.rs
+	new file:   src/components/comp_27.rs
+	new file:   src/components/comp_28.rs
+	new file:   src/components/comp_29.rs
+	new file:   src/components/comp_30.rs
+	new file:   src/components/comp_31.rs
+	new file:   src/components/comp_32.rs
+	new file:   src/components/comp_33.rs
+	new file:   src/components/comp_34.rs
+	new file:   src/components/comp_35.rs
+	new file:   src/components/comp_36.rs
+	new file:   src/components/comp_37.rs
+	new file:   src/components/comp_38.rs
+	new file:   src/components/comp_39.rs
+	new file:   src/components/comp_40.rs
+	new file:   src/components/comp_41.rs
+	new file:   src/components/comp_42.rs
+	new file:   src/components/comp_43.rs
+	new file:   src/components/comp_44.rs
+	new file:   src/components/comp_45.rs
+	new file:   src/components/comp_46.rs
+	new file:   src/components/comp_47.rs
+	new file:   src/components/comp_48.rs
+	new file:   src/components/comp_49.rs
+	new file:   src/components/comp_50.rs
+	new file:   src/services/svc_01.rs
+	new file:   src/services/svc_02.rs
+	new file:   src/services/svc_03.rs
+	new file:   src/services/svc_04.rs
+	new file:   src/services/svc_05.rs
+	new file:   src/services/svc_06.rs
+	new file:   src/services/svc_07.rs
+	new file:   src/services/svc_08.rs
+	new file:   src/services/svc_09.rs
+	new file:   src/services/svc_10.rs
+	new file:   src/services/svc_11.rs
+	new file:   src/services/svc_12.rs
+	new file:   src/services/svc_13.rs
+	new file:   src/services/svc_14.rs
+	new file:   src/services/svc_15.rs
+	new file:   src/services/svc_16.rs
+	new file:   src/services/svc_17.rs
+	new file:   src/services/svc_18.rs
+	new file:   src/services/svc_19.rs
+	new file:   src/services/svc_20.rs
+	new file:   src/services/svc_21.rs
+	new file:   src/services/svc_22.rs
+	new file:   src/services/svc_23.rs
+	new file:   src/services/svc_24.rs
+	new file:   src/services/svc_25.rs
+	new file:   src/services/svc_26.rs
+	new file:   src/services/svc_27.rs
+	new file:   src/services/svc_28.rs
+	new file:   src/services/svc_29.rs
+	new file:   src/services/svc_30.rs
+	new file:   src/services/svc_31.rs
+	new file:   src/services/svc_32.rs
+	new file:   src/services/svc_33.rs
+	new file:   src/services/svc_34.rs
+	new file:   src/services/svc_35.rs
+	new file:   src/services/svc_36.rs
+	new file:   src/services/svc_37.rs
+	new file:   src/services/svc_38.rs
+	new file:   src/services/svc_39.rs
+	new file:   src/services/svc_40.rs
+	new file:   src/utils/util_01.rs
+	new file:   src/utils/util_02.rs
+	new file:   src/utils/util_03.rs
+	new file:   src/utils/util_04.rs
+	new file:   src/utils/util_05.rs
+	new file:   src/utils/util_06.rs
+	new file:   src/utils/util_07.rs
+	new file:   src/utils/util_08.rs
+	new file:   src/utils/util_09.rs
+	new file:   src/utils/util_10.rs
+	new file:   src/utils/util_11.rs
+	new file:   src/utils/util_12.rs
+	new file:   src/utils/util_13.rs
+	new file:   src/utils/util_14.rs
+	new file:   src/utils/util_15.rs
+	new file:   src/utils/util_16.rs
+	new file:   src/utils/util_17.rs
+	new file:   src/utils/util_18.rs
+	new file:   src/utils/util_19.rs
+	new file:   src/utils/util_20.rs
+	new file:   src/utils/util_21.rs
+	new file:   src/utils/util_22.rs
+	new file:   src/utils/util_23.rs
+	new file:   src/utils/util_24.rs
+	new file:   src/utils/util_25.rs
+	new file:   src/utils/util_26.rs
+	new file:   src/utils/util_27.rs
+	new file:   src/utils/util_28.rs
+	new file:   src/utils/util_29.rs
+	new file:   src/utils/util_30.rs
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   src/mod_01.rs
+	modified:   src/mod_02.rs
+	modified:   src/mod_03.rs
+	modified:   src/mod_04.rs
+	modified:   src/mod_05.rs
+	modified:   src/mod_06.rs
+	modified:   src/mod_07.rs
+	modified:   src/mod_08.rs
+	modified:   src/mod_09.rs
+	modified:   src/mod_10.rs
+	modified:   src/mod_11.rs
+	modified:   src/mod_12.rs
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	configs/
+	scripts/
+
