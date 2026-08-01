@@ -1,7 +1,9 @@
 pub mod data;
+pub mod diagnostics;
 pub mod generic;
 pub mod git;
 pub mod listing;
+pub mod package;
 pub mod test_tools;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
