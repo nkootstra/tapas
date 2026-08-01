@@ -50,7 +50,7 @@ pub fn run(
             stdout.write_all(HELP.as_bytes())?;
             Ok(0)
         }
-        [] if environment_flag_on("TAPAS_LOSSLESS") => {
+        [] if crate::environment::flag_on("TAPAS_LOSSLESS") => {
             io::copy(stdin, stdout)?;
             Ok(0)
         }
@@ -98,10 +98,28 @@ pub fn run(
                     .write_all(b"usage: tapas --raw [--] <cmd...>\n       <cmd> | tapas --raw\n")?;
                 return Ok(2);
             }
-            process_boundary(stderr)
+            crate::process::run(
+                command,
+                stdout,
+                stderr,
+                crate::process::RunOptions {
+                    raw: true,
+                    explain: false,
+                },
+            )
+            .map(|report| report.exit_code)
         }
         [flag, command @ ..] if flag == OsStr::new("--explain") && !command.is_empty() => {
-            process_boundary(stderr)
+            crate::process::run(
+                command,
+                stdout,
+                stderr,
+                crate::process::RunOptions {
+                    raw: false,
+                    explain: true,
+                },
+            )
+            .map(|report| report.exit_code)
         }
         [flag, command @ ..] if flag == OsStr::new("--rewrite") && !command.is_empty() => {
             if should_wrap(command) {
@@ -141,28 +159,19 @@ pub fn run(
             stderr.write_all(b"usage: tapas [--help|--version|--filters] <cmd...>\n")?;
             Ok(2)
         }
-        [_, ..] => process_boundary(stderr),
+        command @ [_, ..] => crate::process::run(
+            command,
+            stdout,
+            stderr,
+            crate::process::RunOptions::default(),
+        )
+        .map(|report| report.exit_code),
     }
-}
-
-fn process_boundary(stderr: &mut dyn Write) -> io::Result<i32> {
-    if environment_flag_on("TAPAS_STREAM") {
-        stderr.write_all(
-            b"tapas: streaming process execution is not available in the foundation build\n",
-        )?;
-    } else {
-        stderr.write_all(b"tapas: process execution is not available in the foundation build\n")?;
-    }
-    Ok(INTERNAL_BOUNDARY_STATUS)
 }
 
 fn stdin_is_tty() -> bool {
     // SAFETY: isatty only inspects the process's valid standard-input file descriptor.
     unsafe { libc::isatty(libc::STDIN_FILENO) == 1 }
-}
-
-fn environment_flag_on(name: &str) -> bool {
-    std::env::var_os(name).and_then(|value| value.as_encoded_bytes().first().copied()) == Some(b'1')
 }
 
 fn should_wrap(command: &[OsString]) -> bool {
