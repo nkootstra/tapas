@@ -20,7 +20,6 @@ Options:
   --version        Show the Tapas version
   --filters        List the static compatibility catalogs
 ";
-const INTERNAL_BOUNDARY_STATUS: i32 = 70;
 const SETUP_USAGE: &[u8] =
     b"usage: tapas --setup claude [--dry-run]\n       tapas --unsetup claude [--dry-run]\n";
 
@@ -129,11 +128,15 @@ pub fn run(
             stdout.write_all(b"\n")?;
             Ok(0)
         }
+        [flag, target, self_check]
+            if flag == OsStr::new("--hook-eval")
+                && target == OsStr::new("claude")
+                && self_check == OsStr::new("--self-check") =>
+        {
+            crate::setup::hook_eval(stdin, stdout, stderr, true)
+        }
         [flag, target] if flag == OsStr::new("--hook-eval") && target == OsStr::new("claude") => {
-            stderr.write_all(
-                b"tapas: Claude hook evaluation is not available in the foundation build\n",
-            )?;
-            Ok(INTERNAL_BOUNDARY_STATUS)
+            crate::setup::hook_eval(stdin, stdout, stderr, false)
         }
         [flag, ..] if flag == OsStr::new("--hook-eval") => {
             stderr.write_all(b"usage: tapas --hook-eval claude\n")?;
@@ -148,8 +151,15 @@ pub fn run(
             Ok(2)
         }
         args if is_claude_setup(args) => {
-            stderr.write_all(b"tapas: Claude setup is not available in the foundation build\n")?;
-            Ok(INTERNAL_BOUNDARY_STATUS)
+            let action = if args[0].as_encoded_bytes().starts_with(b"--unsetup") {
+                crate::setup::Action::Unsetup
+            } else {
+                crate::setup::Action::Setup
+            };
+            let dry_run = args
+                .iter()
+                .any(|argument| argument == OsStr::new("--dry-run"));
+            crate::setup::configure(action, dry_run, stdout, stderr)
         }
         [flag, ..] if is_setup_flag(flag) => {
             stderr.write_all(SETUP_USAGE)?;
