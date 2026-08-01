@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 use std::io::{self, Read, Write};
 
-use crate::filters::generic;
 use crate::filters::{FilterError, FilterOutput};
+use crate::filters::{generic, git};
 use crate::signals::Signals;
 
 pub const MAX_PIPE_INPUT_BYTES: usize = 16 * 1024 * 1024;
@@ -40,11 +40,10 @@ impl FilterSpec {
     }
 }
 
-const DEFAULT_FILTERS: &[FilterSpec] = &[FilterSpec::ungated(
-    "generic",
-    generic::matches,
-    generic::apply_matched,
-)];
+const DEFAULT_FILTERS: &[FilterSpec] = &[
+    FilterSpec::ungated("git", git::matches, git::apply_matched),
+    FilterSpec::ungated("generic", generic::matches, generic::apply_matched),
+];
 
 #[derive(Debug)]
 pub struct DispatchResult<'a> {
