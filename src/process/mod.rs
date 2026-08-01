@@ -162,26 +162,45 @@ fn filter_captured_output<'a>(
         return passthrough_streams(captured);
     }
 
-    if command_is(argv, b"git") && argv.len() > 1 {
-        let argv_bytes: Vec<&[u8]> = argv
-            .iter()
-            .map(|argument| argument.as_encoded_bytes())
-            .collect();
-        if let Ok(output) = crate::filters::git::dispatch_streams_argv(
+    let argv_bytes: Vec<&[u8]> = argv
+        .iter()
+        .map(|argument| argument.as_encoded_bytes())
+        .collect();
+    if command_is(argv, b"git")
+        && argv.len() > 1
+        && let Ok(output) = crate::filters::git::dispatch_streams_argv(
             &argv_bytes,
             &captured.stdout,
             &captured.stderr,
             captured.exit_code,
             lossless,
-        ) {
-            let unchanged = output.stdout == captured.stdout && output.stderr == captured.stderr;
-            return FilteredStreams {
-                stdout: Cow::Owned(output.stdout),
-                stderr: Cow::Owned(output.stderr),
-                filter_name: if unchanged { "passthrough" } else { "git" },
-                evidence: output.evidence,
-            };
-        }
+        )
+    {
+        let unchanged = output.stdout == captured.stdout && output.stderr == captured.stderr;
+        return FilteredStreams {
+            stdout: Cow::Owned(output.stdout),
+            stderr: Cow::Owned(output.stderr),
+            filter_name: if unchanged { "passthrough" } else { "git" },
+            evidence: output.evidence,
+        };
+    }
+
+    if let Ok(output) = crate::filters::test_tools::dispatch_streams_argv(
+        &argv_bytes,
+        &captured.stdout,
+        &captured.stderr,
+        captured.exit_code,
+        lossless,
+    ) && (output.evidence != EvidenceClass::ByteExact
+        || output.stdout != captured.stdout
+        || output.stderr != captured.stderr)
+    {
+        return FilteredStreams {
+            stdout: Cow::Owned(output.stdout),
+            stderr: Cow::Owned(output.stderr),
+            filter_name: "test-tools",
+            evidence: output.evidence,
+        };
     }
 
     let result = crate::pipeline::filter(&captured.stdout);
