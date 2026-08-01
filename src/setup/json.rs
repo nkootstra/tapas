@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -149,7 +150,8 @@ impl Parser<'_> {
 
     fn object(&mut self) -> Result<Value, Error> {
         self.expect(b'{')?;
-        let mut fields = Vec::new();
+        let mut fields: Vec<(Vec<u8>, Value)> = Vec::new();
+        let mut positions: HashMap<Vec<u8>, usize> = HashMap::new();
         self.whitespace();
         if self.take(b'}') {
             return Ok(Value::Object(fields));
@@ -160,12 +162,10 @@ impl Parser<'_> {
             self.whitespace();
             self.expect(b':')?;
             let value = self.value()?;
-            if let Some((_, current)) = fields
-                .iter_mut()
-                .find(|(candidate, _): &&mut (Vec<u8>, Value)| *candidate == key)
-            {
-                *current = value;
+            if let Some(&index) = positions.get(&key) {
+                fields[index].1 = value;
             } else {
+                positions.insert(key.clone(), fields.len());
                 fields.push((key, value));
             }
             self.whitespace();

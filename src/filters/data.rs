@@ -1,4 +1,36 @@
-use super::{EvidenceClass, FilterError, StreamFilterOutput};
+use super::{
+    EvidenceClass, FilterError, StreamFilterOutput, command_basename, find_subslice, strip_ansi,
+};
+
+pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
+    argv.first()
+        .copied()
+        .map(command_basename)
+        .is_some_and(|command| {
+            matches!(
+                command,
+                b"aws"
+                    | b"jq"
+                    | b"pup"
+                    | b"acli"
+                    | b"gh"
+                    | b"cat"
+                    | b"docker"
+                    | b"docker-compose"
+                    | b"kubectl"
+                    | b"ps"
+                    | b"df"
+                    | b"psql"
+                    | b"systemctl"
+                    | b"lsof"
+                    | b"npm"
+                    | b"pnpm"
+                    | b"yarn"
+                    | b"brew"
+                    | b"bun"
+            )
+        })
+}
 
 pub fn dispatch_streams_argv(
     argv: &[&[u8]],
@@ -11,15 +43,15 @@ pub fn dispatch_streams_argv(
         return Err(FilterError::InvalidInput);
     }
     if lossless || requests_query(argv) {
-        return Ok(stream_passthrough(stdout, stderr));
+        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
 
     let command = command_basename(argv[0]);
     if matches!(command, b"pup" | b"acli") && exit_code != 0 {
-        return Ok(stream_passthrough(stdout, stderr));
+        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
     if requests_machine_output(command, argv) {
-        return Ok(stream_passthrough(stdout, stderr));
+        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
 
     let wants_json = matches!(command, b"aws" | b"jq" | b"pup" | b"acli")
@@ -63,7 +95,7 @@ pub fn dispatch_streams_argv(
         ));
     }
 
-    Ok(stream_passthrough(stdout, stderr))
+    Ok(StreamFilterOutput::passthrough(stdout, stderr))
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -395,53 +427,6 @@ fn cat_requests_exact(argv: &[&[u8]]) -> bool {
         }
     }
     false
-}
-
-fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    if needle.is_empty() {
-        return Some(0);
-    }
-    haystack
-        .windows(needle.len())
-        .position(|window| window == needle)
-}
-
-fn strip_ansi(input: &[u8]) -> Vec<u8> {
-    let mut output = Vec::with_capacity(input.len());
-    let mut index = 0usize;
-    while index < input.len() {
-        if input[index] != 0x1b {
-            output.push(input[index]);
-            index += 1;
-            continue;
-        }
-        match input.get(index + 1) {
-            Some(b'[') => {
-                index += 2;
-                while index < input.len() && !(0x40..=0x7e).contains(&input[index]) {
-                    index += 1;
-                }
-                index += usize::from(index < input.len());
-            }
-            Some(b']') => {
-                index += 2;
-                while index < input.len() {
-                    if input[index] == 0x07 {
-                        index += 1;
-                        break;
-                    }
-                    if input[index] == 0x1b && input.get(index + 1) == Some(&b'\\') {
-                        index += 2;
-                        break;
-                    }
-                    index += 1;
-                }
-            }
-            Some(_) => index += 2,
-            None => index += 1,
-        }
-    }
-    output
 }
 
 fn matches_pup_table(input: &[u8]) -> bool {
@@ -896,17 +881,6 @@ fn short_bundle_contains(argument: &[u8], needles: &[u8]) -> bool {
         && argument[0] == b'-'
         && argument[1] != b'-'
         && argument[1..].iter().any(|byte| needles.contains(byte))
-}
-
-fn command_basename(command: &[u8]) -> &[u8] {
-    command
-        .iter()
-        .rposition(|byte| matches!(byte, b'/' | b'\\'))
-        .map_or(command, |separator| &command[separator + 1..])
-}
-
-fn stream_passthrough(stdout: &[u8], stderr: &[u8]) -> StreamFilterOutput {
-    StreamFilterOutput::new(stdout.to_vec(), stderr.to_vec(), EvidenceClass::ByteExact)
 }
 
 pub mod sigil_rle {

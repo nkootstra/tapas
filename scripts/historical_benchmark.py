@@ -4,8 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import base64
-import hashlib
 import json
 import os
 import pathlib
@@ -19,12 +17,8 @@ import benchmark
 import parity
 
 
-DEFAULT_CONTRACT = pathlib.Path("tests/compat/smll-v1.9.0")
+DEFAULT_CONTRACT = parity.DEFAULT_CONTRACT
 DEFAULT_BASELINE = DEFAULT_CONTRACT / "benchmark-baseline.json"
-
-
-def digest(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
 
 
 def fixture_bytes(contract: pathlib.Path, source_path: str) -> bytes:
@@ -43,20 +37,21 @@ def run_case(
     binary: pathlib.Path,
     tool: str,
     case: dict[str, Any],
-    contract: pathlib.Path,
+    stdout: bytes,
+    stderr: bytes,
     timeout: float,
 ) -> subprocess.CompletedProcess[bytes]:
-    stdout, stderr = streams(case, contract)
-    child = {
-        "stdout": {"base64": base64.b64encode(stdout).decode("ascii")},
-        "stderr": {"base64": base64.b64encode(stderr).decode("ascii")},
-        "exit_code": case.get("exit_code", 0),
-    }
     with tempfile.TemporaryDirectory(prefix="tapas-benchmark-") as temp_name:
         temp = pathlib.Path(temp_name)
         bin_dir = temp / "bin"
         bin_dir.mkdir()
-        parity.fake_tool(bin_dir, case["command"][0], child, contract)
+        parity.fake_tool_bytes(
+            bin_dir,
+            case["command"][0],
+            stdout,
+            stderr,
+            case.get("exit_code", 0),
+        )
         home = temp / "home"
         home.mkdir()
         env = dict(os.environ)
@@ -90,7 +85,7 @@ def case_metrics(
         "exit_result": proc.returncode,
         "stdout_bytes": len(proc.stdout),
         "stderr_bytes": len(proc.stderr),
-        "combined_sha256": digest(combined),
+        "combined_sha256": benchmark.digest(combined),
         "proxy_tokens": (
             None
             if stdout_tokens is None or stderr_tokens is None
@@ -114,8 +109,9 @@ def build_baseline(
 ) -> dict[str, Any]:
     records = []
     for case in cases:
+        stdout, stderr = streams(case, contract)
         started = time.perf_counter_ns()
-        proc = run_case(binary, "smll", case, contract, timeout)
+        proc = run_case(binary, "smll", case, stdout, stderr, timeout)
         metrics = case_metrics(proc, encoder, time.perf_counter_ns() - started)
         metrics.pop("elapsed_ns")
         combined = proc.stdout + proc.stderr
@@ -132,9 +128,9 @@ def build_baseline(
     return {
         "schema_version": 1,
         "source_commit": "dbe73932586043f2d8e482df0e246c372125e1b2",
-        "corpus_sha256": digest(corpus),
+        "corpus_sha256": benchmark.digest(corpus),
         "tokenizer_sha256": benchmark.TOKENIZER_HASH,
-        "smll_binary_sha256": digest(binary.read_bytes()),
+        "smll_binary_sha256": benchmark.digest(binary.read_bytes()),
         "records": records,
     }
 
@@ -149,7 +145,7 @@ def compare(
     timeout: float,
 ) -> tuple[dict[str, Any], list[str]]:
     errors: list[str] = []
-    if baseline.get("corpus_sha256") != digest(corpus):
+    if baseline.get("corpus_sha256") != benchmark.digest(corpus):
         errors.append("benchmark corpus does not match the pinned baseline")
     if baseline.get("tokenizer_sha256") != benchmark.TOKENIZER_HASH:
         errors.append("benchmark tokenizer does not match the pinned baseline")
@@ -171,7 +167,7 @@ def compare(
             else raw_stdout_tokens + raw_stderr_tokens
         )
         started = time.perf_counter_ns()
-        proc = run_case(binary, "tapas", case, contract, timeout)
+        proc = run_case(binary, "tapas", case, stdout, stderr, timeout)
         metrics = case_metrics(proc, encoder, time.perf_counter_ns() - started)
         oracle = expected.get(case["name"], {})
         combined = proc.stdout + proc.stderr

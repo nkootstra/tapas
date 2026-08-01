@@ -130,9 +130,10 @@ pub fn run(
 
     // A transparent runner's package-install prelude belongs to the runner,
     // not the inner command's formatter.
-    let has_runner_prelude = crate::filters::build::has_package_prelude(&captured.stdout)
-        || crate::filters::build::has_package_prelude(&captured.stderr);
     let transparent_runner = !std::ptr::eq(logical, argv);
+    let has_runner_prelude = transparent_runner
+        && (crate::filters::build::has_package_prelude(&captured.stdout)
+            || crate::filters::build::has_package_prelude(&captured.stderr));
     let filter_argv = if transparent_runner && has_runner_prelude {
         argv
     } else {
@@ -188,6 +189,59 @@ struct FilteredStreams<'a> {
     evidence: EvidenceClass,
 }
 
+type StreamMatcher = fn(&[&[u8]]) -> bool;
+type StreamFilter = fn(
+    &[&[u8]],
+    &[u8],
+    &[u8],
+    i32,
+    bool,
+) -> Result<crate::filters::StreamFilterOutput, crate::filters::FilterError>;
+
+struct StreamFilterSpec {
+    name: &'static str,
+    handles: StreamMatcher,
+    apply: StreamFilter,
+}
+
+const STREAM_FILTERS: &[StreamFilterSpec] = &[
+    StreamFilterSpec {
+        name: "test-tools",
+        handles: crate::filters::test_tools::handles_argv,
+        apply: crate::filters::test_tools::dispatch_streams_argv,
+    },
+    StreamFilterSpec {
+        name: "listing",
+        handles: crate::filters::listing::handles_argv,
+        apply: crate::filters::listing::dispatch_streams_argv,
+    },
+    StreamFilterSpec {
+        name: "build",
+        handles: crate::filters::build::handles_argv,
+        apply: crate::filters::build::dispatch_streams_argv,
+    },
+    StreamFilterSpec {
+        name: "package",
+        handles: crate::filters::package::handles_argv,
+        apply: crate::filters::package::dispatch_streams_argv,
+    },
+    StreamFilterSpec {
+        name: "infra",
+        handles: crate::filters::infra::handles_argv,
+        apply: crate::filters::infra::dispatch_streams_argv,
+    },
+    StreamFilterSpec {
+        name: "data",
+        handles: crate::filters::data::handles_argv,
+        apply: crate::filters::data::dispatch_streams_argv,
+    },
+    StreamFilterSpec {
+        name: "diagnostics",
+        handles: crate::filters::diagnostics::handles_argv,
+        apply: crate::filters::diagnostics::dispatch_streams_argv,
+    },
+];
+
 fn filter_captured_output<'a>(
     argv: &[OsString],
     captured: &'a capture::CapturedOutput,
@@ -220,81 +274,20 @@ fn filter_captured_output<'a>(
         };
     }
 
-    if let Ok(output) = crate::filters::test_tools::dispatch_streams_argv(
-        &argv_bytes,
-        &captured.stdout,
-        &captured.stderr,
-        captured.exit_code,
-        lossless,
-    ) && let Some(filtered) = changed_filtered_streams(output, captured, "test-tools")
-    {
-        return filtered;
-    }
-
-    if let Ok(output) = crate::filters::listing::dispatch_streams_argv(
-        &argv_bytes,
-        &captured.stdout,
-        &captured.stderr,
-        captured.exit_code,
-        lossless,
-    ) && let Some(filtered) = changed_filtered_streams(output, captured, "listing")
-    {
-        return filtered;
-    }
-
-    if let Ok(output) = crate::filters::build::dispatch_streams_argv(
-        &argv_bytes,
-        &captured.stdout,
-        &captured.stderr,
-        captured.exit_code,
-        lossless,
-    ) && let Some(filtered) = changed_filtered_streams(output, captured, "build")
-    {
-        return filtered;
-    }
-
-    if let Ok(output) = crate::filters::package::dispatch_streams_argv(
-        &argv_bytes,
-        &captured.stdout,
-        &captured.stderr,
-        captured.exit_code,
-        lossless,
-    ) && let Some(filtered) = changed_filtered_streams(output, captured, "package")
-    {
-        return filtered;
-    }
-
-    if let Ok(output) = crate::filters::infra::dispatch_streams_argv(
-        &argv_bytes,
-        &captured.stdout,
-        &captured.stderr,
-        captured.exit_code,
-        lossless,
-    ) && let Some(filtered) = changed_filtered_streams(output, captured, "infra")
-    {
-        return filtered;
-    }
-
-    if let Ok(output) = crate::filters::data::dispatch_streams_argv(
-        &argv_bytes,
-        &captured.stdout,
-        &captured.stderr,
-        captured.exit_code,
-        lossless,
-    ) && let Some(filtered) = changed_filtered_streams(output, captured, "data")
-    {
-        return filtered;
-    }
-
-    if let Ok(output) = crate::filters::diagnostics::dispatch_streams_argv(
-        &argv_bytes,
-        &captured.stdout,
-        &captured.stderr,
-        captured.exit_code,
-        lossless,
-    ) && let Some(filtered) = changed_filtered_streams(output, captured, "diagnostics")
-    {
-        return filtered;
+    for filter in STREAM_FILTERS {
+        if !(filter.handles)(&argv_bytes) {
+            continue;
+        }
+        if let Ok(output) = (filter.apply)(
+            &argv_bytes,
+            &captured.stdout,
+            &captured.stderr,
+            captured.exit_code,
+            lossless,
+        ) && let Some(filtered) = changed_filtered_streams(output, captured, filter.name)
+        {
+            return filtered;
+        }
     }
 
     let result = if should_content_redispatch(argv) {

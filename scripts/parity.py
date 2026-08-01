@@ -39,17 +39,33 @@ def bytes_value(value: dict[str, str], contract: pathlib.Path) -> bytes:
 
 
 def fake_tool(bin_dir: pathlib.Path, command: str, child: dict[str, Any], contract: pathlib.Path) -> None:
+    fake_tool_bytes(
+        bin_dir,
+        command,
+        bytes_value(child["stdout"], contract),
+        bytes_value(child["stderr"], contract),
+        int(child["exit_code"]),
+    )
+
+
+def fake_tool_bytes(
+    bin_dir: pathlib.Path,
+    command: str,
+    stdout: bytes,
+    stderr: bytes,
+    exit_code: int,
+) -> None:
     stdout_path = bin_dir / "child.stdout"
     stderr_path = bin_dir / "child.stderr"
-    stdout_path.write_bytes(bytes_value(child["stdout"], contract))
-    stderr_path.write_bytes(bytes_value(child["stderr"], contract))
+    stdout_path.write_bytes(stdout)
+    stderr_path.write_bytes(stderr)
     tool = bin_dir / pathlib.PurePosixPath(command).name
     script = "\n".join(
         (
             "#!/bin/sh",
             f"/bin/cat {shlex.quote(str(stdout_path))}",
             f"/bin/cat {shlex.quote(str(stderr_path))} >&2",
-            f"exit {int(child['exit_code'])}",
+            f"exit {exit_code}",
             "",
         )
     )

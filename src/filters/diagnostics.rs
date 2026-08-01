@@ -1,4 +1,27 @@
-use super::{EvidenceClass, FilterError, StreamFilterOutput};
+use super::{
+    EvidenceClass, FilterError, StreamFilterOutput, append_line, command_basename,
+    contains_ignore_ascii_case as contains_ascii_case_insensitive, find_subslice,
+    strip_ansi_csi as strip_ansi,
+};
+
+pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
+    argv.first()
+        .copied()
+        .map(command_basename)
+        .is_some_and(|command| {
+            matches!(
+                command,
+                b"mypy"
+                    | b"ruff"
+                    | b"eslint"
+                    | b"biome"
+                    | b"pre-commit"
+                    | b"prettier"
+                    | b"terraform"
+                    | b"tofu"
+            )
+        })
+}
 
 pub fn dispatch_streams_argv(
     argv: &[&[u8]],
@@ -11,7 +34,7 @@ pub fn dispatch_streams_argv(
         return Err(FilterError::InvalidInput);
     };
     if lossless || requests_query(argv) {
-        return Ok(passthrough(stdout, stderr));
+        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
 
     let output = match command {
@@ -38,7 +61,7 @@ pub fn dispatch_streams_argv(
     };
 
     Ok(output.map_or_else(
-        || passthrough(stdout, stderr),
+        || StreamFilterOutput::passthrough(stdout, stderr),
         |(stdout, evidence)| StreamFilterOutput::new(stdout, Vec::new(), evidence),
     ))
 }
@@ -477,22 +500,6 @@ fn requests_query(argv: &[&[u8]]) -> bool {
         })
 }
 
-fn command_basename(command: &[u8]) -> &[u8] {
-    command
-        .iter()
-        .rposition(|byte| matches!(byte, b'/' | b'\\'))
-        .map_or(command, |separator| &command[separator + 1..])
-}
-
-fn passthrough(stdout: &[u8], stderr: &[u8]) -> StreamFilterOutput {
-    StreamFilterOutput::new(stdout.to_vec(), stderr.to_vec(), EvidenceClass::ByteExact)
-}
-
-fn append_line(output: &mut Vec<u8>, line: &[u8]) {
-    output.extend_from_slice(line);
-    output.push(b'\n');
-}
-
 fn append_collapsed(output: &mut Vec<u8>, line: &[u8]) {
     let mut previous_space = false;
     for byte in line {
@@ -507,44 +514,4 @@ fn append_collapsed(output: &mut Vec<u8>, line: &[u8]) {
         }
     }
     output.push(b'\n');
-}
-
-fn strip_ansi(input: &[u8]) -> Vec<u8> {
-    let mut output = Vec::with_capacity(input.len());
-    let mut cursor = 0;
-    while cursor < input.len() {
-        if input[cursor] == 0x1b && input.get(cursor + 1) == Some(&b'[') {
-            cursor += 2;
-            while cursor < input.len() {
-                let byte = input[cursor];
-                cursor += 1;
-                if (0x40..=0x7e).contains(&byte) {
-                    break;
-                }
-            }
-        } else {
-            output.push(input[cursor]);
-            cursor += 1;
-        }
-    }
-    output
-}
-
-fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    (!needle.is_empty() && needle.len() <= haystack.len())
-        .then(|| {
-            haystack
-                .windows(needle.len())
-                .position(|window| window == needle)
-        })
-        .flatten()
-}
-
-fn contains_ascii_case_insensitive(haystack: &[u8], needle: &[u8]) -> bool {
-    haystack.windows(needle.len()).any(|window| {
-        window
-            .iter()
-            .zip(needle)
-            .all(|(left, right)| left.eq_ignore_ascii_case(right))
-    })
 }

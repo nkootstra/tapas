@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use super::{EvidenceClass, FilterError, FilterOutput};
+use super::{EvidenceClass, FilterError, FilterOutput, strip_ansi};
 
 pub const THRESHOLD_BYTES: usize = 4 * 1024;
 
@@ -41,7 +41,12 @@ pub(crate) fn apply_matched(input: &[u8]) -> Result<FilterOutput, FilterError> {
     }
 
     let mut emitted = HashSet::<&[u8]>::new();
-    let mut output_lines = Vec::<Vec<u8>>::new();
+    let capacity = cleaned
+        .iter()
+        .map(|line| line.len().saturating_add(1))
+        .sum::<usize>()
+        .min(input.len());
+    let mut output = Vec::with_capacity(capacity);
     let mut previous: Option<&[u8]> = None;
     let mut pending_blank = false;
 
@@ -58,10 +63,10 @@ pub(crate) fn apply_matched(input: &[u8]) -> Result<FilterOutput, FilterError> {
         }
 
         if let Some(previous_body) = previous {
-            if pending_blank && !output_lines.is_empty() {
-                output_lines.push(Vec::new());
+            if pending_blank && !output.is_empty() {
+                output.push(b'\n');
             }
-            append_output_line(&mut output_lines, previous_body, frequencies[previous_body]);
+            append_output_line(&mut output, previous_body, frequencies[previous_body]);
         }
 
         let frequency = frequencies[body];
@@ -79,14 +84,9 @@ pub(crate) fn apply_matched(input: &[u8]) -> Result<FilterOutput, FilterError> {
     }
 
     if let Some(previous_body) = previous {
-        append_output_line(&mut output_lines, previous_body, frequencies[previous_body]);
+        append_output_line(&mut output, previous_body, frequencies[previous_body]);
     }
 
-    let mut output = Vec::with_capacity(input.len());
-    for line in output_lines {
-        output.extend_from_slice(&line);
-        output.push(b'\n');
-    }
     Ok(FilterOutput::new(output, EvidenceClass::FactComplete))
 }
 
@@ -201,58 +201,11 @@ fn collapse_whitespace(input: &[u8]) -> Vec<u8> {
     output
 }
 
-fn strip_ansi(input: &[u8]) -> Vec<u8> {
-    let mut output = Vec::with_capacity(input.len());
-    let mut index = 0;
-    while index < input.len() {
-        let Some(relative) = input[index..].iter().position(|byte| *byte == 0x1b) else {
-            output.extend_from_slice(&input[index..]);
-            break;
-        };
-        let escape = index + relative;
-        output.extend_from_slice(&input[index..escape]);
-        index = escape;
-        let Some(&kind) = input.get(index + 1) else {
-            break;
-        };
-        match kind {
-            b'[' => {
-                index += 2;
-                while index < input.len() && !(0x40..=0x7e).contains(&input[index]) {
-                    index += 1;
-                }
-                if index < input.len() {
-                    index += 1;
-                }
-            }
-            b']' => {
-                index += 2;
-                while index < input.len() {
-                    if input[index] == 0x07 {
-                        index += 1;
-                        break;
-                    }
-                    if input[index] == 0x1b && input.get(index + 1) == Some(&b'\\') {
-                        index += 2;
-                        break;
-                    }
-                    index += 1;
-                }
-            }
-            _ => index += 2,
-        }
+fn append_output_line(output: &mut Vec<u8>, line: &[u8], count: usize) {
+    output.extend_from_slice(line);
+    if count > 1 {
+        output.extend_from_slice(" ×".as_bytes());
+        output.extend_from_slice(count.to_string().as_bytes());
     }
-    output
-}
-
-fn append_output_line(output: &mut Vec<Vec<u8>>, line: &[u8], count: usize) {
-    if count <= 1 {
-        output.push(line.to_vec());
-        return;
-    }
-    let mut formatted = Vec::with_capacity(line.len() + 24);
-    formatted.extend_from_slice(line);
-    formatted.extend_from_slice(" ×".as_bytes());
-    formatted.extend_from_slice(count.to_string().as_bytes());
-    output.push(formatted);
+    output.push(b'\n');
 }
