@@ -1,4 +1,5 @@
 pub mod generic;
+pub mod git;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EvidenceClass {

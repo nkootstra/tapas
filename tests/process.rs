@@ -2,13 +2,52 @@
 
 use std::ffi::OsString;
 use std::io::Write;
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use tapas::process::invocation::{
     PassthroughReason, StreamDecision, classify, classify_stream, requests_exact_output,
 };
 use tapas::process::{RunOptions, run};
+
+static NEXT_TEMP_DIRECTORY: AtomicU64 = AtomicU64::new(0);
+
+struct FakeCommand {
+    directory: PathBuf,
+    path: PathBuf,
+}
+
+impl FakeCommand {
+    fn new(name: &str, script: &[u8]) -> Self {
+        let sequence = NEXT_TEMP_DIRECTORY.fetch_add(1, Ordering::Relaxed);
+        let directory = std::env::temp_dir().join(format!(
+            "tapas-process-test-{}-{sequence}",
+            std::process::id()
+        ));
+        std::fs::create_dir(&directory).expect("create fake command directory");
+        let path = directory.join(name);
+        std::fs::write(&path, script).expect("write fake command");
+        let mut permissions = std::fs::metadata(&path)
+            .expect("read fake command metadata")
+            .permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&path, permissions).expect("make fake command executable");
+        Self { directory, path }
+    }
+
+    fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl Drop for FakeCommand {
+    fn drop(&mut self) {
+        std::fs::remove_dir_all(&self.directory).expect("remove fake command directory");
+    }
+}
 
 fn tapas(args: &[&str], stdin: &[u8], env: &[(&str, &str)]) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_tapas"));
@@ -325,4 +364,52 @@ fn explain_reports_the_process_outcome_without_state_claims() {
     let stderr = String::from_utf8(output.stderr).expect("UTF-8 explain output");
     assert!(stderr.contains("(tapas explain: filter=passthrough"));
     assert!(stderr.contains("exit=0 history=not-recorded)"));
+}
+
+#[test]
+fn git_wrapper_dispatch_compacts_success_and_preserves_failed_streams() {
+    let git = FakeCommand::new(
+        "git",
+        b"#!/bin/sh\n\
+          if [ \"$1\" = checkout ]; then\n\
+            printf \"Switched to branch 'feature-x'\\n\" >&2\n\
+            exit 0\n\
+          fi\n\
+          printf 'failed stdout\\n'\n\
+          printf 'failed stderr\\n' >&2\n\
+          exit 7\n",
+    );
+
+    let success_args = [
+        git.path().as_os_str().to_owned(),
+        OsString::from("checkout"),
+    ];
+    let mut success_stdout = Vec::new();
+    let mut success_stderr = Vec::new();
+    let success = run(
+        &success_args,
+        &mut success_stdout,
+        &mut success_stderr,
+        RunOptions::default(),
+    )
+    .expect("run successful Git command");
+    assert_eq!(success.exit_code, 0);
+    assert_eq!(success.filter_name, "git");
+    assert_eq!(success_stdout, b"^ feature-x\n");
+    assert!(success_stderr.is_empty());
+
+    let failure_args = [git.path().as_os_str().to_owned(), OsString::from("status")];
+    let mut failure_stdout = Vec::new();
+    let mut failure_stderr = Vec::new();
+    let failure = run(
+        &failure_args,
+        &mut failure_stdout,
+        &mut failure_stderr,
+        RunOptions::default(),
+    )
+    .expect("run failed Git command");
+    assert_eq!(failure.exit_code, 7);
+    assert_eq!(failure.filter_name, "passthrough");
+    assert_eq!(failure_stdout, b"failed stdout\n");
+    assert_eq!(failure_stderr, b"failed stderr\n");
 }
