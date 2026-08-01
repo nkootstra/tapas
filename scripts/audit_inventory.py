@@ -139,6 +139,33 @@ def main() -> int:
     inventory = load(args.contract / "inventory.json")
     cases_doc = load(args.contract / "cases.json")
     manifest = load(args.contract / "fixture-manifest.json")
+    benchmark_path = args.contract / "benchmark-cases.json"
+    benchmark_source = next(
+        (
+            source
+            for source in inventory.get("coverage_sources", [])
+            if source.get("path") == "benchmarks/smll-vs-rtk/cases.json"
+        ),
+        None,
+    )
+    if benchmark_source is None:
+        errors.append("historical benchmark is not a pinned coverage source")
+    elif not benchmark_path.is_file():
+        errors.append(f"historical benchmark is missing: {benchmark_path}")
+    elif hashlib.sha256(benchmark_path.read_bytes()).hexdigest() != benchmark_source.get("sha256"):
+        errors.append("historical benchmark drifted from its pinned source blob")
+    baseline_path = args.contract / "benchmark-baseline.json"
+    if not baseline_path.is_file():
+        errors.append(f"historical benchmark baseline is missing: {baseline_path}")
+    elif benchmark_path.is_file():
+        baseline = load(baseline_path)
+        benchmark = load(benchmark_path)
+        if baseline.get("corpus_sha256") != hashlib.sha256(benchmark_path.read_bytes()).hexdigest():
+            errors.append("historical benchmark baseline references a different corpus")
+        if {record.get("name") for record in baseline.get("records", [])} != {
+            case.get("name") for case in benchmark.get("cases", [])
+        }:
+            errors.append("historical benchmark baseline case membership drifted")
     if args.rust_catalog:
         if not args.rust_catalog.is_file():
             errors.append(f"generated Rust catalog is missing: {args.rust_catalog}")

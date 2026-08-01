@@ -1,0 +1,1579 @@
+{
+  "corpus_sha256": "86e20d72a72c512a0146c718ba8bcbe45fa6331d89227bb1bd9301b1e0a0dd43",
+  "records": [
+    {
+      "combined_sha256": "6fd71c93c81d7bba1fade73cc0e5c330ca9d37d60987e46031f9eeba5b71a774",
+      "command": [
+        "git",
+        "status"
+      ],
+      "exit_result": 0,
+      "name": "git-status-dirty",
+      "proxy_tokens": 37,
+      "stderr_bytes": 0,
+      "stdout_bytes": 121,
+      "visible_facts": [
+        "src/main.zig",
+        "src/pipeline.zig"
+      ]
+    },
+    {
+      "combined_sha256": "c481da0d2469f6b25440b22b30f73db836e9b7ac3eba535a2742be5dc691bceb",
+      "command": [
+        "git",
+        "status"
+      ],
+      "exit_result": 0,
+      "name": "git-status-large",
+      "proxy_tokens": 62,
+      "stderr_bytes": 0,
+      "stdout_bytes": 167,
+      "visible_facts": [
+        "src/components/comp_01.rs"
+      ]
+    },
+    {
+      "combined_sha256": "4d9f61abd5a764f486eab1b79f882aaf7bda044c6e370d2e4f9123fe33834e48",
+      "command": [
+        "git",
+        "diff"
+      ],
+      "exit_result": 0,
+      "name": "git-diff-simple",
+      "proxy_tokens": 22,
+      "stderr_bytes": 0,
+      "stdout_bytes": 52,
+      "visible_facts": [
+        "line two",
+        "line three"
+      ]
+    },
+    {
+      "combined_sha256": "b6beaa53fd5fc576fae676190a61c040f45e244b1bf46d1ca411cc4125cc10dd",
+      "command": [
+        "git",
+        "diff"
+      ],
+      "exit_result": 0,
+      "name": "git-diff-large",
+      "proxy_tokens": 1323,
+      "stderr_bytes": 0,
+      "stdout_bytes": 3627,
+      "visible_facts": [
+        "dirty_tuning_01",
+        "dirty_tuning_05"
+      ]
+    },
+    {
+      "combined_sha256": "4925b01e74a0bf4d868ed8a1a531600e165449e08bb007cb7cbd26b643be1620",
+      "command": [
+        "git",
+        "log"
+      ],
+      "exit_result": 0,
+      "name": "git-log-linear",
+      "proxy_tokens": 32,
+      "stderr_bytes": 0,
+      "stdout_bytes": 89,
+      "visible_facts": [
+        "fix: third line",
+        "feat: extend a.txt"
+      ]
+    },
+    {
+      "combined_sha256": "7d204acf62c379bb408da85359f8e62bd324b5e0bb1bf7c1bbd01e278497e9c6",
+      "command": [
+        "git",
+        "log"
+      ],
+      "exit_result": 0,
+      "name": "git-log-large",
+      "proxy_tokens": 719,
+      "stderr_bytes": 0,
+      "stdout_bytes": 2389,
+      "visible_facts": [
+        "BENCH-FINAL",
+        "BENCH-30"
+      ]
+    },
+    {
+      "combined_sha256": "f46d6954336b0be68672dd747d90585833785d4f91f155d1d5da78731887eaf4",
+      "command": [
+        "git",
+        "log",
+        "--stat"
+      ],
+      "exit_result": 0,
+      "name": "git-log-stat",
+      "proxy_tokens": 170,
+      "stderr_bytes": 0,
+      "stdout_bytes": 476,
+      "visible_facts": [
+        "abcdef0",
+        "round 8 updates",
+        "src/core/",
+        "src/ui/",
+        "14 files changed",
+        "Refs: SMLL-42",
+        "src/{old_name.zig => name.zig}"
+      ]
+    },
+    {
+      "combined_sha256": "f6ccfa52d992b0e2b16e5fcdab239b9e481bf44e4dd79a30cff3d87c8c3320bf",
+      "command": [
+        "git",
+        "show"
+      ],
+      "exit_result": 0,
+      "name": "git-show-simple",
+      "proxy_tokens": 48,
+      "stderr_bytes": 0,
+      "stdout_bytes": 158,
+      "visible_facts": [
+        "feat: extend a.txt",
+        "line2"
+      ]
+    },
+    {
+      "combined_sha256": "a6ec470aa1937ae63eade28042a5d64f65370b551853f8e12035ec31505e8877",
+      "command": [
+        "git",
+        "show"
+      ],
+      "exit_result": 0,
+      "name": "git-show-large",
+      "proxy_tokens": 957,
+      "stderr_bytes": 0,
+      "stdout_bytes": 2482,
+      "visible_facts": [
+        "BENCH-FINAL",
+        "MOD_01_FINALE_VERSION"
+      ]
+    },
+    {
+      "combined_sha256": "a87166c5634af3c4806838a56480552a9e1a0189420ba24ca51dd44feb6a3259",
+      "command": [
+        "git",
+        "show",
+        "--stat"
+      ],
+      "exit_result": 0,
+      "name": "git-show-stat",
+      "proxy_tokens": 89,
+      "stderr_bytes": 0,
+      "stdout_bytes": 263,
+      "visible_facts": [
+        "c3d4e5f",
+        "fix: preserve failed test evidence",
+        "tests/fixtures/",
+        "9 files changed",
+        "Refs: SMLL-77",
+        "tests/{old_fail.txt => new_fail.txt}"
+      ]
+    },
+    {
+      "combined_sha256": "b53ade50cb224427651f0b1b7094143028531dc558683eb6d33ffae06e9b6f65",
+      "command": [
+        "git",
+        "blame",
+        "src/main.zig"
+      ],
+      "exit_result": 0,
+      "name": "git-blame-simple",
+      "proxy_tokens": 108,
+      "stderr_bytes": 0,
+      "stdout_bytes": 390,
+      "visible_facts": [
+        "configure_logging"
+      ]
+    },
+    {
+      "combined_sha256": "cc916467da4a49ccd23c560ace165375808035a1697fd151a598e2b63f1a9c37",
+      "command": [
+        "git",
+        "blame",
+        "src/blamed_module.rs"
+      ],
+      "exit_result": 0,
+      "name": "git-blame-large",
+      "proxy_tokens": 2247,
+      "stderr_bytes": 0,
+      "stdout_bytes": 4815,
+      "visible_facts": [
+        "blamed_fn_001",
+        "blamed_fn_191"
+      ]
+    },
+    {
+      "combined_sha256": "db76a9921097817fe448eb15324d410c668796e38fd782ee6ff674847a255f4e",
+      "command": [
+        "git",
+        "merge",
+        "feature"
+      ],
+      "exit_result": 1,
+      "name": "git-merge-conflict",
+      "proxy_tokens": 30,
+      "stderr_bytes": 0,
+      "stdout_bytes": 143,
+      "visible_facts": [
+        "conflict.txt"
+      ]
+    },
+    {
+      "combined_sha256": "c9bbae94be4f8c6150f82b3c17004f23ff0cda4a4734b01f40022b09fd04599f",
+      "command": [
+        "git",
+        "merge",
+        "feature/large"
+      ],
+      "exit_result": 0,
+      "name": "git-merge-large",
+      "proxy_tokens": 23,
+      "stderr_bytes": 0,
+      "stdout_bytes": 49,
+      "visible_facts": [
+        "src/"
+      ]
+    },
+    {
+      "combined_sha256": "e5158d1ecc6536c8e7ec984b02a9ac046169e72098e017f50cf4d46b268b9c80",
+      "command": [
+        "git",
+        "rebase",
+        "main"
+      ],
+      "exit_result": 0,
+      "name": "git-rebase-large",
+      "proxy_tokens": 9,
+      "stderr_bytes": 0,
+      "stdout_bytes": 30,
+      "visible_facts": [
+        "large-rebase-branch"
+      ]
+    },
+    {
+      "combined_sha256": "2edb9f9e8744bb310dc612726a0a6437053c6d9c2243ca634d579231eea6e4ea",
+      "command": [
+        "git",
+        "push",
+        "--all"
+      ],
+      "exit_result": 1,
+      "name": "git-push-large",
+      "proxy_tokens": 302,
+      "stderr_bytes": 0,
+      "stdout_bytes": 896,
+      "visible_facts": [
+        "fix-3",
+        "non-fast-forward"
+      ]
+    },
+    {
+      "combined_sha256": "23c0eac8b16461177ba59898d046d66d9ec123ead02b55b5eef984e5c8e9c262",
+      "command": [
+        "git",
+        "commit"
+      ],
+      "exit_result": 0,
+      "name": "git-commit-large",
+      "proxy_tokens": 37,
+      "stderr_bytes": 0,
+      "stdout_bytes": 117,
+      "visible_facts": [
+        "feat(large)",
+        "src/generated/"
+      ]
+    },
+    {
+      "combined_sha256": "9141c3c67931191bcba3d7d644b1372af85c45ac5a638a3341eef5fb75808a8b",
+      "command": [
+        "git",
+        "branch"
+      ],
+      "exit_result": 0,
+      "name": "git-branch-list",
+      "proxy_tokens": 9,
+      "stderr_bytes": 0,
+      "stdout_bytes": 29,
+      "visible_facts": [
+        "* main",
+        "feature-x"
+      ]
+    },
+    {
+      "combined_sha256": "22c8289068b41e9102c69deec4c012d425a2874726d25c7e028412fdfbf759fa",
+      "command": [
+        "git",
+        "stash",
+        "list"
+      ],
+      "exit_result": 0,
+      "name": "git-stash-list",
+      "proxy_tokens": 24,
+      "stderr_bytes": 0,
+      "stdout_bytes": 70,
+      "visible_facts": [
+        "fixture stash entry 2"
+      ]
+    },
+    {
+      "combined_sha256": "79690867fa2800f826bb1f7ab615725a4d28eec66ea948725b55ba284ee4e067",
+      "command": [
+        "git",
+        "reflog"
+      ],
+      "exit_result": 0,
+      "name": "git-reflog",
+      "proxy_tokens": 209,
+      "stderr_bytes": 0,
+      "stdout_bytes": 714,
+      "visible_facts": [
+        "chore: release v1.2.5"
+      ]
+    },
+    {
+      "combined_sha256": "8472f91bbacf2c280ecdbf1575ece3a6550a765244369ea0e4646ae380968399",
+      "command": [
+        "cargo",
+        "test"
+      ],
+      "exit_result": 101,
+      "name": "cargo-test-failing",
+      "proxy_tokens": 125,
+      "stderr_bytes": 0,
+      "stdout_bytes": 397,
+      "visible_facts": [
+        "tests::div_by_zero",
+        "tests::edge_overflow"
+      ]
+    },
+    {
+      "combined_sha256": "3f8b29e818c12a3c56a97988f5a982b20bc2ae9528496fbf358714aca35bf3c6",
+      "command": [
+        "cargo",
+        "build"
+      ],
+      "exit_result": 0,
+      "name": "cargo-build-warning",
+      "proxy_tokens": 76,
+      "stderr_bytes": 0,
+      "stdout_bytes": 253,
+      "visible_facts": [
+        "unused variable",
+        "Finished dev"
+      ]
+    },
+    {
+      "combined_sha256": "3f8b29e818c12a3c56a97988f5a982b20bc2ae9528496fbf358714aca35bf3c6",
+      "command": [
+        "cargo",
+        "check"
+      ],
+      "exit_result": 0,
+      "name": "cargo-check-warning",
+      "proxy_tokens": 76,
+      "stderr_bytes": 0,
+      "stdout_bytes": 253,
+      "visible_facts": [
+        "unused variable",
+        "Finished dev"
+      ]
+    },
+    {
+      "combined_sha256": "3f8b29e818c12a3c56a97988f5a982b20bc2ae9528496fbf358714aca35bf3c6",
+      "command": [
+        "cargo",
+        "clippy"
+      ],
+      "exit_result": 0,
+      "name": "cargo-clippy-warning",
+      "proxy_tokens": 76,
+      "stderr_bytes": 0,
+      "stdout_bytes": 253,
+      "visible_facts": [
+        "unused variable",
+        "Finished dev"
+      ]
+    },
+    {
+      "combined_sha256": "f87372ba1aef2acf23fd4a21833c199a91c2717952b88e4f1f8d5c9da5cdbd99",
+      "command": [
+        "cargo",
+        "build"
+      ],
+      "exit_result": 0,
+      "name": "cargo-build-large",
+      "proxy_tokens": 129,
+      "stderr_bytes": 0,
+      "stdout_bytes": 421,
+      "visible_facts": [
+        "warning: unused import",
+        "error[E0308]"
+      ]
+    },
+    {
+      "combined_sha256": "e8af16a74e29a1b38f51cbb52a83fbcef96f4cc5630d99a3ea1d26a2807d1bab",
+      "command": [
+        "cargo",
+        "build",
+        "-vv"
+      ],
+      "exit_result": 0,
+      "name": "cargo-build-verbose-large",
+      "proxy_tokens": 13822,
+      "stderr_bytes": 0,
+      "stdout_bytes": 58871,
+      "visible_facts": [
+        "warning: unused import"
+      ]
+    },
+    {
+      "combined_sha256": "cadbadf7afcfc1d575c540db419687086314dee6b260abddb7b6db27cd25dd5a",
+      "command": [
+        "make"
+      ],
+      "exit_result": 0,
+      "name": "make-build-warning",
+      "proxy_tokens": 43,
+      "stderr_bytes": 0,
+      "stdout_bytes": 131,
+      "visible_facts": [
+        "unused variable"
+      ]
+    },
+    {
+      "combined_sha256": "fb44668510c22546b1a2f047177e9d1193a4932df798c19426336027255fcc3f",
+      "command": [
+        "make"
+      ],
+      "exit_result": 0,
+      "name": "make-build-large",
+      "proxy_tokens": 88,
+      "stderr_bytes": 0,
+      "stdout_bytes": 289,
+      "visible_facts": []
+    },
+    {
+      "combined_sha256": "18a3825673fac1cae7487d8e2ea689f4c9bca4baecf77966531e6a0d66a058f3",
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "exit_result": 0,
+      "name": "vite-build",
+      "proxy_tokens": 186,
+      "stderr_bytes": 0,
+      "stdout_bytes": 605,
+      "visible_facts": [
+        "vendor-react",
+        "Some chunks are larger",
+        "built in 12.34s"
+      ]
+    },
+    {
+      "combined_sha256": "8181bf56e4f2ee9c58444cbd9e704c47f60260d63af69155999cd3ccd61742dd",
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "exit_result": 0,
+      "name": "next-build",
+      "proxy_tokens": 384,
+      "stderr_bytes": 0,
+      "stdout_bytes": 1395,
+      "visible_facts": [
+        "/dashboard",
+        "no-unused-vars",
+        "First Load JS"
+      ]
+    },
+    {
+      "combined_sha256": "60613f1c0630a6b4e729f1026d98df24abf001672fa6d8dcd16697f6480c4dbc",
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "exit_result": 0,
+      "name": "nuxt-build",
+      "proxy_tokens": 242,
+      "stderr_bytes": 0,
+      "stdout_bytes": 664,
+      "visible_facts": [
+        "Client built",
+        "Server built",
+        "Total size"
+      ]
+    },
+    {
+      "combined_sha256": "cc162a275c595bdc1088225059f67521e03e63c5ed3f5d51f84e0ff63f90cf44",
+      "command": [
+        "webpack"
+      ],
+      "exit_result": 0,
+      "name": "webpack-build",
+      "proxy_tokens": 40,
+      "stderr_bytes": 0,
+      "stdout_bytes": 131,
+      "visible_facts": [
+        "bundle.js",
+        "webpack 5.107.2 compiled successfully"
+      ]
+    },
+    {
+      "combined_sha256": "09cfbdd6111cad9d2230d6ba81fa746e7a1de01316f574e6fabf9840af2246f6",
+      "command": [
+        "ninja"
+      ],
+      "exit_result": 0,
+      "name": "ninja-build",
+      "proxy_tokens": 55,
+      "stderr_bytes": 0,
+      "stdout_bytes": 193,
+      "visible_facts": [
+        "unused variable"
+      ]
+    },
+    {
+      "combined_sha256": "fe8f904ba5e0d749ad02f101478c840d943d886c98d85bdaa415c7ea25f876d5",
+      "command": [
+        "jest"
+      ],
+      "exit_result": 1,
+      "name": "jest-failing",
+      "proxy_tokens": 149,
+      "stderr_bytes": 0,
+      "stdout_bytes": 550,
+      "visible_facts": [
+        "Button component",
+        "Network timeout"
+      ]
+    },
+    {
+      "combined_sha256": "45aca39dc3b1ce3d27a7f4662249cbbacf41b251d6c10d065ba41e5b06b8786b",
+      "command": [
+        "node",
+        "--test"
+      ],
+      "exit_result": 1,
+      "name": "node-test-failing",
+      "proxy_tokens": 286,
+      "stderr_bytes": 0,
+      "stdout_bytes": 894,
+      "visible_facts": [
+        "divides by zero",
+        "AssertionError"
+      ]
+    },
+    {
+      "combined_sha256": "8a149ce237140252674cdd1b8bc8e11a2a35471ae396d297c97bc0e5a494b067",
+      "command": [
+        "mocha"
+      ],
+      "exit_result": 1,
+      "name": "mocha-failing",
+      "proxy_tokens": 92,
+      "stderr_bytes": 0,
+      "stdout_bytes": 348,
+      "visible_facts": [
+        "divides by zero",
+        "AssertionError"
+      ]
+    },
+    {
+      "combined_sha256": "3483f704623ab45db4431725cd7c8a88e2b364d4c2a3f0f5ccd77ec46ee16b3b",
+      "command": [
+        "pytest",
+        "-v"
+      ],
+      "exit_result": 1,
+      "name": "pytest-failing",
+      "proxy_tokens": 206,
+      "stderr_bytes": 0,
+      "stdout_bytes": 700,
+      "visible_facts": [
+        "tests/test_api.py::test_login_flow",
+        "401"
+      ]
+    },
+    {
+      "combined_sha256": "731ca58bb2bcc308f88450234ff7d46b3a3a67881a42842ffa0c0c17f47d8c75",
+      "command": [
+        "go",
+        "test",
+        "-v"
+      ],
+      "exit_result": 1,
+      "name": "go-test-failing",
+      "proxy_tokens": 73,
+      "stderr_bytes": 0,
+      "stdout_bytes": 188,
+      "visible_facts": [
+        "TestDivide",
+        "sqrt(-1)"
+      ]
+    },
+    {
+      "combined_sha256": "e6e7d14068ce077530f402395351db7ad77f36ef0dc5d8b2ab60dbcf9e574fda",
+      "command": [
+        "tsc",
+        "--noEmit",
+        "--pretty",
+        "false"
+      ],
+      "exit_result": 2,
+      "name": "tsc-errors",
+      "proxy_tokens": 133,
+      "stderr_bytes": 0,
+      "stdout_bytes": 459,
+      "visible_facts": [
+        "TS2322",
+        "src/api/client.ts"
+      ]
+    },
+    {
+      "combined_sha256": "e97fb92a6b4c049e6f6145ddb267d380d6818d10e9f6e34bfdd493f24fc6fc38",
+      "command": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "exit_result": 1,
+      "name": "go-build-large",
+      "proxy_tokens": 53,
+      "stderr_bytes": 0,
+      "stdout_bytes": 200,
+      "visible_facts": [
+        "internal/auth/token.go",
+        "declared and not used"
+      ]
+    },
+    {
+      "combined_sha256": "fa542f32420bbca1164fa8b620a4313d2e32d49975142fc1a4b778238816ceac",
+      "command": [
+        "dotnet",
+        "build"
+      ],
+      "exit_result": 1,
+      "name": "dotnet-build-failed",
+      "proxy_tokens": 41,
+      "stderr_bytes": 0,
+      "stdout_bytes": 125,
+      "visible_facts": [
+        "CS1002",
+        "Build FAILED"
+      ]
+    },
+    {
+      "combined_sha256": "a64301dd15ced12a7ad187758cb2a5c3b3ad7845d6180e4012b1c944915f753b",
+      "command": [
+        "dotnet",
+        "test"
+      ],
+      "exit_result": 1,
+      "name": "dotnet-test-failed",
+      "proxy_tokens": 137,
+      "stderr_bytes": 0,
+      "stdout_bytes": 429,
+      "visible_facts": [
+        "CalculatorTests.Subtract",
+        "Assert.Equal"
+      ]
+    },
+    {
+      "combined_sha256": "3e529ac563ae87267657e77ae9a7e7aa77a71b8adb27315e9242a48dde758964",
+      "command": [
+        "gradle",
+        "build"
+      ],
+      "exit_result": 1,
+      "name": "gradle-build-failed",
+      "proxy_tokens": 123,
+      "stderr_bytes": 0,
+      "stdout_bytes": 474,
+      "visible_facts": [
+        "compileDebugKotlin",
+        "Unresolved reference"
+      ]
+    },
+    {
+      "combined_sha256": "2cdeea78d159d5d86dd4785712d7afbe1d6da00375d117d001edd2fc96565f28",
+      "command": [
+        "gradle",
+        "test"
+      ],
+      "exit_result": 1,
+      "name": "gradle-test-failed",
+      "proxy_tokens": 162,
+      "stderr_bytes": 0,
+      "stdout_bytes": 648,
+      "visible_facts": [
+        "testSubtraction",
+        "2 failed"
+      ]
+    },
+    {
+      "combined_sha256": "4ab28d51fe390fcb73df52c826c8716a52b557e17162bc2c39835c8194e27258",
+      "command": [
+        "gcc",
+        "-c",
+        "main.c"
+      ],
+      "exit_result": 1,
+      "name": "gcc-error",
+      "proxy_tokens": 77,
+      "stderr_bytes": 0,
+      "stdout_bytes": 282,
+      "visible_facts": [
+        "undeclared identifier",
+        "unused variable"
+      ]
+    },
+    {
+      "combined_sha256": "b9bd67571397d27cc313278b0a255199570573c021621232d402dca3bade7240",
+      "command": [
+        "terraform",
+        "plan"
+      ],
+      "exit_result": 0,
+      "name": "terraform-plan",
+      "proxy_tokens": 42,
+      "stderr_bytes": 0,
+      "stdout_bytes": 159,
+      "visible_facts": [
+        "aws_instance.web",
+        "Plan: 1"
+      ]
+    },
+    {
+      "combined_sha256": "3c4e23185e8a26a865c3fe55240652a29922074f740a18777ab56144178fa6b3",
+      "command": [
+        "mvn",
+        "package"
+      ],
+      "exit_result": 1,
+      "name": "mvn-build-failed",
+      "proxy_tokens": 38,
+      "stderr_bytes": 0,
+      "stdout_bytes": 121,
+      "visible_facts": [
+        "cannot find symbol",
+        "BUILD FAILURE"
+      ]
+    },
+    {
+      "combined_sha256": "df7a19bd758ae78911ecd68a648b166572d56e57d3eb91432d4473541ed5a4d5",
+      "command": [
+        "turbo",
+        "run",
+        "lint"
+      ],
+      "exit_result": 1,
+      "name": "turbo-error",
+      "proxy_tokens": 21,
+      "stderr_bytes": 0,
+      "stdout_bytes": 54,
+      "visible_facts": [
+        "myapp:lint",
+        "TS2304"
+      ]
+    },
+    {
+      "combined_sha256": "de49aef04c9d7c9bffb704d52bc6afc3fc38acedaaa8288368ccce082ec96750",
+      "command": [
+        "pre-commit",
+        "run",
+        "--all-files"
+      ],
+      "exit_result": 1,
+      "name": "pre-commit-failed",
+      "proxy_tokens": 26,
+      "stderr_bytes": 0,
+      "stdout_bytes": 71,
+      "visible_facts": [
+        "Check Yaml",
+        "exit code: 1"
+      ]
+    },
+    {
+      "combined_sha256": "40754ae9172ff1bca286e6254b52fb6991ee617017f9cb42453ab54a5df698bf",
+      "command": [
+        "uv",
+        "pip",
+        "install",
+        "-r",
+        "requirements.txt"
+      ],
+      "exit_result": 0,
+      "name": "uv-pip-install",
+      "proxy_tokens": 58,
+      "stderr_bytes": 0,
+      "stdout_bytes": 132,
+      "visible_facts": [
+        "Installed 5 packages",
+        "requests==2.31.0"
+      ]
+    },
+    {
+      "combined_sha256": "f024037afd7eb45ec4b929a14e9a3f9855bcf76cf1f0c3a8ca826ea6c7f474fa",
+      "command": [
+        "docker",
+        "ps"
+      ],
+      "exit_result": 0,
+      "name": "docker-ps",
+      "proxy_tokens": 25,
+      "stderr_bytes": 0,
+      "stdout_bytes": 81,
+      "visible_facts": [
+        "helios-assistant",
+        "helios-mysql"
+      ]
+    },
+    {
+      "combined_sha256": "0f7dcb034273213c17c53939878542d4e50b628b9045ec22180fc1fd6cbb6ef0",
+      "command": [
+        "docker",
+        "images"
+      ],
+      "exit_result": 0,
+      "name": "docker-images",
+      "proxy_tokens": 165,
+      "stderr_bytes": 0,
+      "stdout_bytes": 375,
+      "visible_facts": [
+        "postgres"
+      ]
+    },
+    {
+      "combined_sha256": "ff68928a3f5de030f24bcec3aaa847571a8e16994dd9be0136783c820ed733c8",
+      "command": [
+        "docker",
+        "compose",
+        "ps"
+      ],
+      "exit_result": 0,
+      "name": "docker-compose-ps",
+      "proxy_tokens": 19,
+      "stderr_bytes": 0,
+      "stdout_bytes": 46,
+      "visible_facts": [
+        "smll_d4_fixture-echoer-1",
+        "node:24-alpine"
+      ]
+    },
+    {
+      "combined_sha256": "9109ee1c2e7914e935b901365c5962898cf178b0431038c1d2b6855c5b01675e",
+      "command": [
+        "kubectl",
+        "get",
+        "pods"
+      ],
+      "exit_result": 0,
+      "name": "kubectl-get-pods",
+      "proxy_tokens": 106,
+      "stderr_bytes": 0,
+      "stdout_bytes": 240,
+      "visible_facts": [
+        "redis-master-0",
+        "cert-manager"
+      ]
+    },
+    {
+      "combined_sha256": "7d60a612f3031c76d44a8f5ccb85fbf615607a46d877575a8b309842f4463c5a",
+      "command": [
+        "ps",
+        "aux"
+      ],
+      "exit_result": 0,
+      "name": "ps-aux",
+      "proxy_tokens": 427,
+      "stderr_bytes": 0,
+      "stdout_bytes": 819,
+      "visible_facts": [
+        "Safari",
+        "tail -f"
+      ]
+    },
+    {
+      "combined_sha256": "d83539f3f9d0fc2c851056e487749d40a33b41684dc3554d8f3903c70401a1d0",
+      "command": [
+        "ps",
+        "auxww"
+      ],
+      "exit_result": 0,
+      "name": "ps-auxww-large",
+      "proxy_tokens": 147,
+      "stderr_bytes": 0,
+      "stdout_bytes": 340,
+      "visible_facts": [
+        "gunicorn"
+      ]
+    },
+    {
+      "combined_sha256": "5b32123a1c247d9f2dae7685973b607a51cb66333f1ac0be6598c40eec336a9a",
+      "command": [
+        "gh",
+        "pr",
+        "list"
+      ],
+      "exit_result": 0,
+      "name": "gh-pr-list",
+      "proxy_tokens": 192,
+      "stderr_bytes": 0,
+      "stdout_bytes": 867,
+      "visible_facts": [
+        "#142",
+        "feat/auth"
+      ]
+    },
+    {
+      "combined_sha256": "9dccb22a6e55bb851b3cdbce42c6ee37842eba1aab861fae35c2d8bd048ede49",
+      "command": [
+        "gh",
+        "run",
+        "list"
+      ],
+      "exit_result": 0,
+      "name": "gh-run-list",
+      "proxy_tokens": 103,
+      "stderr_bytes": 0,
+      "stdout_bytes": 402,
+      "visible_facts": [
+        "release size gate",
+        "failure"
+      ]
+    },
+    {
+      "combined_sha256": "c3a4193de6786270babd527e478675cb18a47371385e9456910164abcb06a168",
+      "command": [
+        "rg",
+        "--files"
+      ],
+      "exit_result": 0,
+      "name": "rg-files",
+      "proxy_tokens": 147,
+      "stderr_bytes": 0,
+      "stdout_bytes": 455,
+      "visible_facts": [
+        "src/pipeline.zig",
+        "git_status.zig"
+      ]
+    },
+    {
+      "combined_sha256": "49e135254e2c9108e29c3eb9dcc2e612deb552be2b10757b17a73d150f889f59",
+      "command": [
+        "find",
+        ".",
+        "-ls"
+      ],
+      "exit_result": 0,
+      "name": "find-ls",
+      "proxy_tokens": 162,
+      "stderr_bytes": 0,
+      "stdout_bytes": 398,
+      "visible_facts": [
+        "./src/main.zig"
+      ]
+    },
+    {
+      "combined_sha256": "82b40ef49196462ba7430c5d45e98a2f159a52555195ceb3fd8281a4a5fe5afd",
+      "command": [
+        "find",
+        "."
+      ],
+      "exit_result": 0,
+      "name": "find-plain-many",
+      "proxy_tokens": 107,
+      "stderr_bytes": 0,
+      "stdout_bytes": 354,
+      "visible_facts": [
+        "src/core/",
+        "12 entries",
+        "README.md"
+      ]
+    },
+    {
+      "combined_sha256": "8eb63a5545df4122d133e002250513244767df0ab4bc534483f78d0b79693e16",
+      "command": [
+        "find",
+        ".",
+        "-ls"
+      ],
+      "exit_result": 0,
+      "name": "find-ls-large",
+      "proxy_tokens": 19617,
+      "stderr_bytes": 0,
+      "stdout_bytes": 47086,
+      "visible_facts": [
+        "./src/filters/",
+        "./benchmarks/"
+      ]
+    },
+    {
+      "combined_sha256": "220c89f069d189133920cb77af283adbdf9194c2bef47def1e5cf2dec5e6d817",
+      "command": [
+        "du",
+        "-sh",
+        "."
+      ],
+      "exit_result": 0,
+      "name": "du-sh",
+      "proxy_tokens": 41,
+      "stderr_bytes": 0,
+      "stdout_bytes": 79,
+      "visible_facts": [
+        "./node_modules",
+        "5G"
+      ]
+    },
+    {
+      "combined_sha256": "a8b8be17ab96d0c55b0383a8a7f6087cbd2ceb659f797594ab84b6123f97a17c",
+      "command": [
+        "du",
+        "-sh",
+        "."
+      ],
+      "exit_result": 0,
+      "name": "du-sh-large",
+      "proxy_tokens": 163,
+      "stderr_bytes": 0,
+      "stdout_bytes": 379,
+      "visible_facts": [
+        "pkg15",
+        "19G"
+      ]
+    },
+    {
+      "combined_sha256": "fc2c7e2ed27ecc4140d3c5eaca0267d8389ce7a3e37f65638c6083565c4d6896",
+      "command": [
+        "ls",
+        "-la"
+      ],
+      "exit_result": 0,
+      "name": "ls-la",
+      "proxy_tokens": 183,
+      "stderr_bytes": 0,
+      "stdout_bytes": 389,
+      "visible_facts": [
+        "main.zig",
+        "pipeline.zig"
+      ]
+    },
+    {
+      "combined_sha256": "ab02acf4ed73efa31229eec65bb1a39975cc8371ddf5d142a1b54462798112e3",
+      "command": [
+        "ls"
+      ],
+      "exit_result": 0,
+      "name": "ls-plain-columns",
+      "proxy_tokens": 82,
+      "stderr_bytes": 0,
+      "stdout_bytes": 242,
+      "visible_facts": [
+        "filter_catalog.zig",
+        "main.zig"
+      ]
+    },
+    {
+      "combined_sha256": "f2c554a173244fc62758b2a7d09d6b4e7b71661d8382e0e3ab05e1d779c72c36",
+      "command": [
+        "ls",
+        "-m"
+      ],
+      "exit_result": 0,
+      "name": "ls-comma",
+      "proxy_tokens": 78,
+      "stderr_bytes": 0,
+      "stdout_bytes": 231,
+      "visible_facts": [
+        "filter_catalog.zig",
+        "main.zig"
+      ]
+    },
+    {
+      "combined_sha256": "4f07a55911cded3c6daec740e22faf8bdcf7487840bf9e3f9e3f483b51f1ce34",
+      "command": [
+        "ls",
+        "docs",
+        "src"
+      ],
+      "exit_result": 0,
+      "name": "ls-multi-dir",
+      "proxy_tokens": 48,
+      "stderr_bytes": 0,
+      "stdout_bytes": 160,
+      "visible_facts": [
+        "filter_catalog.zig"
+      ]
+    },
+    {
+      "combined_sha256": "736a6a20caf91a67aa75f07d2072fade40c951a51e58322a62b780b68f76e6c4",
+      "command": [
+        "ls",
+        "-R",
+        "src"
+      ],
+      "exit_result": 0,
+      "name": "ls-recursive",
+      "proxy_tokens": 46,
+      "stderr_bytes": 0,
+      "stdout_bytes": 132,
+      "visible_facts": []
+    },
+    {
+      "combined_sha256": "cbf1535bb160b071a2430e61b0758a4870a1e0b26e585b389f577a634cc59f0f",
+      "command": [
+        "tree",
+        "src"
+      ],
+      "exit_result": 0,
+      "name": "tree-src",
+      "proxy_tokens": 55,
+      "stderr_bytes": 0,
+      "stdout_bytes": 155,
+      "visible_facts": [
+        "filters"
+      ]
+    },
+    {
+      "combined_sha256": "b4f174a003880c023918018d05524a08013801decba8c881c1bd6e536c6641e2",
+      "command": [
+        "tree",
+        "-a",
+        "-L",
+        "3"
+      ],
+      "exit_result": 0,
+      "name": "tree-large",
+      "proxy_tokens": 152,
+      "stderr_bytes": 0,
+      "stdout_bytes": 481,
+      "visible_facts": [
+        "src",
+        "filters",
+        "git_log.zig",
+        "7 directories, 24 files"
+      ]
+    },
+    {
+      "combined_sha256": "61b999f674ae9149144329393381617241dcffeeb5dc5d748eeccae3c5c5cea3",
+      "command": [
+        "tree",
+        "-a",
+        "-L",
+        "3"
+      ],
+      "exit_result": 0,
+      "name": "tree-ascii-large",
+      "proxy_tokens": 220,
+      "stderr_bytes": 0,
+      "stdout_bytes": 698,
+      "visible_facts": [
+        ".git",
+        "hooks",
+        "src",
+        "core",
+        "167 directories, 166 files"
+      ]
+    },
+    {
+      "combined_sha256": "c8950c9cad0142ffc5fa66e4e246b338bb07fcc5d7f37c6e311efcf18512ed27",
+      "command": [
+        "curl",
+        "-v",
+        "https://example.com"
+      ],
+      "exit_result": 0,
+      "name": "curl-verbose",
+      "proxy_tokens": 65,
+      "stderr_bytes": 0,
+      "stdout_bytes": 236,
+      "visible_facts": [
+        "Example Domain",
+        "HTTP/2 200"
+      ]
+    },
+    {
+      "combined_sha256": "0c7b7f533e833002be88ddcf0bca60d311a3be9e60438e6b68ed3a85ab8784c0",
+      "command": [
+        "pup",
+        "skills",
+        "list",
+        "--json"
+      ],
+      "exit_result": 0,
+      "name": "pup-skills-json",
+      "proxy_tokens": 1273,
+      "stderr_bytes": 0,
+      "stdout_bytes": 6270,
+      "visible_facts": [
+        "dd-pup",
+        "agentless-scanning"
+      ]
+    },
+    {
+      "combined_sha256": "969671ed381c3dc614215405bca0087b9bdf1a249803476374656b2bd818883b",
+      "command": [
+        "pup",
+        "skills",
+        "list"
+      ],
+      "exit_result": 0,
+      "name": "pup-skills-table",
+      "proxy_tokens": 1555,
+      "stderr_bytes": 0,
+      "stdout_bytes": 12126,
+      "visible_facts": [
+        "dd-pup",
+        "agentless-scanning"
+      ]
+    },
+    {
+      "combined_sha256": "f394d38c21c78c75e1b05a8e4907c57eb89e6fa9bac0b3c64958ca6a0c36491b",
+      "command": [
+        "acli",
+        "jira",
+        "workitem",
+        "search",
+        "--jql",
+        "project = EXAMPLE"
+      ],
+      "exit_result": 0,
+      "name": "acli-jira-workitem-search",
+      "proxy_tokens": 80,
+      "stderr_bytes": 0,
+      "stdout_bytes": 341,
+      "visible_facts": [
+        "EXAMPLE-101",
+        "In Progress",
+        "Anonymized sample work item"
+      ]
+    },
+    {
+      "combined_sha256": "203758d00ed900c99972d8d9116615b38167b5b4c5b5209c1e98c02a19328808",
+      "command": [
+        "acli",
+        "jira",
+        "workitem",
+        "view",
+        "EXAMPLE-101"
+      ],
+      "exit_result": 0,
+      "name": "acli-jira-workitem-view",
+      "proxy_tokens": 134,
+      "stderr_bytes": 0,
+      "stdout_bytes": 474,
+      "visible_facts": [
+        "Key: EXAMPLE-101",
+        "URL: https://example.atlassian.invalid/browse/EXAMPLE-101"
+      ]
+    },
+    {
+      "combined_sha256": "021963644b11d8ea82c5d1be9cdf673513860f9dd8ee922f7e346223f2ef8aa0",
+      "command": [
+        "acli",
+        "jira",
+        "workitem",
+        "view",
+        "EXAMPLE-105",
+        "--fields",
+        "summary,customfield_10016,customfield_10020"
+      ],
+      "exit_result": 0,
+      "name": "acli-jira-workitem-fields",
+      "proxy_tokens": 112,
+      "stderr_bytes": 0,
+      "stdout_bytes": 472,
+      "visible_facts": [
+        "Story Points: 2",
+        "Acceptance Criteria:",
+        "Definition Of Done:",
+        "Custom Review Group: Example Reviewers"
+      ]
+    },
+    {
+      "combined_sha256": "074bda9b8d6679b6f7d181bd7683ed29d3e99767d97641d341166d1c0a241bab",
+      "command": [
+        "acli",
+        "jira",
+        "workitem",
+        "search",
+        "--jql",
+        "project = EXAMPLE",
+        "--json"
+      ],
+      "exit_result": 0,
+      "name": "acli-jira-workitem-json",
+      "proxy_tokens": 70,
+      "stderr_bytes": 0,
+      "stdout_bytes": 267,
+      "visible_facts": [
+        "EXAMPLE-101",
+        "Anonymized sample work item"
+      ]
+    },
+    {
+      "combined_sha256": "e35faad58f6ad597837f036470b718f23d2e2ec15aef569ebc47c603b0c34270",
+      "command": [
+        "acli",
+        "confluence",
+        "page",
+        "view",
+        "--id",
+        "100000001"
+      ],
+      "exit_result": 0,
+      "name": "acli-confluence-page-view",
+      "proxy_tokens": 128,
+      "stderr_bytes": 0,
+      "stdout_bytes": 407,
+      "visible_facts": [
+        "Title: Anonymized Planning Notes",
+        "Labels: lorem, ipsum, anonymized"
+      ]
+    },
+    {
+      "combined_sha256": "3ccd31d3fc159f299ff64167b83191711c442c61ae03f73b8b7d29919504ee69",
+      "command": [
+        "acli",
+        "confluence",
+        "space",
+        "list"
+      ],
+      "exit_result": 0,
+      "name": "acli-confluence-space-list",
+      "proxy_tokens": 47,
+      "stderr_bytes": 0,
+      "stdout_bytes": 211,
+      "visible_facts": [
+        "EXAMPLE",
+        "Anonymized Space"
+      ]
+    },
+    {
+      "combined_sha256": "70548819a3107565842dd08555b9c283a86e6b875717dc8dd57bd400048f393c",
+      "command": [
+        "curl",
+        "-vvv",
+        "https://api.example.com/v1/resources"
+      ],
+      "exit_result": 0,
+      "name": "curl-verbose-large",
+      "proxy_tokens": 479,
+      "stderr_bytes": 0,
+      "stdout_bytes": 1428,
+      "visible_facts": [
+        "resource_30",
+        "HTTP/2 200"
+      ]
+    },
+    {
+      "combined_sha256": "4390601b5ab1da0fa1ae5a90ca6c40d5f51d5a7a97a1147f1d19a2f68d93d27a",
+      "command": [
+        "docker",
+        "logs",
+        "app"
+      ],
+      "exit_result": 0,
+      "name": "docker-logs",
+      "proxy_tokens": 96,
+      "stderr_bytes": 0,
+      "stdout_bytes": 324,
+      "visible_facts": [
+        "redis",
+        "slow query"
+      ]
+    },
+    {
+      "combined_sha256": "ad206d26939010413dbf292e40dd1fee1391981236be479a0f58577dbb9460fd",
+      "command": [
+        "journalctl",
+        "-u",
+        "app",
+        "-n",
+        "500"
+      ],
+      "exit_result": 0,
+      "name": "journalctl-large",
+      "proxy_tokens": 108864,
+      "stderr_bytes": 0,
+      "stdout_bytes": 251424,
+      "visible_facts": [
+        "UFW BLOCK"
+      ]
+    },
+    {
+      "combined_sha256": "ced59beafdbfccfe8a28d9e7393646087a0203b2eed4419c48f5a032ca6d1ad1",
+      "command": [
+        "npm",
+        "install"
+      ],
+      "exit_result": 0,
+      "name": "npm-install",
+      "proxy_tokens": 47,
+      "stderr_bytes": 0,
+      "stdout_bytes": 164,
+      "visible_facts": [
+        "found 2 vulnerabilities"
+      ]
+    },
+    {
+      "combined_sha256": "7ada1c4f2998011c5168aedcfbf2c847919ea3caf7681f5c07b6d0ca81ea84f1",
+      "command": [
+        "pnpm",
+        "install"
+      ],
+      "exit_result": 0,
+      "name": "pnpm-install",
+      "proxy_tokens": 45,
+      "stderr_bytes": 0,
+      "stdout_bytes": 97,
+      "visible_facts": [
+        "react 18.2.0",
+        "deprecated"
+      ]
+    },
+    {
+      "combined_sha256": "42e279e615811d4bc2196f311dcdf81134c6e3439e391744e6d50a1301a6518d",
+      "command": [
+        "bun",
+        "add",
+        "react"
+      ],
+      "exit_result": 0,
+      "name": "bun-install",
+      "proxy_tokens": 81,
+      "stderr_bytes": 0,
+      "stdout_bytes": 232,
+      "visible_facts": [
+        "react@18.2.0",
+        "deprecated"
+      ]
+    },
+    {
+      "combined_sha256": "aeb149a063deac5727fd3d666b1c7a2df7b40fccc77ae03ca1229e830accd589",
+      "command": [
+        "bun",
+        "pm",
+        "ls"
+      ],
+      "exit_result": 0,
+      "name": "bun-pm-ls",
+      "proxy_tokens": 143,
+      "stderr_bytes": 0,
+      "stdout_bytes": 320,
+      "visible_facts": [
+        "discord.js@14.15.3",
+        "react@18.3.1"
+      ]
+    },
+    {
+      "combined_sha256": "e8e612940be995fc7b9c7da1afe2438b38fef7890453013794ecb996b046dd98",
+      "command": [
+        "npm",
+        "ls"
+      ],
+      "exit_result": 0,
+      "name": "npm-ls",
+      "proxy_tokens": 33,
+      "stderr_bytes": 0,
+      "stdout_bytes": 63,
+      "visible_facts": [
+        "chalk@4.1.2",
+        "debug@4.3.4"
+      ]
+    },
+    {
+      "combined_sha256": "fdd1e1ac7d3afac01ce9acfb54a5c38e9063fede8271cba97096e7cc885fff48",
+      "command": [
+        "pnpm",
+        "list"
+      ],
+      "exit_result": 0,
+      "name": "pnpm-list",
+      "proxy_tokens": 35,
+      "stderr_bytes": 0,
+      "stdout_bytes": 73,
+      "visible_facts": [
+        "chalk@4.1.2",
+        "debug@4.3.4"
+      ]
+    },
+    {
+      "combined_sha256": "90cc4187bf78b1133b4e32cf7a388996ef610805abe91ea91d01bd352e28457c",
+      "command": [
+        "yarn",
+        "list"
+      ],
+      "exit_result": 0,
+      "name": "yarn-list",
+      "proxy_tokens": 91,
+      "stderr_bytes": 0,
+      "stdout_bytes": 174,
+      "visible_facts": [
+        "chalk@4.1.2",
+        "debug@4.3.4"
+      ]
+    },
+    {
+      "combined_sha256": "cf3dd67224cfd889be7866746b8e3c46b241383167752f99a91884f4028f52c8",
+      "command": [
+        "yarn",
+        "add",
+        "react"
+      ],
+      "exit_result": 0,
+      "name": "yarn-install",
+      "proxy_tokens": 82,
+      "stderr_bytes": 0,
+      "stdout_bytes": 243,
+      "visible_facts": [
+        "react@18.2.0",
+        "unmet peer dependency"
+      ]
+    },
+    {
+      "combined_sha256": "1f8049f58bf67adb1b2097b868dbd92be1022ab93c0279324b7b6b22a86a10da",
+      "command": [
+        "pip",
+        "install",
+        "-r",
+        "requirements.txt"
+      ],
+      "exit_result": 0,
+      "name": "pip-install-large",
+      "proxy_tokens": 192,
+      "stderr_bytes": 0,
+      "stdout_bytes": 421,
+      "visible_facts": [
+        "lib-pkg-001",
+        "Successfully installed 400 packages"
+      ]
+    },
+    {
+      "combined_sha256": "4a782890a0a6823a540b84587018acae84ae2da8217923746e6eb980fce6ecca",
+      "command": [
+        "composer",
+        "require",
+        "guzzlehttp/guzzle"
+      ],
+      "exit_result": 0,
+      "name": "composer-require",
+      "proxy_tokens": 53,
+      "stderr_bytes": 0,
+      "stdout_bytes": 195,
+      "visible_facts": [
+        "guzzlehttp/guzzle",
+        "No security vulnerability"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "smll_binary_sha256": "7802081eb6b353c40967d74e9b417afd34777839be7dc6d1cf4e6bdf5cbc6dfc",
+  "source_commit": "dbe73932586043f2d8e482df0e246c372125e1b2",
+  "tokenizer_sha256": "446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d"
+}
