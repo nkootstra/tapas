@@ -55,9 +55,8 @@ pub fn run(
             Ok(0)
         }
         [] => {
-            stderr
-                .write_all(b"tapas: stdin filtering is not available in the foundation build\n")?;
-            Ok(INTERNAL_BOUNDARY_STATUS)
+            crate::pipeline::run(stdin, stdout)?;
+            Ok(0)
         }
         [arg] if arg == OsStr::new("--version") => {
             writeln!(stdout, "tapas {}", env!("CARGO_PKG_VERSION"))?;
