@@ -4,7 +4,7 @@ use std::ffi::OsString;
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output, Stdio};
+use std::process::{Child, Command, ExitStatus, Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
@@ -67,6 +67,38 @@ fn tapas(args: &[&str], stdin: &[u8], env: &[(&str, &str)]) -> Output {
     child.wait_with_output().expect("wait for tapas")
 }
 
+fn wait_for_file(path: &Path) -> String {
+    let started = Instant::now();
+    loop {
+        if let Ok(contents) = std::fs::read_to_string(path)
+            && !contents.is_empty()
+        {
+            return contents;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "timed out waiting for {}",
+            path.display()
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
+fn wait_for_child(child: &mut Child) -> ExitStatus {
+    let started = Instant::now();
+    loop {
+        if let Some(status) = child.try_wait().expect("poll child status") {
+            return status;
+        }
+        if started.elapsed() >= Duration::from_secs(5) {
+            let _ = child.kill();
+            let _ = child.wait();
+            panic!("timed out waiting for child");
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
 #[test]
 fn child_arguments_and_stdin_are_forwarded_without_shell_parsing() {
     let literal = tapas(
@@ -118,6 +150,98 @@ fn child_signal_uses_shell_compatible_exit_status_in_buffered_and_raw_modes() {
         assert_eq!(output.stdout, expected_stdout);
         assert!(output.stderr.is_empty());
     }
+}
+
+#[test]
+fn wrapper_forwards_termination_signals_and_maps_the_child_signal_status() {
+    let command = FakeCommand::new(
+        "signal-child",
+        b"#!/bin/sh\nprintf '%s' \"$$\" > \"$1\"\nexec /bin/sleep 30\n",
+    );
+    let program = command.path().to_str().expect("UTF-8 fake command path");
+
+    for (name, signal) in [
+        ("int", libc::SIGINT),
+        ("term", libc::SIGTERM),
+        ("hup", libc::SIGHUP),
+        ("quit", libc::SIGQUIT),
+    ] {
+        let pid_path = command.directory.join(format!("{name}.pid"));
+        let mut tapas = Command::new(env!("CARGO_BIN_EXE_tapas"))
+            .args(["--raw", "--", program])
+            .arg(&pid_path)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn tapas");
+        let child_pid: libc::pid_t = wait_for_file(&pid_path).parse().expect("parse child pid");
+
+        // SAFETY: tapas.id() names the live wrapper process synchronized above.
+        assert_eq!(unsafe { libc::kill(tapas.id() as libc::pid_t, signal) }, 0);
+        let status = wait_for_child(&mut tapas);
+        let expected = 128 + signal;
+        if status.code() != Some(expected) {
+            // The pre-fix wrapper dies without forwarding and leaves this child alive.
+            // SAFETY: child_pid was written by that child immediately before exec.
+            let _ = unsafe { libc::kill(child_pid, libc::SIGKILL) };
+        }
+        assert_eq!(status.code(), Some(expected), "signal {name}");
+    }
+}
+
+#[test]
+fn wrapper_forwards_signals_to_the_dedicated_child_process_group() {
+    let descendant = FakeCommand::new(
+        "signal-descendant",
+        b"#!/bin/sh\ntrap 'printf received > \"$2\"; exit 0' TERM\nprintf '%s' \"$$\" > \"$1\"\nwhile :; do sleep 30; done\n",
+    );
+    let leader = FakeCommand::new(
+        "signal-group",
+        b"#!/bin/sh\n\"$1\" \"$2\" \"$3\" &\nwhile [ ! -s \"$2\" ]; do sleep 0.01; done\nprintf '%s' \"$$\" > \"$4\"\nwait\n",
+    );
+    let descendant_pid_path = leader.directory.join("descendant.pid");
+    let receipt_path = leader.directory.join("received");
+    let leader_pid_path = leader.directory.join("leader.pid");
+    let mut tapas = Command::new(env!("CARGO_BIN_EXE_tapas"))
+        .arg(leader.path())
+        .arg(descendant.path())
+        .arg(&descendant_pid_path)
+        .arg(&receipt_path)
+        .arg(&leader_pid_path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn tapas");
+    let descendant_pid: libc::pid_t = wait_for_file(&descendant_pid_path)
+        .parse()
+        .expect("parse descendant pid");
+    let leader_pid: libc::pid_t = wait_for_file(&leader_pid_path)
+        .parse()
+        .expect("parse leader pid");
+
+    // SAFETY: both PIDs name live children synchronized by their marker files.
+    assert_eq!(unsafe { libc::getpgid(leader_pid) }, leader_pid);
+    // SAFETY: descendant_pid names the live descendant synchronized above.
+    assert_eq!(unsafe { libc::getpgid(descendant_pid) }, leader_pid);
+
+    let started = Instant::now();
+    // SAFETY: tapas.id() names the live wrapper process synchronized above.
+    assert_eq!(
+        unsafe { libc::kill(tapas.id() as libc::pid_t, libc::SIGTERM) },
+        0
+    );
+    let status = wait_for_child(&mut tapas);
+    let received = std::fs::read_to_string(&receipt_path).unwrap_or_default();
+    if status.code() != Some(128 + libc::SIGTERM) || received != "received" {
+        // SAFETY: on failure, stop the synchronized descendant so the test cannot leak it.
+        let _ = unsafe { libc::kill(descendant_pid, libc::SIGKILL) };
+    }
+
+    assert_eq!(status.code(), Some(128 + libc::SIGTERM));
+    assert_eq!(received, "received");
+    assert!(started.elapsed() < Duration::from_secs(2));
 }
 
 #[test]
@@ -332,6 +456,40 @@ fn streaming_is_raw_by_default_and_opt_in_deduplicates_each_stream() {
 }
 
 #[test]
+fn jest_watch_unknown_frame_before_recognized_output_fails_open_losslessly() {
+    let jest = FakeCommand::new(
+        "jest",
+        b"#!/bin/sh\nprintf 'custom watch status\\n\\033[2J\\033[HTest Suites: 1 passed, 1 total\\nTests: 1 passed, 1 total\\n'\n",
+    );
+    let program = jest.path().to_str().expect("UTF-8 fake command path");
+    let output = tapas(&[program, "--watch"], b"", &[("TAPAS_STREAM", "1")]);
+
+    assert!(output.status.success());
+    assert_eq!(
+        output.stdout,
+        b"custom watch status\n\x1b[2J\x1b[HTest Suites: 1 passed, 1 total\nTests: 1 passed, 1 total\n"
+    );
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
+fn vitest_watch_unknown_frame_after_recognized_output_only_opens_its_stream_side() {
+    let vitest = FakeCommand::new(
+        "vitest",
+        b"#!/bin/sh\nprintf 'Test Suites: 1 passed, 1 total\\nTests: 1 passed, 1 total\\n\\033[2J\\033[Hcustom watch status\\n\\033[2J\\033[HTest Suites: 1 passed, 1 total\\nTests: 1 passed, 1 total\\n'\nprintf 'Test Suites: 1 passed, 1 total\\nTests: 1 passed, 1 total\\n' >&2\n",
+    );
+    let program = vitest.path().to_str().expect("UTF-8 fake command path");
+    let output = tapas(&[program, "--watch"], b"", &[("TAPAS_STREAM", "1")]);
+
+    assert!(output.status.success());
+    assert_eq!(
+        output.stdout,
+        b"all tests passed\n\x1b[2J\x1b[Hcustom watch status\n\x1b[2J\x1b[HTest Suites: 1 passed, 1 total\nTests: 1 passed, 1 total\n"
+    );
+    assert_eq!(output.stderr, b"all tests passed\n");
+}
+
+#[test]
 fn streaming_preserves_signals_and_descendant_pipe_diagnostics() {
     let signaled = FakeCommand::new("docker", b"#!/bin/sh\nkill -TERM $$\n");
     let program = signaled.path().to_str().expect("UTF-8 fake command path");
@@ -346,7 +504,7 @@ fn streaming_preserves_signals_and_descendant_pipe_diagnostics() {
 
     let retained = FakeCommand::new(
         "docker",
-        b"#!/bin/sh\n(sleep 2) &\nprintf '2026-08-01 10:00:00 ready\\n'\n",
+        b"#!/bin/sh\n(sleep 5) &\nprintf '2026-08-01 10:00:00 ready\\n'\n",
     );
     let program = retained.path().to_str().expect("UTF-8 fake command path");
     let started = Instant::now();
@@ -355,7 +513,7 @@ fn streaming_preserves_signals_and_descendant_pipe_diagnostics() {
         b"",
         &[("TAPAS_STREAM", "1")],
     );
-    assert!(started.elapsed() < Duration::from_millis(1_500));
+    assert!(started.elapsed() < Duration::from_secs(3));
     assert_eq!(output.stdout, b"ready\n");
     assert_eq!(
         output.stderr,
@@ -465,8 +623,8 @@ fn git_wrapper_dispatch_compacts_success_and_preserves_failed_streams() {
     .expect("run successful Git command");
     assert_eq!(success.exit_code, 0);
     assert_eq!(success.filter_name, "git");
-    assert_eq!(success_stdout, b"^ feature-x\n");
-    assert!(success_stderr.is_empty());
+    assert!(success_stdout.is_empty());
+    assert_eq!(success_stderr, b"^ feature-x\n");
 
     let failure_args = [git.path().as_os_str().to_owned(), OsString::from("status")];
     let mut failure_stdout = Vec::new();
@@ -482,6 +640,30 @@ fn git_wrapper_dispatch_compacts_success_and_preserves_failed_streams() {
     assert_eq!(failure.filter_name, "passthrough");
     assert_eq!(failure_stdout, b"failed stdout\n");
     assert_eq!(failure_stderr, b"failed stderr\n");
+}
+
+#[test]
+fn recognized_filter_output_on_both_descriptors_fails_open() {
+    let cargo = FakeCommand::new(
+        "cargo",
+        b"#!/bin/sh\n\
+          printf '   Compiling demo v0.1.0\\n'\n\
+          printf '    Finished dev [unoptimized] target(s) in 0.1s\\n'\n\
+          printf 'warning: retained diagnostic\\n' >&2\n",
+    );
+    let args = [cargo.path().as_os_str().to_owned(), OsString::from("build")];
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+
+    let report = run(&args, &mut stdout, &mut stderr, RunOptions::default())
+        .expect("run build with output on both descriptors");
+
+    assert_eq!(report.filter_name, "passthrough");
+    assert_eq!(
+        stdout,
+        b"   Compiling demo v0.1.0\n    Finished dev [unoptimized] target(s) in 0.1s\n"
+    );
+    assert_eq!(stderr, b"warning: retained diagnostic\n");
 }
 
 #[test]

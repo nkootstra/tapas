@@ -37,32 +37,29 @@ pub fn dispatch_streams_argv(
         return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
 
-    let output = match command {
-        b"mypy" => Some((compact_mypy(stdout, stderr), EvidenceClass::FactComplete)),
-        b"ruff" => Some((compact_ruff(stdout, stderr), EvidenceClass::FactComplete)),
+    type Compact = fn(&[u8], &[u8]) -> Vec<u8>;
+    let output: Option<(Compact, EvidenceClass)> = match command {
+        b"mypy" => Some((compact_mypy, EvidenceClass::FactComplete)),
+        b"ruff" => Some((compact_ruff, EvidenceClass::FactComplete)),
         b"eslint" | b"biome" if matches_lint(stdout) || matches_lint(stderr) => {
-            Some((compact_lint(stdout, stderr), EvidenceClass::FactComplete))
+            Some((compact_lint, EvidenceClass::FactComplete))
         }
-        b"pre-commit" => Some((
-            compact_precommit(stdout, stderr),
-            EvidenceClass::FactComplete,
-        )),
-        b"prettier" => Some((
-            compact_prettier(stdout, stderr),
-            EvidenceClass::FactComplete,
-        )),
+        b"pre-commit" => Some((compact_precommit, EvidenceClass::FactComplete)),
+        b"prettier" => Some((compact_prettier, EvidenceClass::FactComplete)),
         b"terraform" | b"tofu"
             if argv.get(1).copied() == Some(b"plan")
                 && (matches_plan(stdout) || matches_plan(stderr)) =>
         {
-            Some((compact_plan(stdout, stderr), EvidenceClass::FactComplete))
+            Some((compact_plan, EvidenceClass::FactComplete))
         }
         _ => None,
     };
 
     Ok(output.map_or_else(
         || StreamFilterOutput::passthrough(stdout, stderr),
-        |(stdout, evidence)| StreamFilterOutput::new(stdout, Vec::new(), evidence),
+        |(compact, evidence)| {
+            StreamFilterOutput::compact_single_stream(stdout, stderr, evidence, compact)
+        },
     ))
 }
 

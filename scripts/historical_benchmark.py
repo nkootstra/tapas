@@ -19,6 +19,7 @@ import parity
 
 DEFAULT_CONTRACT = parity.DEFAULT_CONTRACT
 DEFAULT_BASELINE = DEFAULT_CONTRACT / "benchmark-baseline.json"
+DEFAULT_DIFFERENCES = pathlib.Path("tests/compat/tapas-0.1.0-intentional-differences.json")
 
 
 def fixture_bytes(contract: pathlib.Path, source_path: str) -> bytes:
@@ -143,6 +144,7 @@ def compare(
     contract: pathlib.Path,
     encoder: Any,
     timeout: float,
+    intentional_differences: set[str],
 ) -> tuple[dict[str, Any], list[str]]:
     errors: list[str] = []
     if baseline.get("corpus_sha256") != benchmark.digest(corpus):
@@ -182,7 +184,7 @@ def compare(
             )
         if metrics["combined_sha256"] == oracle.get("combined_sha256"):
             exact += 1
-        else:
+        elif case["name"] not in intentional_differences:
             errors.append(f"{case['name']}: combined output differs from the smll baseline")
         if missing_facts:
             errors.append(f"{case['name']}: missing oracle-visible facts: {', '.join(missing_facts)}")
@@ -236,6 +238,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tokenizer", type=pathlib.Path, default=pathlib.Path("tests/tokenizers/o200k_base.tiktoken"))
     parser.add_argument("--write-baseline", action="store_true")
     parser.add_argument("--output", type=pathlib.Path)
+    parser.add_argument(
+        "--intentional-differences",
+        type=pathlib.Path,
+        default=DEFAULT_DIFFERENCES,
+    )
     parser.add_argument("--timeout", type=float, default=10.0)
     return parser.parse_args()
 
@@ -268,6 +275,19 @@ def main() -> int:
         print("benchmark requires --tapas-bin", file=sys.stderr)
         return 2
     baseline = json.loads(args.baseline.read_bytes())
+    difference_document = json.loads(args.intentional_differences.read_bytes())
+    intentional_differences = {
+        entry["case"] for entry in difference_document.get("differences", [])
+    }
+    known_cases = {case["name"] for case in cases}
+    unknown_differences = intentional_differences - known_cases
+    if unknown_differences:
+        print(
+            "benchmark intentional differences name unknown cases: "
+            + ", ".join(sorted(unknown_differences)),
+            file=sys.stderr,
+        )
+        return 1
     report, errors = compare(
         args.tapas_bin,
         cases,
@@ -276,6 +296,7 @@ def main() -> int:
         args.contract,
         encoder,
         args.timeout,
+        intentional_differences,
     )
     rendered = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.output:

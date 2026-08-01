@@ -51,8 +51,8 @@ pub fn dispatch_streams_argv(
         || command == b"yarn" && arg1 == b"list";
     if package_tree_route && matches_package_tree(stdout) {
         return Ok(StreamFilterOutput::new(
-            compact_package_tree(stdout, stderr),
-            Vec::new(),
+            compact_package_tree(stdout, b""),
+            stderr.to_vec(),
             EvidenceClass::PotentiallyLossy,
         ));
     }
@@ -67,14 +67,16 @@ pub fn dispatch_streams_argv(
     if (js_install_route || composer_route)
         && (matches_npm_install(stdout) || matches_npm_install(stderr) || recognized_error)
     {
-        return Ok(StreamFilterOutput::new(
-            compact_npm_install(stdout, stderr),
-            Vec::new(),
-            if exit_code == 0 {
-                EvidenceClass::PotentiallyLossy
-            } else {
-                EvidenceClass::FactComplete
-            },
+        let evidence = if exit_code == 0 {
+            EvidenceClass::PotentiallyLossy
+        } else {
+            EvidenceClass::FactComplete
+        };
+        return Ok(StreamFilterOutput::compact_single_stream(
+            stdout,
+            stderr,
+            evidence,
+            compact_npm_install,
         ));
     }
 
@@ -82,8 +84,8 @@ pub fn dispatch_streams_argv(
     let pip_table_route = pip_command && matches!(arg1, b"list" | b"outdated");
     if pip_table_route {
         return Ok(StreamFilterOutput::new(
-            compact_pip_table(stdout, stderr),
-            Vec::new(),
+            compact_pip_table(stdout, b""),
+            stderr.to_vec(),
             EvidenceClass::FactComplete,
         ));
     }
@@ -91,14 +93,16 @@ pub fn dispatch_streams_argv(
     if pip_install_route
         && (looks_like_pip_install(stdout) || looks_like_pip_install(stderr) || recognized_error)
     {
-        return Ok(StreamFilterOutput::new(
-            compact_pip(stdout, stderr),
-            Vec::new(),
-            if exit_code == 0 {
-                EvidenceClass::PotentiallyLossy
-            } else {
-                EvidenceClass::FactComplete
-            },
+        let evidence = if exit_code == 0 {
+            EvidenceClass::PotentiallyLossy
+        } else {
+            EvidenceClass::FactComplete
+        };
+        return Ok(StreamFilterOutput::compact_single_stream(
+            stdout,
+            stderr,
+            evidence,
+            compact_pip,
         ));
     }
 
@@ -849,9 +853,9 @@ fn head_tail(data: Vec<u8>, line_count: usize, head_lines: usize, tail_lines: us
     let tail_start = byte_after_lines(&data, line_count - tail_lines);
     let mut output = Vec::with_capacity(data.len());
     output.extend_from_slice(&data[..head_end]);
-    output.extend_from_slice(b"(smll: omitted ");
+    output.extend_from_slice(b"(tapas: omitted ");
     output.extend_from_slice(omitted.to_string().as_bytes());
-    output.extend_from_slice(b" relevant lines; rerun with smll --raw)\n");
+    output.extend_from_slice(b" relevant lines; rerun with tapas --raw)\n");
     output.extend_from_slice(&data[tail_start..]);
     output
 }

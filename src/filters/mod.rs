@@ -53,6 +53,20 @@ impl StreamFilterOutput {
     pub fn passthrough(stdout: &[u8], stderr: &[u8]) -> Self {
         Self::new(stdout.to_vec(), stderr.to_vec(), EvidenceClass::ByteExact)
     }
+
+    pub(crate) fn compact_single_stream(
+        stdout: &[u8],
+        stderr: &[u8],
+        evidence: EvidenceClass,
+        compact: impl FnOnce(&[u8], &[u8]) -> Vec<u8>,
+    ) -> Self {
+        match (stdout.is_empty(), stderr.is_empty()) {
+            (false, false) => Self::passthrough(stdout, stderr),
+            (false, true) => Self::new(compact(stdout, b""), Vec::new(), evidence),
+            (true, false) => Self::new(Vec::new(), compact(b"", stderr), evidence),
+            (true, true) => Self::new(compact(b"", b""), Vec::new(), evidence),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

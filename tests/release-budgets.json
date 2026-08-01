@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "release": "0.1.0",
+  "status": "internal-baseline",
+  "selected_profile": "z",
+  "required_measurements": [
+    "release_artifact.uncompressed_bytes",
+    "release_artifact.gzip_bytes",
+    "profile_comparison.z.uncompressed_bytes",
+    "profile_comparison.z.gzip_bytes",
+    "profile_comparison.s.uncompressed_bytes",
+    "profile_comparison.s.gzip_bytes",
+    "profile_comparison.3.uncompressed_bytes",
+    "profile_comparison.3.gzip_bytes",
+    "runtime.startup.median_ns",
+    "runtime.pipe_throughput.bytes_per_second",
+    "runtime.peak_rss.bytes"
+  ],
+  "targets": {
+    "aarch64-apple-darwin": {
+      "hard_caps": {
+        "release_artifact.gzip_bytes": 393216,
+        "release_artifact.uncompressed_bytes": 720896
+      }
+    },
+    "aarch64-unknown-linux-musl": {
+      "hard_caps": {
+        "release_artifact.gzip_bytes": 786432,
+        "release_artifact.uncompressed_bytes": 1310720
+      }
+    },
+    "x86_64-unknown-linux-musl": {
+      "hard_caps": {
+        "release_artifact.gzip_bytes": 786432,
+        "release_artifact.uncompressed_bytes": 1310720
+      }
+    }
+  }
+}

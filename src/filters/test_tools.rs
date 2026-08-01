@@ -61,33 +61,42 @@ pub fn dispatch_streams_argv(
     let arg1 = argv.get(1).copied().unwrap_or_default();
     let script_test = arg1 == b"test" && matches!(command, b"npm" | b"pnpm" | b"yarn" | b"bun");
 
-    let compact = if command == b"pytest" && stream_matches(stdout, stderr, matches_pytest) {
-        Some(apply_pytest(stdout, stderr))
+    let compact: Option<Apply> = if command == b"pytest"
+        && stream_matches(stdout, stderr, matches_pytest)
+    {
+        Some(apply_pytest)
     } else if command == b"cargo"
         && arg1 == b"test"
         && stream_matches(stdout, stderr, matches_cargo_test)
     {
-        Some(apply_cargo_test(stdout, stderr))
+        Some(apply_cargo_test)
     } else if (matches!(command, b"jest" | b"vitest") || script_test)
         && stream_matches(stdout, stderr, matches_jest)
     {
-        Some(apply_jest(stdout, stderr))
+        Some(apply_jest)
     } else if (script_test || command == b"mocha" || (command == b"node" && arg1 == b"--test"))
         && stream_matches(stdout, stderr, matches_js_test)
     {
-        Some(apply_js_test(stdout, stderr))
+        Some(apply_js_test)
     } else if command == b"tsc" && stream_matches(stdout, stderr, matches_tsc) {
-        Some(apply_tsc(stdout, stderr))
+        Some(apply_tsc)
     } else if command == b"go" && arg1 == b"test" && stream_matches(stdout, stderr, matches_go_test)
     {
-        Some(apply_go_test(stdout, stderr))
+        Some(apply_go_test)
     } else {
         None
     };
 
     Ok(compact.map_or_else(
         || StreamFilterOutput::passthrough(stdout, stderr),
-        |stdout| StreamFilterOutput::new(stdout, Vec::new(), EvidenceClass::FactComplete),
+        |compact| {
+            StreamFilterOutput::compact_single_stream(
+                stdout,
+                stderr,
+                EvidenceClass::FactComplete,
+                compact,
+            )
+        },
     ))
 }
 
@@ -850,9 +859,9 @@ fn head_tail(input: Vec<u8>, head: usize, tail: usize) -> Vec<u8> {
     for line in &lines[..head] {
         write_line(&mut output, line);
     }
-    output.extend_from_slice(b"(smll: omitted ");
+    output.extend_from_slice(b"(tapas: omitted ");
     output.extend_from_slice(omitted.to_string().as_bytes());
-    output.extend_from_slice(b" relevant lines; rerun with smll --raw)\n");
+    output.extend_from_slice(b" relevant lines; rerun with tapas --raw)\n");
     for line in &lines[lines.len() - tail..] {
         write_line(&mut output, line);
     }

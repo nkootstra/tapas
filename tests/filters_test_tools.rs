@@ -244,14 +244,57 @@ fn stream_dispatch_routes_direct_and_script_test_runners() {
         let input = fixture(fixture_name);
         let expected = test_tools::apply_matched(&input).unwrap();
         let output = test_tools::dispatch_streams_argv(argv, b"", &input, 1, false).unwrap();
-        assert_eq!(output.stdout, expected.bytes, "argv {argv:?}");
-        assert!(output.stderr.is_empty(), "argv {argv:?}");
+        assert!(output.stdout.is_empty(), "argv {argv:?}");
+        assert_eq!(output.stderr, expected.bytes, "argv {argv:?}");
         assert_eq!(
             output.evidence,
             EvidenceClass::FactComplete,
             "argv {argv:?}"
         );
     }
+}
+
+#[test]
+fn stderr_only_test_output_stays_on_stderr() {
+    let input = fixture("pytest_failing.txt");
+    let expected = test_tools::apply_matched(&input).unwrap();
+
+    assert_eq!(
+        test_tools::dispatch_streams_argv(&[b"pytest", b"-v"], b"", &input, 1, false).unwrap(),
+        tapas::filters::StreamFilterOutput::new(
+            Vec::new(),
+            expected.bytes,
+            EvidenceClass::FactComplete,
+        ),
+    );
+}
+
+#[test]
+fn test_truncation_notice_names_tapas_raw_mode() {
+    let mut input = Vec::new();
+    for index in 0..51 {
+        input.extend_from_slice(format!("error: failure {index}\n").as_bytes());
+        input.extend_from_slice(b"context one\ncontext two\ncontext three\n");
+    }
+    input.extend_from_slice(
+        b"test result: FAILED. 0 passed; 51 failed; 0 ignored; finished in 0.1s\n",
+    );
+
+    let output =
+        test_tools::dispatch_streams_argv(&[b"cargo", b"test"], &input, b"", 101, false).unwrap();
+
+    assert!(
+        output
+            .stdout
+            .windows(b"(tapas: omitted ".len())
+            .any(|window| window == b"(tapas: omitted ")
+    );
+    assert!(
+        output
+            .stdout
+            .windows(b"rerun with tapas --raw".len())
+            .any(|window| window == b"rerun with tapas --raw")
+    );
 }
 
 #[test]

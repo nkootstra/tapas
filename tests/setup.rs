@@ -53,7 +53,7 @@ fn setup_is_atomic_idempotent_private_and_preserves_unrelated_content() {
     fs::create_dir_all(home.path(".claude")).unwrap();
     let settings = home.path(".claude/settings.json");
     let original = concat!(
-        r#"{"theme":"dark","hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"other-hook"}]}]}}"#,
+        r#"{"theme":"dark","ratio":0.5,"scale":1e6,"large":9223372036854775808,"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"other-hook"}]}]}}"#,
         "\n"
     )
     .as_bytes();
@@ -85,6 +85,16 @@ fn setup_is_atomic_idempotent_private_and_preserves_unrelated_content() {
             .windows(b"other-hook".len())
             .any(|part| part == b"other-hook")
     );
+    for number in [
+        b"\"ratio\":0.5".as_slice(),
+        b"\"scale\":1e6",
+        b"\"large\":9223372036854775808",
+    ] {
+        assert!(
+            configured.windows(number.len()).any(|part| part == number),
+            "missing unchanged number lexeme {number:?}"
+        );
+    }
     assert!(
         configured
             .windows(b" --hook-eval claude".len())
@@ -176,25 +186,49 @@ fn setup_refuses_invalid_conflicting_or_user_modified_state() {
         content
     );
 
-    let modified = TestHome::new();
-    let setup = tapas(&modified, &["--setup", "claude"], b"");
-    assert!(setup.status.success());
-    let settings = modified.path(".claude/settings.json");
-    let mut content = fs::read(&settings).unwrap();
-    let start = content
-        .windows(b"--hook-eval claude".len())
-        .position(|part| part == b"--hook-eval claude")
-        .unwrap();
-    content[start] = b'X';
-    fs::write(&settings, &content).unwrap();
-    let output = tapas(&modified, &["--unsetup=claude"], b"");
-    assert!(output.status.success());
-    assert!(output.stdout.is_empty());
-    assert!(
-        output
-            .stderr
-            .starts_with(b"tapas-owned hook entry was modified")
-    );
-    assert_eq!(fs::read(&settings).unwrap(), content);
-    assert!(modified.path(".tapas/setup/claude.owned").exists());
+    for (original, replacement) in [
+        (
+            b"\"type\":\"command\"".as_slice(),
+            b"\"type\":\"prompt\"".as_slice(),
+        ),
+        (b"\"matcher\":\"Bash\"", b"\"matcher\":\"BashTool\""),
+        (b"\"timeout\":10", b"\"timeout\":20"),
+        (
+            b"\"timeout\":10",
+            b"\"timeout\":10,\"statusMessage\":\"keep me\"",
+        ),
+    ] {
+        let modified = TestHome::new();
+        let setup = tapas(&modified, &["--setup", "claude"], b"");
+        assert!(setup.status.success());
+        let settings = modified.path(".claude/settings.json");
+        let content = replace_once(&fs::read(&settings).unwrap(), original, replacement);
+        fs::write(&settings, &content).unwrap();
+
+        let output = tapas(&modified, &["--unsetup=claude"], b"");
+
+        assert!(output.status.success());
+        assert!(output.stdout.is_empty());
+        assert!(
+            output
+                .stderr
+                .starts_with(b"tapas-owned hook entry was modified"),
+            "replacement {replacement:?}: {:?}",
+            output.stderr
+        );
+        assert_eq!(fs::read(&settings).unwrap(), content);
+        assert!(modified.path(".tapas/setup/claude.owned").exists());
+    }
+}
+
+fn replace_once(input: &[u8], needle: &[u8], replacement: &[u8]) -> Vec<u8> {
+    let start = input
+        .windows(needle.len())
+        .position(|part| part == needle)
+        .expect("replacement target");
+    let mut output = Vec::with_capacity(input.len() - needle.len() + replacement.len());
+    output.extend_from_slice(&input[..start]);
+    output.extend_from_slice(replacement);
+    output.extend_from_slice(&input[start + needle.len()..]);
+    output
 }

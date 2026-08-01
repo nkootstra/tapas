@@ -42,6 +42,51 @@ jobs:
             --contract tests/compat/smll-v1.9.0 \
             --rust-catalog src/catalog.generated.rs
 
+      - name: Test release tooling
+        run: |
+          python3 -m unittest discover \
+            --start-directory tests/scripts \
+            --pattern 'test_*.py'
+
+  historical-token-benchmark:
+    name: Historical token benchmark
+    needs: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out the tested commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Build the benchmark binary
+        run: cargo build --locked
+
+      - name: Install the hash-locked benchmark tokenizer
+        run: |
+          python3 -m venv .benchmark-venv
+          .benchmark-venv/bin/python -m pip install \
+            --disable-pip-version-check \
+            --only-binary=:all: \
+            --require-hashes \
+            --requirement scripts/requirements-benchmark.txt
+
+      - name: Enforce the historical CLI token baseline
+        run: |
+          .benchmark-venv/bin/python scripts/historical_benchmark.py \
+            --tapas-bin target/debug/tapas \
+            --output benchmark-report.json
+
+      - name: Upload the historical benchmark report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tapas-${{ env.TAPAS_VERSION }}-historical-token-benchmark
+          path: benchmark-report.json
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 9
+
   test-and-package:
     name: ${{ matrix.target }}
     needs: quality
@@ -86,23 +131,11 @@ jobs:
       - name: Run the frozen compatibility contract
         run: python3 scripts/parity.py --binary target/debug/tapas --tool tapas
 
-      - name: Install the pinned benchmark tokenizer
-        if: matrix.target == 'x86_64-unknown-linux-musl'
+      - name: Build comparable release profiles
         run: |
-          python3 -m venv .benchmark-venv
-          .benchmark-venv/bin/python -m pip install \
-            --disable-pip-version-check \
-            --requirement scripts/requirements-benchmark.txt
-
-      - name: Enforce the historical CLI token baseline
-        if: matrix.target == 'x86_64-unknown-linux-musl'
-        run: |
-          .benchmark-venv/bin/python scripts/historical_benchmark.py \
-            --tapas-bin target/debug/tapas \
-            --output benchmark-report.json
-
-      - name: Build the size-oriented artifact
-        run: cargo build --locked --profile z --target "${TARGET}"
+          cargo build --locked --profile z --target "${TARGET}"
+          cargo build --locked --profile s --target "${TARGET}"
+          cargo build --locked --profile 3 --target "${TARGET}"
         env:
           TARGET: ${{ matrix.target }}
           MACOSX_DEPLOYMENT_TARGET: ${{ runner.os == 'macOS' && '11.0' || '' }}
@@ -131,6 +164,39 @@ jobs:
           OUTPUT: dist/${{ matrix.target }}
           SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           TARGET: ${{ matrix.target }}
+
+      - name: Measure the packaged release artifact and evaluate its budget
+        id: release_metrics
+        continue-on-error: true
+        run: |
+          python3 scripts/release_metrics.py \
+            --release-artifact "${RELEASE_ARTIFACT}" \
+            --profile "z=${PROFILE_ROOT}/z/tapas" \
+            --profile "s=${PROFILE_ROOT}/s/tapas" \
+            --profile "3=${PROFILE_ROOT}/3/tapas" \
+            --release-profile z \
+            --target "${TARGET}" \
+            --policy tests/release-budgets.json \
+            --output "${REPORT}"
+        env:
+          PROFILE_ROOT: target/${{ matrix.target }}
+          RELEASE_ARTIFACT: dist/${{ matrix.target }}/tapas
+          REPORT: release-metrics/${{ matrix.target }}.json
+          TARGET: ${{ matrix.target }}
+
+      - name: Upload the release measurement report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tapas-${{ env.TAPAS_VERSION }}-${{ matrix.target }}-measurements
+          path: release-metrics/${{ matrix.target }}.json
+          if-no-files-found: warn
+          retention-days: 14
+          compression-level: 9
+
+      - name: Enforce the release measurement gate
+        if: steps.release_metrics.outcome == 'failure'
+        run: exit 1
 
       - name: Upload the release-profile artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

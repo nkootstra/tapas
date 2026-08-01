@@ -328,8 +328,8 @@ fn wc_dispatch_collapses_padding_and_preserves_diagnostics() {
         )
         .unwrap(),
         tapas::filters::StreamFilterOutput::new(
-            b"12 34 567 file.txt\nwc: bad \xff path\n".to_vec(),
-            Vec::new(),
+            b"12 34 567 file.txt\n".to_vec(),
+            b"wc: bad \xff path\n".to_vec(),
             EvidenceClass::FactComplete,
         )
     );
@@ -338,12 +338,13 @@ fn wc_dispatch_collapses_padding_and_preserves_diagnostics() {
 #[test]
 fn env_dispatch_masks_secrets_and_only_filters_listing_forms() {
     let stdout = b"HOME=/tmp/example\nAPI_TOKEN=secret-value\nEMPTY_TOKEN=\nNORMAL=bad-\xff-byte\n";
-    let expected = b"HOME=/tmp/example\nAPI_TOKEN=se****ue\nEMPTY_TOKEN=****\nNORMAL=bad-\xff-byte\nenv: warning\n";
+    let expected =
+        b"HOME=/tmp/example\nAPI_TOKEN=se****ue\nEMPTY_TOKEN=****\nNORMAL=bad-\xff-byte\n";
     assert_eq!(
         listing::dispatch_streams_argv(&[b"env"], stdout, b"env: warning\n", 0, false).unwrap(),
         tapas::filters::StreamFilterOutput::new(
             expected.to_vec(),
-            Vec::new(),
+            b"env: warning\n".to_vec(),
             EvidenceClass::PotentiallyLossy,
         )
     );

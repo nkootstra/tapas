@@ -1,4 +1,4 @@
-use tapas::filters::{EvidenceClass, git};
+use tapas::filters::{EvidenceClass, StreamFilterOutput, git};
 
 const FIXTURES: &str = "compat/smll-v1.9.0/fixtures/tests/fixtures";
 
@@ -382,7 +382,7 @@ fn argv_blame_dispatch_matches_the_pinned_oracle_and_bypasses_alternate_formats(
 
 #[test]
 fn stream_dispatch_matches_pinned_argv_only_command_helpers() {
-    let cases: &[(&[u8], &str, &str, &[u8])] = &[
+    let stderr_cases: &[(&[u8], &str, &str, &[u8])] = &[
         (
             b"add",
             "git_add_error.stdout.txt",
@@ -401,18 +401,22 @@ fn stream_dispatch_matches_pinned_argv_only_command_helpers() {
             "git_fetch_simple.stderr.txt",
             b"< 2cee6f5..81a7b77 main       -> origin/main\n",
         ),
-        (
-            b"pull",
-            "git_pull_ff.stdout.txt",
-            "git_pull_ff.stderr.txt",
-            b"< 43fe7da..2cee6f5 main       -> origin/main\n@ fast-forward 43fe7da..2cee6f5\n+1/-0 files=1\n",
-        ),
-        (
-            b"push",
-            "git_push_simple.stdout.txt",
-            "git_push_simple.stderr.txt",
-            b"+ new main -> main\n",
-        ),
+    ];
+    for &(subcommand, stdout_fixture, stderr_fixture, expected) in stderr_cases {
+        let output = git::dispatch_streams_argv(
+            &[b"git", subcommand],
+            &fixture(stdout_fixture),
+            &fixture(stderr_fixture),
+            0,
+            false,
+        )
+        .unwrap();
+        assert!(output.stdout.is_empty(), "subcommand {:?}", subcommand);
+        assert_eq!(output.stderr, expected, "subcommand {:?}", subcommand);
+        assert_eq!(output.evidence, EvidenceClass::FactComplete);
+    }
+
+    let stdout_cases: &[(&[u8], &str, &str, &[u8])] = &[
         (
             b"rebase",
             "git_rebase_simple.txt",
@@ -426,8 +430,7 @@ fn stream_dispatch_matches_pinned_argv_only_command_helpers() {
             b"$0 main wip: fixture stash entry 2\n$1 main wip: fixture stash entry 1\n",
         ),
     ];
-
-    for &(subcommand, stdout_fixture, stderr_fixture, expected) in cases {
+    for &(subcommand, stdout_fixture, stderr_fixture, expected) in stdout_cases {
         let output = git::dispatch_streams_argv(
             &[b"git", subcommand],
             &fixture(stdout_fixture),
@@ -439,6 +442,26 @@ fn stream_dispatch_matches_pinned_argv_only_command_helpers() {
         assert_eq!(output.stdout, expected, "subcommand {:?}", subcommand);
         assert!(output.stderr.is_empty(), "subcommand {:?}", subcommand);
         assert_eq!(output.evidence, EvidenceClass::FactComplete);
+    }
+
+    for (subcommand, stdout_fixture, stderr_fixture) in [
+        (
+            b"pull".as_slice(),
+            "git_pull_ff.stdout.txt",
+            "git_pull_ff.stderr.txt",
+        ),
+        (
+            b"push".as_slice(),
+            "git_push_simple.stdout.txt",
+            "git_push_simple.stderr.txt",
+        ),
+    ] {
+        let stdout = fixture(stdout_fixture);
+        let stderr = fixture(stderr_fixture);
+        assert_eq!(
+            git::dispatch_streams_argv(&[b"git", subcommand], &stdout, &stderr, 0, false,).unwrap(),
+            StreamFilterOutput::passthrough(&stdout, &stderr),
+        );
     }
 }
 

@@ -5,7 +5,7 @@ use std::fmt;
 pub enum Value {
     Null,
     Bool(bool),
-    Integer(i64),
+    Number(Vec<u8>),
     String(Vec<u8>),
     Array(Vec<Value>),
     Object(Vec<(Vec<u8>, Value)>),
@@ -78,7 +78,7 @@ fn write_value(value: &Value, output: &mut Vec<u8>) {
         Value::Null => output.extend_from_slice(b"null"),
         Value::Bool(true) => output.extend_from_slice(b"true"),
         Value::Bool(false) => output.extend_from_slice(b"false"),
-        Value::Integer(integer) => output.extend_from_slice(integer.to_string().as_bytes()),
+        Value::Number(number) => output.extend_from_slice(number),
         Value::String(string) => write_string(string, output),
         Value::Array(values) => {
             output.push(b'[');
@@ -143,7 +143,7 @@ impl Parser<'_> {
             b't' => self.literal(b"true", Value::Bool(true)),
             b'f' => self.literal(b"false", Value::Bool(false)),
             b'n' => self.literal(b"null", Value::Null),
-            b'-' | b'0'..=b'9' => self.integer(),
+            b'-' | b'0'..=b'9' => self.number(),
             _ => Err(Error),
         }
     }
@@ -254,7 +254,7 @@ impl Parser<'_> {
         Ok(value)
     }
 
-    fn integer(&mut self) -> Result<Value, Error> {
+    fn number(&mut self) -> Result<Value, Error> {
         let start = self.position;
         self.take(b'-');
         match self.next().ok_or(Error)? {
@@ -267,11 +267,32 @@ impl Parser<'_> {
             }
             _ => return Err(Error),
         }
-        if matches!(self.peek(), Some(b'.' | b'e' | b'E')) {
-            return Err(Error);
+
+        if self.take(b'.') {
+            let fraction_start = self.position;
+            while self.peek().is_some_and(|byte| byte.is_ascii_digit()) {
+                self.position += 1;
+            }
+            if self.position == fraction_start {
+                return Err(Error);
+            }
         }
-        let text = std::str::from_utf8(&self.input[start..self.position]).map_err(|_| Error)?;
-        text.parse::<i64>().map(Value::Integer).map_err(|_| Error)
+
+        if self.peek().is_some_and(|byte| matches!(byte, b'e' | b'E')) {
+            self.position += 1;
+            if self.peek().is_some_and(|byte| matches!(byte, b'+' | b'-')) {
+                self.position += 1;
+            }
+            let exponent_start = self.position;
+            while self.peek().is_some_and(|byte| byte.is_ascii_digit()) {
+                self.position += 1;
+            }
+            if self.position == exponent_start {
+                return Err(Error);
+            }
+        }
+
+        Ok(Value::Number(self.input[start..self.position].to_vec()))
     }
 
     fn literal(&mut self, literal: &[u8], value: Value) -> Result<Value, Error> {
@@ -338,10 +359,22 @@ mod tests {
     }
 
     #[test]
-    fn rejects_trailing_content_floats_and_malformed_strings() {
+    fn round_trips_all_json_number_forms_without_normalizing_them() {
+        let input = br#"[0.5,1e6,9223372036854775808,-0,2E-3,-12.340e+5]"#;
+        let parsed = parse(input).unwrap();
+
+        assert_eq!(serialize(&parsed), input);
+    }
+
+    #[test]
+    fn rejects_trailing_content_malformed_numbers_and_strings() {
         for input in [
             b"{} trailing".as_slice(),
-            b"1.5",
+            b"01",
+            b"1.",
+            b"1e",
+            b"1e+",
+            b"-.5",
             b"\"unterminated",
             b"\"\\ud800x\"",
         ] {
