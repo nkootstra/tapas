@@ -209,6 +209,17 @@ fn filter_captured_output<'a>(
         return filtered;
     }
 
+    if let Ok(output) = crate::filters::package::dispatch_streams_argv(
+        &argv_bytes,
+        &captured.stdout,
+        &captured.stderr,
+        captured.exit_code,
+        lossless,
+    ) && let Some(filtered) = changed_filtered_streams(output, captured, "package")
+    {
+        return filtered;
+    }
+
     if let Ok(output) = crate::filters::data::dispatch_streams_argv(
         &argv_bytes,
         &captured.stdout,
@@ -216,6 +227,17 @@ fn filter_captured_output<'a>(
         captured.exit_code,
         lossless,
     ) && let Some(filtered) = changed_filtered_streams(output, captured, "data")
+    {
+        return filtered;
+    }
+
+    if let Ok(output) = crate::filters::diagnostics::dispatch_streams_argv(
+        &argv_bytes,
+        &captured.stdout,
+        &captured.stderr,
+        captured.exit_code,
+        lossless,
+    ) && let Some(filtered) = changed_filtered_streams(output, captured, "diagnostics")
     {
         return filtered;
     }
