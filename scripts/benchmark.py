@@ -63,12 +63,20 @@ def tokens(encoder: Any, data: bytes) -> int | None:
     return len(encoder.encode(value))
 
 
-def run_tool(binary: pathlib.Path, tool: str, case: dict[str, Any], contract: pathlib.Path, timeout: float, encoder: Any) -> dict[str, Any]:
+def run_tool(
+    binary: pathlib.Path,
+    binary_sha256: str,
+    tool: str,
+    case: dict[str, Any],
+    contract: pathlib.Path,
+    timeout: float,
+    encoder: Any,
+) -> dict[str, Any]:
     started = time.perf_counter_ns()
     result = parity.run_case(binary.resolve(), case, contract, timeout, tool)
     elapsed = time.perf_counter_ns() - started
     return {
-        "binary_sha256": binary_hash(binary),
+        "binary_sha256": binary_sha256,
         "stdout_sha256": digest(result.stdout),
         "stderr_sha256": digest(result.stderr),
         "stdout_bytes": len(result.stdout),
@@ -85,8 +93,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--smll-bin", type=pathlib.Path, required=True)
     parser.add_argument("--tapas-bin", type=pathlib.Path)
-    parser.add_argument("--cases", type=pathlib.Path, default=pathlib.Path("tests/compat/smll-v1.9.0/cases.json"))
-    parser.add_argument("--contract", type=pathlib.Path, default=pathlib.Path("tests/compat/smll-v1.9.0"))
+    parser.add_argument("--cases", type=pathlib.Path, default=parity.DEFAULT_CASES)
+    parser.add_argument("--contract", type=pathlib.Path, default=parity.DEFAULT_CONTRACT)
     parser.add_argument("--tokenizer", type=pathlib.Path, default=pathlib.Path("tests/tokenizers/o200k_base.tiktoken"))
     parser.add_argument("--case", action="append", dest="case_ids")
     parser.add_argument("--timeout", type=float, default=10.0)
@@ -113,20 +121,24 @@ def main() -> int:
             return 2
     records = []
     failed = False
+    target = f"{platform.system().lower()}-{platform.machine().lower()}"
+    corpus_sha256 = digest(raw_cases)
+    smll_sha256 = binary_hash(args.smll_bin)
+    tapas_sha256 = binary_hash(args.tapas_bin) if args.tapas_bin else None
     for case in cases:
         record: dict[str, Any] = {
             "case_id": case["id"],
             "source_commit": document["source_commit"],
-            "target": f"{platform.system().lower()}-{platform.machine().lower()}",
-            "corpus_sha256": digest(raw_cases),
+            "target": target,
+            "corpus_sha256": corpus_sha256,
             "asserted_facts": {stream: case["expect"][stream]["facts"] for stream in ("stdout", "stderr")},
             "tokenizer": {"package": "tiktoken", "version": "0.12.0", "encoding": "o200k_base", "asset_sha256": TOKENIZER_HASH},
         }
-        smll = run_tool(args.smll_bin, "smll", case, args.contract, args.timeout, encoder)
+        smll = run_tool(args.smll_bin, smll_sha256, "smll", case, args.contract, args.timeout, encoder)
         record["smll"] = smll
         failed |= bool(smll["assertion_errors"])
         if args.tapas_bin:
-            tapas = run_tool(args.tapas_bin, "tapas", case, args.contract, args.timeout, encoder)
+            tapas = run_tool(args.tapas_bin, tapas_sha256, "tapas", case, args.contract, args.timeout, encoder)
             record["tapas"] = tapas
             failed |= bool(tapas["assertion_errors"])
             smll_tokens = None if smll["stdout_proxy_tokens"] is None or smll["stderr_proxy_tokens"] is None else smll["stdout_proxy_tokens"] + smll["stderr_proxy_tokens"]
