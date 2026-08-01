@@ -1,7 +1,9 @@
+pub mod build;
 pub mod data;
 pub mod diagnostics;
 pub mod generic;
 pub mod git;
+pub mod infra;
 pub mod listing;
 pub mod package;
 pub mod test_tools;
