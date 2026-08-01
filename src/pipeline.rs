@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::io::{self, Read, Write};
 
 use crate::filters::{FilterError, FilterOutput};
-use crate::filters::{generic, git, listing, test_tools};
+use crate::filters::{generic, git, infra, listing, package, test_tools};
 use crate::signals::Signals;
 
 pub const MAX_PIPE_INPUT_BYTES: usize = 16 * 1024 * 1024;
@@ -48,7 +48,14 @@ const DEFAULT_FILTERS: &[FilterSpec] = &[
         test_tools::matches,
         test_tools::apply_matched,
     ),
+    FilterSpec::ungated(
+        "container",
+        infra::matches_container_pipe,
+        infra::apply_container_pipe,
+    ),
+    FilterSpec::ungated("package", package::matches_pipe, package::apply_pipe),
     FilterSpec::ungated("listing", listing::matches, listing::apply_matched),
+    FilterSpec::ungated("curl", infra::matches_curl_pipe, infra::apply_curl_pipe),
     FilterSpec::ungated("generic", generic::matches, generic::apply_matched),
 ];
 
