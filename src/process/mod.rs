@@ -209,6 +209,17 @@ fn filter_captured_output<'a>(
         return filtered;
     }
 
+    if let Ok(output) = crate::filters::data::dispatch_streams_argv(
+        &argv_bytes,
+        &captured.stdout,
+        &captured.stderr,
+        captured.exit_code,
+        lossless,
+    ) && let Some(filtered) = changed_filtered_streams(output, captured, "data")
+    {
+        return filtered;
+    }
+
     let result = crate::pipeline::filter(&captured.stdout);
     FilteredStreams {
         stdout: result.bytes,
