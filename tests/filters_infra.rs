@@ -114,6 +114,27 @@ fn verbose_curl_fixture_keeps_summary_and_body() {
 }
 
 #[test]
+fn repeated_verbose_curl_requests_collapse_to_a_range_summary() {
+    let stdout = fixture("large/curl_vvv_example.stdout.txt");
+    let stderr = fixture("large/curl_vvv_example.stderr.txt");
+    let output = infra::dispatch_streams_argv(
+        &[b"curl", b"-vvv", b"https://api.example.com/v1/resources"],
+        &stdout,
+        &stderr,
+        0,
+        false,
+    )
+    .unwrap();
+    assert!(output.stdout.starts_with(
+        b"curl 30 GET api.example.com/v1/resources/1../v1/resources/30 -> HTTP/2 200 x30 application/json\n"
+    ));
+    assert!(contains(
+        &output.stdout,
+        b"{\"id\":30,\"name\":\"resource_30\",\"status\":\"ok\"}"
+    ));
+}
+
+#[test]
 fn gh_list_routes_match_the_pinned_oracle_shapes() {
     let prs = fixture("gh_pr_list.txt");
     let output =

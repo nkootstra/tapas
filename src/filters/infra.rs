@@ -556,53 +556,116 @@ fn field_at(line: &[u8], column: usize) -> &[u8] {
 }
 
 fn compact_curl(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
-    let mut method = b"request".as_slice();
-    let mut path = b"/".as_slice();
-    let mut host = b"unknown".as_slice();
-    let mut status = b"response".as_slice();
+    let mut method = b"".as_slice();
+    let mut path = b"".as_slice();
+    let mut last_path = b"".as_slice();
+    let mut host = b"".as_slice();
+    let mut status = b"".as_slice();
     let mut content_type = b"".as_slice();
     let mut content_length = b"".as_slice();
+    let mut request_count = 0usize;
+    let mut status_count = 0usize;
+    let mut same_status = true;
+    let mut location_count = 0usize;
     for raw in stderr.split(|byte| *byte == b'\n') {
         let line = raw.trim_ascii();
-        if let Some(request) = line.strip_prefix(b">") {
+        if let Some(request) = line.strip_prefix(b"> ") {
             let fields = request
                 .trim_ascii()
                 .split(|byte| *byte == b' ')
                 .collect::<Vec<_>>();
-            if fields.len() >= 2 && fields[0].iter().all(u8::is_ascii_uppercase) {
-                method = fields[0];
-                path = fields[1];
+            if fields.len() >= 3
+                && fields[0].iter().all(u8::is_ascii_uppercase)
+                && fields[2].starts_with(b"HTTP/")
+            {
+                request_count += 1;
+                if request_count == 1 {
+                    method = fields[0];
+                    path = fields[1];
+                }
+                last_path = fields[1];
             }
         }
-        if let Some(value) = strip_prefix_ignore_ascii_case(line, b"> Host:") {
+        if host.is_empty()
+            && let Some(value) = strip_prefix_ignore_ascii_case(line, b"> Host:")
+        {
             host = value.trim_ascii();
         }
         if line.starts_with(b"< HTTP/") {
-            status = line[2..].trim_ascii();
+            status_count += 1;
+            let current = line[2..].trim_ascii();
+            if status_count == 1 {
+                status = current;
+            } else if current != status {
+                same_status = false;
+            }
         }
-        if let Some(value) = strip_prefix_ignore_ascii_case(line, b"< content-type:") {
+        if strip_prefix_ignore_ascii_case(line, b"< location:").is_some() {
+            location_count += 1;
+        }
+        if content_type.is_empty()
+            && let Some(value) = strip_prefix_ignore_ascii_case(line, b"< content-type:")
+        {
             content_type = value
                 .trim_ascii()
                 .split(|byte| *byte == b';')
                 .next()
                 .unwrap_or_default();
         }
-        if let Some(value) = strip_prefix_ignore_ascii_case(line, b"< content-length:") {
+        if content_length.is_empty()
+            && let Some(value) = strip_prefix_ignore_ascii_case(line, b"< content-length:")
+        {
             content_length = value.trim_ascii();
         }
     }
+    let can_summarize = request_count > 0
+        && status_count > 0
+        && !status.is_empty()
+        && location_count == 0
+        && (request_count != 1 || status_count == 1)
+        && (request_count <= 1 || status_count == request_count && same_status);
+    if !can_summarize {
+        let mut output = Vec::with_capacity(stdout.len() + stderr.len());
+        if !stdout.is_empty() {
+            output.extend_from_slice(b"--- headers ---\n");
+        }
+        output.extend_from_slice(&compact_curl_trace(stderr));
+        if !stdout.is_empty() {
+            output.extend_from_slice(b"--- body ---\n");
+            output.extend_from_slice(stdout);
+        }
+        return output;
+    }
+
     let mut output = b"curl ".to_vec();
+    if request_count > 1 {
+        output.extend_from_slice(request_count.to_string().as_bytes());
+        output.push(b' ');
+    }
     output.extend_from_slice(method);
     output.push(b' ');
     output.extend_from_slice(host);
-    output.extend_from_slice(path);
+    if !path.is_empty() {
+        if !host.is_empty() && !path.starts_with(b"/") {
+            output.push(b' ');
+        }
+        output.extend_from_slice(path);
+    }
+    if request_count > 1 && last_path != path {
+        output.extend_from_slice(b"..");
+        output.extend_from_slice(last_path);
+    }
     output.extend_from_slice(b" -> ");
     output.extend_from_slice(status);
+    if request_count > 1 {
+        output.extend_from_slice(b" x");
+        output.extend_from_slice(request_count.to_string().as_bytes());
+    }
     if !content_type.is_empty() {
         output.push(b' ');
         output.extend_from_slice(content_type);
     }
-    if !content_length.is_empty() {
+    if request_count == 1 && !content_length.is_empty() {
         output.extend_from_slice(b" len=");
         output.extend_from_slice(content_length);
     }
