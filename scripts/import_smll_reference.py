@@ -474,7 +474,13 @@ def rust_catalog(inventory: dict[str, Any]) -> bytes:
     return "\n".join(lines).encode()
 
 
-def write_or_check(output: pathlib.Path, documents: dict[str, bytes], *, check: bool) -> list[str]:
+def write_or_check(
+    output: pathlib.Path,
+    documents: dict[str, bytes],
+    *,
+    check: bool,
+    allowed_extras: set[str] | None = None,
+) -> list[str]:
     differences: list[str] = []
     for relative, data in sorted(documents.items()):
         path = output / relative
@@ -489,7 +495,7 @@ def write_or_check(output: pathlib.Path, documents: dict[str, bytes], *, check: 
     if check and output.exists():
         expected = set(documents)
         actual = {str(path.relative_to(output)) for path in output.rglob("*") if path.is_file()}
-        for extra in sorted(actual - expected):
+        for extra in sorted(actual - expected - (allowed_extras or set())):
             differences.append(f"extra: {output / extra}")
     return differences
 
@@ -511,8 +517,19 @@ def main() -> int:
         if object_type != "commit":
             raise ImportError(f"pinned object is {object_type!r}, expected commit")
         inventory, cases, manifest, fixture_blobs = build_documents(repo)
-        documents = {"inventory.json": encoded_json(inventory), "cases.json": encoded_json(cases), "fixture-manifest.json": encoded_json(manifest), **fixture_blobs}
-        differences = write_or_check(args.output, documents, check=args.check)
+        documents = {
+            "inventory.json": encoded_json(inventory),
+            "cases.json": encoded_json(cases),
+            "fixture-manifest.json": encoded_json(manifest),
+            "benchmark-cases.json": blob(repo, "benchmarks/smll-vs-rtk/cases.json"),
+            **fixture_blobs,
+        }
+        differences = write_or_check(
+            args.output,
+            documents,
+            check=args.check,
+            allowed_extras={"benchmark-baseline.json"},
+        )
         if args.rust_catalog:
             catalog = rust_catalog(inventory)
             if args.check:

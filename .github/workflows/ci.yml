@@ -60,8 +60,32 @@ jobs:
       - name: Test
         run: cargo test --locked
 
+      - name: Report runtime dependencies
+        run: cargo tree --locked --edges normal
+
+      - name: Audit the pinned command inventory
+        run: |
+          python3 scripts/audit_inventory.py \
+            --contract tests/compat/smll-v1.9.0 \
+            --rust-catalog src/catalog.generated.rs
+
       - name: Run the frozen compatibility contract
         run: python3 scripts/parity.py --binary target/debug/tapas --tool tapas
+
+      - name: Install the pinned benchmark tokenizer
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          python3 -m venv .benchmark-venv
+          .benchmark-venv/bin/python -m pip install \
+            --disable-pip-version-check \
+            --requirement scripts/requirements-benchmark.txt
+
+      - name: Enforce the historical CLI token baseline
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          .benchmark-venv/bin/python scripts/historical_benchmark.py \
+            --tapas-bin target/debug/tapas \
+            --output benchmark-report.json
 
       - name: Build the size-oriented artifact
         run: cargo build --locked --profile z --target "${TARGET}"
