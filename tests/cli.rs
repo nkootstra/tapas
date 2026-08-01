@@ -211,23 +211,34 @@ fn process_modes_execute_the_requested_child() {
 }
 
 #[test]
-fn claude_only_integration_boundaries_are_exposed_but_not_reported_as_complete() {
-    for args in [
-        &["--hook-eval", "claude"][..],
-        &["--setup", "claude"][..],
-        &["--unsetup=claude", "--dry-run"][..],
-    ] {
-        let output = tapas_with_stdin(args, b"{}", &[]);
+fn claude_hook_blocks_only_simple_supported_commands() {
+    let eligible = tapas_with_stdin(
+        &["--hook-eval", "claude"],
+        br#"{"tool_input":{"command":"git status"}}"#,
+        &[],
+    );
+    assert_eq!(eligible.status.code(), Some(2));
+    assert!(eligible.stdout.is_empty());
+    assert_eq!(
+        eligible.stderr,
+        b"tapas hook: wrap noisy command with tapas (example: tapas git status)\n"
+    );
 
-        assert_eq!(output.status.code(), Some(70), "args: {args:?}");
-        assert!(output.stdout.is_empty(), "args: {args:?}");
-        let error = String::from_utf8(output.stderr).expect("UTF-8 boundary error");
-        assert!(
-            error.starts_with("tapas: Claude "),
-            "args: {args:?}: {error:?}"
-        );
-        assert!(!error.starts_with("usage:"), "args: {args:?}: {error:?}");
+    for input in [
+        br#"{"tool_input":{"command":"git status | cat"}}"#.as_slice(),
+        br#"{"tool_input":{"command":"unknown command"}}"#,
+        b"invalid JSON",
+    ] {
+        let ignored = tapas_with_stdin(&["--hook-eval", "claude"], input, &[]);
+        assert!(ignored.status.success());
+        assert!(ignored.stdout.is_empty());
+        assert!(ignored.stderr.is_empty());
     }
+
+    let self_check = tapas(&["--hook-eval", "claude", "--self-check"]);
+    assert!(self_check.status.success());
+    assert!(self_check.stdout.is_empty());
+    assert!(self_check.stderr.is_empty());
 }
 
 #[test]
