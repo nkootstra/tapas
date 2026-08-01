@@ -242,21 +242,7 @@ def fixture_payload(payload: SmokePayload) -> dict[str, Any]:
     return {"base64": base64.b64encode(payload.value.encode()).decode("ascii")}
 
 
-def first_nonempty_line(data: bytes) -> str | None:
-    try:
-        decoded = data.decode("utf-8")
-    except UnicodeDecodeError:
-        return None
-    for line in decoded.splitlines():
-        stripped = line.strip()
-        if stripped and len(stripped) <= 120:
-            return stripped
-    return None
-
-
-def case_document(case: SmokeCase, repo: pathlib.Path) -> dict[str, Any]:
-    stdout_data = blob(repo, case.stdout.value) if case.stdout.kind == "fixture" else case.stdout.value.encode()
-    stderr_data = blob(repo, case.stderr.value) if case.stderr.kind == "fixture" else case.stderr.value.encode()
+def case_document(case: SmokeCase) -> dict[str, Any]:
     # The source smoke suite only asserts launch and exit behavior. Preserve
     # that characterization here instead of inventing semantic assertions from
     # arbitrary first lines that a valid compactor may intentionally remove.
@@ -340,7 +326,7 @@ def build_documents(repo: pathlib.Path) -> tuple[dict[str, Any], dict[str, Any],
     git_subcommands = parse_git_subcommands(sources["src/wrapper_git.zig"])
     pipe_detectors = parse_pipe_detectors(sources["src/pipe_filters.zig"])
     smoke = parse_smoke_cases(sources["scripts/smoke-supported-commands.py"])
-    cases = [case_document(case, repo) for case in smoke]
+    cases = [case_document(case) for case in smoke]
     add_policy_cases(cases)
 
     capabilities: list[dict[str, Any]] = []
@@ -413,7 +399,6 @@ def build_documents(repo: pathlib.Path) -> tuple[dict[str, Any], dict[str, Any],
     for runner in RUNNERS:
         case_id = f"runner:{runner.replace(' ', '-')}"
         if case_id == "runner:poetry-run": case_id = "runner:poetry"
-        if case_id == "runner:pnpm-exec": case_id = "runner:pnpm-exec"
         capability_id = f"transparent_runner:{runner}"
         capabilities.append({"id": capability_id, "type": "transparent_runner", "runner": runner, "policy": "dispatch_inner_spawn_original", "cases": [case_id], "source_anchors": [anchor(util_source, "src/wrapper_util.zig", runner.split()[0], symbol="classifyInvocation")]})
         case = next(case for case in cases if case["id"] == case_id)
