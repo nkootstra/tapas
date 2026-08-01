@@ -521,10 +521,33 @@ fn command_paths_and_failure_boundaries_are_preserved() {
         )
         .unwrap(),
         StreamFilterOutput::new(
-            b"vite v5.4.2 building for production...\n\nError: plugin exploded\n\n".to_vec(),
-            Vec::new(),
-            EvidenceClass::FactComplete,
+            b"vite v5.4.2 building for production...\ntransforming...\n".to_vec(),
+            b"Error: plugin exploded\n".to_vec(),
+            EvidenceClass::ByteExact,
         ),
+    );
+}
+
+#[test]
+fn build_truncation_notice_names_tapas_raw_mode() {
+    let mut input = b"webpack 5.0 compiled with 201 errors\n".to_vec();
+    for index in 0..201 {
+        input.extend_from_slice(format!("ERROR in src/file-{index}.js\n").as_bytes());
+    }
+
+    let output = build::dispatch_streams_argv(&[b"webpack"], &input, b"", 1, false).unwrap();
+
+    assert!(
+        output
+            .stdout
+            .windows(b"(tapas: omitted ".len())
+            .any(|window| window == b"(tapas: omitted ")
+    );
+    assert!(
+        output
+            .stdout
+            .windows(b"rerun with tapas --raw".len())
+            .any(|window| window == b"rerun with tapas --raw")
     );
 }
 

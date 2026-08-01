@@ -31,11 +31,11 @@ pub(super) fn run(
 ) -> io::Result<StreamedOutput> {
     let kind = StreamKind::classify(logical_argv);
     let mut command = capture::command(argv)?;
-    let mut child = command
+    command
         .stdin(Stdio::inherit())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
+        .stderr(Stdio::piped());
+    let (mut child, forwarder) = unix::spawn_process_group(&mut command)?;
     let result = (|| {
         let mut child_stdout = child.stdout.take().expect("piped child stdout");
         let mut child_stderr = child.stderr.take().expect("piped child stderr");
@@ -57,10 +57,12 @@ pub(super) fn run(
         let mut incomplete = false;
 
         while stdout_open || stderr_open {
+            forwarder.forward_pending()?;
             unix::poll_readable(
                 stdout_open.then(|| child_stdout.as_raw_fd()),
                 stderr_open.then(|| child_stderr.as_raw_fd()),
             )?;
+            forwarder.forward_pending()?;
             let mut received = false;
             if stdout_open {
                 stdout_open =
@@ -111,7 +113,7 @@ pub(super) fn run(
         let displayed_bytes = stdout_count.count + stderr_count.count;
         let status = match child_status {
             Some(status) => status,
-            None => child.wait()?,
+            None => unix::wait_for_child(&mut child, &forwarder)?,
         };
         Ok(StreamedOutput {
             exit_code: unix::exit_code(status),
@@ -404,6 +406,9 @@ impl JestState {
         }
         let line = if let Some(index) = clear_frame_index(raw) {
             self.flush(writer)?;
+            if self.raw_passthrough {
+                return append_written_line(writer, raw);
+            }
             &raw[index..]
         } else {
             raw
@@ -426,22 +431,20 @@ impl JestState {
             return Ok(());
         }
         let frame = std::mem::take(&mut self.frame);
-        let rendered = if test_tools::matches(&frame) {
-            test_tools::apply_matched(&frame)
-                .ok()
-                .map(|output| output.bytes)
-        } else {
-            None
-        };
+        match test_tools::apply_matched(&frame) {
+            Ok(output) if !output.bytes.is_empty() && output.bytes != self.last_emitted => {
+                writer.write_all(&output.bytes)?;
+                self.last_emitted = output.bytes;
+            }
+            Ok(_) => {}
+            Err(_) => {
+                writer.write_all(&frame)?;
+                self.last_emitted.clear();
+                self.raw_passthrough = true;
+            }
+        }
         self.frame = frame;
         self.frame.clear();
-        if let Some(rendered) = rendered
-            && !rendered.is_empty()
-            && rendered != self.last_emitted
-        {
-            writer.write_all(&rendered)?;
-            self.last_emitted = rendered;
-        }
         Ok(())
     }
 }

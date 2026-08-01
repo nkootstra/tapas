@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "differences": [
+    {
+      "case": "curl-verbose",
+      "reason": "Tapas keeps the response body on stdout and compact request metadata on stderr."
+    },
+    {
+      "case": "curl-verbose-large",
+      "reason": "Tapas keeps the response body on stdout and compact request metadata on stderr."
+    }
+  ]
+}

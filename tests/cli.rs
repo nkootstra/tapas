@@ -211,23 +211,43 @@ fn process_modes_execute_the_requested_child() {
 }
 
 #[test]
-fn claude_hook_blocks_only_simple_supported_commands() {
+fn claude_hook_updates_only_simple_supported_commands_without_granting_authority() {
     let eligible = tapas_with_stdin(
         &["--hook-eval", "claude"],
-        br#"{"tool_input":{"command":"git status"}}"#,
+        br#"{"hook_event_name":"PreToolUse","permission_mode":"bypassPermissions","tool_input":{"command":"git status --token=s3cr3t\t--short","description":"secret\nline\u0000","flag":true,"ratio":0.5,"nested":{"items":[1e6,null]}}}"#,
         &[],
     );
-    assert_eq!(eligible.status.code(), Some(2));
-    assert!(eligible.stdout.is_empty());
+    assert!(eligible.status.success());
+    let executable = env!("CARGO_BIN_EXE_tapas");
+    assert!(std::path::Path::new(executable).is_absolute());
+    let expected = format!(
+        "{{\"hookSpecificOutput\":{{\"hookEventName\":\"PreToolUse\",\"updatedInput\":{{\"command\":\"'{executable}' git status --token=s3cr3t\\t--short\",\"description\":\"secret\\nline\\u0000\",\"flag\":true,\"ratio\":0.5,\"nested\":{{\"items\":[1e6,null]}}}}}}}}\n"
+    );
+    assert_eq!(eligible.stdout, expected.as_bytes());
+    assert!(eligible.stderr.is_empty());
+    let prefix = format!("'{executable}'");
     assert_eq!(
-        eligible.stderr,
-        b"tapas hook: wrap noisy command with tapas (example: tapas git status)\n"
+        eligible
+            .stdout
+            .windows(prefix.len())
+            .filter(|part| *part == prefix.as_bytes())
+            .count(),
+        1
+    );
+    assert!(
+        !eligible
+            .stdout
+            .windows(b"permission".len())
+            .any(|part| part == b"permission")
     );
 
+    let already_wrapped =
+        format!("{{\"tool_input\":{{\"command\":\"'{executable}' git status\"}}}}");
     for input in [
         br#"{"tool_input":{"command":"git status | cat"}}"#.as_slice(),
         br#"{"tool_input":{"command":"unknown command"}}"#,
         b"invalid JSON",
+        already_wrapped.as_bytes(),
     ] {
         let ignored = tapas_with_stdin(&["--hook-eval", "claude"], input, &[]);
         assert!(ignored.status.success());

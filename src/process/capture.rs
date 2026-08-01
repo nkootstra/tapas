@@ -27,11 +27,12 @@ pub struct CapturedOutput {
 
 pub fn run_inherited(argv: &[OsString]) -> io::Result<i32> {
     let mut command = command(argv)?;
-    let status = command
+    command
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .status()?;
+        .stderr(Stdio::inherit());
+    let (mut child, forwarder) = unix::spawn_process_group(&mut command)?;
+    let status = unix::wait_for_child(&mut child, &forwarder)?;
     Ok(unix::exit_code(status))
 }
 
@@ -46,12 +47,12 @@ pub fn run_captured(
     if force_c_locale {
         command.env("LC_ALL", "C").env("LANG", "C");
     }
-    let mut child = command
+    command
         .stdin(Stdio::inherit())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
-    let result = drain_child(&mut child, mode, raw_stdout, raw_stderr);
+        .stderr(Stdio::piped());
+    let (mut child, forwarder) = unix::spawn_process_group(&mut command)?;
+    let result = drain_child(&mut child, &forwarder, mode, raw_stdout, raw_stderr);
     if result.is_err() {
         let _ = child.kill();
         let _ = child.wait();
@@ -73,6 +74,7 @@ pub(super) fn command(argv: &[OsString]) -> io::Result<Command> {
 
 fn drain_child(
     child: &mut Child,
+    forwarder: &unix::SignalForwarder,
     mode: CaptureMode,
     raw_stdout: &mut dyn Write,
     raw_stderr: &mut dyn Write,
@@ -92,10 +94,12 @@ fn drain_child(
     let mut incomplete = false;
 
     while stdout_open || stderr_open {
+        forwarder.forward_pending()?;
         unix::poll_readable(
             stdout_open.then(|| child_stdout.as_raw_fd()),
             stderr_open.then(|| child_stderr.as_raw_fd()),
         )?;
+        forwarder.forward_pending()?;
 
         if stdout_open {
             stdout_open = read_available(&mut child_stdout, &mut stdout_buffer, |chunk| {
@@ -124,7 +128,7 @@ fn drain_child(
     drop(child_stderr);
     let status = match child_status {
         Some(status) => status,
-        None => child.wait()?,
+        None => unix::wait_for_child(child, forwarder)?,
     };
     Ok(state.finish(unix::exit_code(status), incomplete))
 }

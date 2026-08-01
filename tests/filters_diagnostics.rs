@@ -128,9 +128,10 @@ fn prettier_colored_check_and_write_modes_match_compact_contract() {
         false,
     )
     .unwrap();
-    assert!(contains(&check.stdout, b"[warn] needsfix.ts"));
-    assert!(contains(&check.stdout, b"Code style issues found"));
-    assert!(!check.stdout.contains(&0x1b));
+    assert!(check.stdout.is_empty());
+    assert!(contains(&check.stderr, b"[warn] needsfix.ts"));
+    assert!(contains(&check.stderr, b"Code style issues found"));
+    assert!(!check.stderr.contains(&0x1b));
 
     let write = fixture("prettier_write.txt");
     let output =

@@ -264,10 +264,8 @@ pub fn dispatch_argv(
     }
 }
 
-/// Apply the pinned Git wrapper semantics when the caller owns both streams.
-/// Successful argv-only helpers intentionally render retained stderr facts on
-/// stdout, matching smll; lossless, failed, and bypassed commands retain their
-/// original stream ownership.
+/// Apply Git wrapper semantics while retaining each fact on its source stream.
+/// Compactors that need both streams fail open when both contain output.
 pub fn dispatch_streams_argv(
     argv: &[&[u8]],
     stdout: &[u8],
@@ -285,35 +283,35 @@ pub fn dispatch_streams_argv(
             EvidenceClass::ByteExact,
         ));
     }
+    if matches!(argv[1], b"fetch" | b"push") && !stdout.is_empty() {
+        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
+    }
 
-    let compact = match argv[1] {
-        b"add" => Some(apply_add(stdout, stderr)),
-        b"checkout" | b"switch" => Some(apply_checkout(stdout, stderr)),
-        b"fetch" => Some(apply_fetch(stderr)),
-        b"pull" => Some(apply_pull(stdout, stderr)),
-        b"push" => Some(apply_push(stderr)),
-        b"merge" => Some(apply_merge(stdout, stderr)),
-        b"rebase" => Some(apply_rebase(stdout, stderr)),
-        b"stash" => Some(apply_stash(stdout, stderr)),
+    type Compact = fn(&[u8], &[u8]) -> Vec<u8>;
+    let compact: Option<Compact> = match argv[1] {
+        b"add" => Some(apply_add),
+        b"checkout" | b"switch" => Some(apply_checkout),
+        b"fetch" => Some(|_, stderr| apply_fetch(stderr)),
+        b"pull" => Some(apply_pull),
+        b"push" => Some(|_, stderr| apply_push(stderr)),
+        b"merge" => Some(apply_merge),
+        b"rebase" => Some(apply_rebase),
+        b"stash" => Some(apply_stash),
         _ => None,
     };
-    if let Some(stdout) = compact {
-        return Ok(StreamFilterOutput::new(
+    if let Some(compact) = compact {
+        return Ok(StreamFilterOutput::compact_single_stream(
             stdout,
-            Vec::new(),
+            stderr,
             EvidenceClass::FactComplete,
+            compact,
         ));
     }
 
     let filtered = dispatch_argv(argv, stdout, stderr, exit_code, lossless)?;
-    let preserved_stderr = if filtered.evidence == EvidenceClass::ByteExact {
-        stderr.to_vec()
-    } else {
-        Vec::new()
-    };
     Ok(StreamFilterOutput::new(
         filtered.bytes,
-        preserved_stderr,
+        stderr.to_vec(),
         filtered.evidence,
     ))
 }

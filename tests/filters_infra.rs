@@ -91,7 +91,7 @@ fn kubectl_pods_fixture_matches_the_pinned_oracle() {
 }
 
 #[test]
-fn verbose_curl_fixture_keeps_summary_and_body() {
+fn verbose_curl_with_body_and_trace_preserves_both_descriptors() {
     let stdout = fixture("curl_v_example.stdout.txt");
     let stderr = fixture("curl_v_example.stderr.txt");
     let output = infra::dispatch_streams_argv(
@@ -102,19 +102,14 @@ fn verbose_curl_fixture_keeps_summary_and_body() {
         false,
     )
     .unwrap();
-    assert_eq!(output.evidence, EvidenceClass::FactComplete);
-    assert!(output.stderr.is_empty());
-    assert!(
-        output
-            .stdout
-            .starts_with(b"curl GET example.com/ -> HTTP/2 200 text/html len=182\n")
-    );
-    assert!(contains(&output.stdout, b"<h1>Example Domain</h1>"));
-    assert!(!contains(&output.stdout, b"TLSv1.3"));
+    assert_eq!(output.stdout, stdout);
+    assert!(contains(&output.stderr, b"HTTP/2 200"));
+    assert!(!contains(&output.stderr, b"TLSv1.3"));
+    assert!(output.stderr.len() < stderr.len());
 }
 
 #[test]
-fn repeated_verbose_curl_requests_collapse_to_a_range_summary() {
+fn repeated_verbose_curl_compacts_trace_without_moving_the_body() {
     let stdout = fixture("large/curl_vvv_example.stdout.txt");
     let stderr = fixture("large/curl_vvv_example.stderr.txt");
     let output = infra::dispatch_streams_argv(
@@ -125,13 +120,9 @@ fn repeated_verbose_curl_requests_collapse_to_a_range_summary() {
         false,
     )
     .unwrap();
-    assert!(output.stdout.starts_with(
-        b"curl 30 GET api.example.com/v1/resources/1../v1/resources/30 -> HTTP/2 200 x30 application/json\n"
-    ));
-    assert!(contains(
-        &output.stdout,
-        b"{\"id\":30,\"name\":\"resource_30\",\"status\":\"ok\"}"
-    ));
+    assert_eq!(output.stdout, stdout);
+    assert!(contains(&output.stderr, b"HTTP/2 200"));
+    assert!(output.stderr.len() < stderr.len());
 }
 
 #[test]

@@ -117,15 +117,15 @@ pub fn dispatch_streams_argv(
     }
     if command == b"wc" {
         return Ok(StreamFilterOutput::new(
-            apply_wc(stdout, stderr),
-            Vec::new(),
+            apply_wc(stdout, b""),
+            stderr.to_vec(),
             EvidenceClass::FactComplete,
         ));
     }
     if command == b"env" && env_is_listing(argv) {
         return Ok(StreamFilterOutput::new(
-            apply_env(stdout, stderr),
-            Vec::new(),
+            apply_env(stdout, b""),
+            stderr.to_vec(),
             EvidenceClass::PotentiallyLossy,
         ));
     }

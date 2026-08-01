@@ -36,12 +36,28 @@ pub fn dispatch_streams_argv(
         return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
 
-    let output = if command == b"curl" && has_verbose_flag(argv) {
-        Some(compact_curl(stdout, stderr))
-    } else if is_logs_invocation(command, argv) {
+    if command == b"curl" && has_verbose_flag(argv) {
+        return Ok(StreamFilterOutput::new(
+            stdout.to_vec(),
+            if stderr.is_empty() {
+                Vec::new()
+            } else {
+                compact_curl(b"", stderr)
+            },
+            EvidenceClass::FactComplete,
+        ));
+    }
+    if is_logs_invocation(command, argv) {
         let compose = command == b"docker-compose" || command == b"docker" && arg1 == b"compose";
-        Some(compact_logs(stdout, stderr, compose))
-    } else if is_docker_ps(command, argv) && matches_docker_ps(stdout) {
+        return Ok(StreamFilterOutput::compact_single_stream(
+            stdout,
+            stderr,
+            EvidenceClass::FactComplete,
+            |stdout, stderr| compact_logs(stdout, stderr, compose),
+        ));
+    }
+
+    let output = if is_docker_ps(command, argv) && matches_docker_ps(stdout) {
         Some(compact_docker_ps(stdout))
     } else if is_docker_images(command, argv) && matches_docker_images(stdout) {
         Some(compact_docker_images(stdout))
@@ -57,7 +73,7 @@ pub fn dispatch_streams_argv(
 
     Ok(output.map_or_else(
         || StreamFilterOutput::passthrough(stdout, stderr),
-        |stdout| StreamFilterOutput::new(stdout, Vec::new(), EvidenceClass::FactComplete),
+        |stdout| StreamFilterOutput::new(stdout, stderr.to_vec(), EvidenceClass::FactComplete),
     ))
 }
 
