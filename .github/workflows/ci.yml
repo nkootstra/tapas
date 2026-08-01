@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  TAPAS_VERSION: 0.1.0
+
+jobs:
+  test-and-package:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: aarch64-apple-darwin
+            abi: darwin
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            abi: musl
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            abi: musl
+
+    steps:
+      - name: Check out the tested commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Install the locked Rust toolchain
+        run: |
+          rustup component add rustfmt clippy
+          rustup target add "${TARGET}"
+        env:
+          TARGET: ${{ matrix.target }}
+
+      - name: Install the musl linker
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes musl-tools
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Lint
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Run the frozen compatibility contract
+        run: python3 scripts/parity.py --binary target/debug/tapas --tool tapas
+
+      - name: Build the size-oriented artifact
+        run: cargo build --locked --profile z --target "${TARGET}"
+        env:
+          TARGET: ${{ matrix.target }}
+          MACOSX_DEPLOYMENT_TARGET: ${{ runner.os == 'macOS' && '11.0' || '' }}
+
+      - name: Verify architecture and version natively
+        run: |
+          file "${BINARY}"
+          "${BINARY}" --version | grep --fixed-strings "tapas ${TAPAS_VERSION}"
+        env:
+          BINARY: target/${{ matrix.target }}/z/tapas
+
+      - name: Package checksums and build metadata
+        run: |
+          python3 scripts/package_artifact.py \
+            --binary "${BINARY}" \
+            --output "${OUTPUT}" \
+            --version "${TAPAS_VERSION}" \
+            --source-sha "${SOURCE_SHA}" \
+            --target "${TARGET}" \
+            --abi "${ABI}" \
+            --workflow-run "${GITHUB_RUN_ID}"
+          (cd "${OUTPUT}" && shasum --algorithm 256 --check SHA256SUMS)
+        env:
+          ABI: ${{ matrix.abi }}
+          BINARY: target/${{ matrix.target }}/z/tapas
+          OUTPUT: dist/${{ matrix.target }}
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          TARGET: ${{ matrix.target }}
+
+      - name: Upload the release-profile artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tapas-${{ env.TAPAS_VERSION }}-${{ matrix.target }}
+          path: dist/${{ matrix.target }}/*
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 9
