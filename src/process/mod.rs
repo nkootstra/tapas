@@ -69,7 +69,9 @@ pub fn run(
             limit: MAX_OUTPUT_BYTES,
         }
     };
-    let captured = capture::run_captured(argv, mode, stdout, stderr)?;
+    let force_c_locale =
+        !unfiltered && command_is(logical, b"ls") && !requests_exact_output(logical);
+    let captured = capture::run_captured(argv, mode, force_c_locale, stdout, stderr)?;
 
     if captured.streamed {
         let diagnostic_bytes = write_incomplete_diagnostic(captured.incomplete, stderr)?;
@@ -191,16 +193,20 @@ fn filter_captured_output<'a>(
         &captured.stderr,
         captured.exit_code,
         lossless,
-    ) && (output.evidence != EvidenceClass::ByteExact
-        || output.stdout != captured.stdout
-        || output.stderr != captured.stderr)
+    ) && let Some(filtered) = changed_filtered_streams(output, captured, "test-tools")
     {
-        return FilteredStreams {
-            stdout: Cow::Owned(output.stdout),
-            stderr: Cow::Owned(output.stderr),
-            filter_name: "test-tools",
-            evidence: output.evidence,
-        };
+        return filtered;
+    }
+
+    if let Ok(output) = crate::filters::listing::dispatch_streams_argv(
+        &argv_bytes,
+        &captured.stdout,
+        &captured.stderr,
+        captured.exit_code,
+        lossless,
+    ) && let Some(filtered) = changed_filtered_streams(output, captured, "listing")
+    {
+        return filtered;
     }
 
     let result = crate::pipeline::filter(&captured.stdout);
@@ -210,6 +216,25 @@ fn filter_captured_output<'a>(
         filter_name: result.filter_name,
         evidence: result.evidence,
     }
+}
+
+fn changed_filtered_streams<'a>(
+    output: crate::filters::StreamFilterOutput,
+    captured: &'a capture::CapturedOutput,
+    filter_name: &'static str,
+) -> Option<FilteredStreams<'a>> {
+    if output.evidence == EvidenceClass::ByteExact
+        && output.stdout == captured.stdout
+        && output.stderr == captured.stderr
+    {
+        return None;
+    }
+    Some(FilteredStreams {
+        stdout: Cow::Owned(output.stdout),
+        stderr: Cow::Owned(output.stderr),
+        filter_name,
+        evidence: output.evidence,
+    })
 }
 
 fn passthrough_streams(captured: &capture::CapturedOutput) -> FilteredStreams<'_> {
