@@ -106,7 +106,8 @@ pub fn run(
     let filtered = filter_captured_output(logical, &captured, lossless);
     let changed =
         filtered.stdout.as_ref() != captured.stdout || filtered.stderr.as_ref() != captured.stderr;
-    let failure_fell_open = captured.exit_code != 0 && changed;
+    let failure_fell_open =
+        captured.exit_code != 0 && changed && filtered.evidence == EvidenceClass::PotentiallyLossy;
     let visible_stdout = if failure_fell_open {
         captured.stdout.as_slice()
     } else {
