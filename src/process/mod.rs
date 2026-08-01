@@ -105,7 +105,17 @@ pub fn run(
         return return_report(report, stderr, options.explain);
     }
 
-    let filtered = filter_captured_output(logical, &captured, lossless);
+    // A transparent runner's package-install prelude belongs to the runner,
+    // not the inner command's formatter.
+    let has_runner_prelude = crate::filters::build::has_package_prelude(&captured.stdout)
+        || crate::filters::build::has_package_prelude(&captured.stderr);
+    let transparent_runner = !std::ptr::eq(logical, argv);
+    let filter_argv = if transparent_runner && has_runner_prelude {
+        argv
+    } else {
+        logical
+    };
+    let filtered = filter_captured_output(filter_argv, &captured, lossless);
     let changed =
         filtered.stdout.as_ref() != captured.stdout || filtered.stderr.as_ref() != captured.stderr;
     let failure_fell_open =
@@ -127,7 +137,7 @@ pub fn run(
     };
 
     let diagnostic_bytes = if visible_stdout.is_empty() && visible_stderr.is_empty() {
-        let hint = no_output_hint(logical, captured.exit_code);
+        let hint = no_output_hint(argv, captured.exit_code);
         stdout.write_all(&hint)?;
         hint.len()
     } else {
@@ -209,6 +219,17 @@ fn filter_captured_output<'a>(
         return filtered;
     }
 
+    if let Ok(output) = crate::filters::build::dispatch_streams_argv(
+        &argv_bytes,
+        &captured.stdout,
+        &captured.stderr,
+        captured.exit_code,
+        lossless,
+    ) && let Some(filtered) = changed_filtered_streams(output, captured, "build")
+    {
+        return filtered;
+    }
+
     if let Ok(output) = crate::filters::package::dispatch_streams_argv(
         &argv_bytes,
         &captured.stdout,
@@ -216,6 +237,17 @@ fn filter_captured_output<'a>(
         captured.exit_code,
         lossless,
     ) && let Some(filtered) = changed_filtered_streams(output, captured, "package")
+    {
+        return filtered;
+    }
+
+    if let Ok(output) = crate::filters::infra::dispatch_streams_argv(
+        &argv_bytes,
+        &captured.stdout,
+        &captured.stderr,
+        captured.exit_code,
+        lossless,
+    ) && let Some(filtered) = changed_filtered_streams(output, captured, "infra")
     {
         return filtered;
     }
