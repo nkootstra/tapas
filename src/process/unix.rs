@@ -8,6 +8,11 @@ pub fn outputs_are_tty() -> bool {
     unsafe { libc::isatty(libc::STDOUT_FILENO) == 1 && libc::isatty(libc::STDERR_FILENO) == 1 }
 }
 
+pub fn stdout_is_tty() -> bool {
+    // SAFETY: isatty only inspects the process's standard-output descriptor.
+    unsafe { libc::isatty(libc::STDOUT_FILENO) == 1 }
+}
+
 pub fn set_nonblocking(fd: RawFd) -> io::Result<()> {
     // SAFETY: fcntl is called with a valid pipe descriptor and integer commands.
     let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };

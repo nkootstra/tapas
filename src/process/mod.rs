@@ -4,6 +4,7 @@ use std::io::{self, Write};
 
 mod capture;
 pub mod invocation;
+mod stream;
 mod unix;
 
 use crate::filters::EvidenceClass;
@@ -42,6 +43,28 @@ pub fn run(
     let logical = invocation.logical_argv;
     let lossless = crate::environment::flag_on("TAPAS_LOSSLESS");
     let stream = classify_stream(logical);
+    let stream_filtering = stream == StreamDecision::StreamFilter
+        && crate::environment::flag_on("TAPAS_STREAM")
+        && !unix::stdout_is_tty()
+        && !options.raw
+        && !lossless
+        && invocation.passthrough_reason.is_none()
+        && !is_raw_curl(logical);
+    if stream_filtering {
+        let streamed = stream::run(argv, logical, stdout, stderr)?;
+        let diagnostic_bytes = write_incomplete_diagnostic(streamed.incomplete, stderr)?;
+        let report = RunReport {
+            exit_code: streamed.exit_code,
+            input_bytes: streamed.input_bytes,
+            displayed_bytes: streamed.displayed_bytes + diagnostic_bytes,
+            diagnostic_bytes,
+            filter_name: streamed.filter_name,
+            evidence: EvidenceClass::FactComplete,
+            capture_complete: !streamed.incomplete,
+            capture_overflowed: false,
+        };
+        return return_report(report, stderr, options.explain);
+    }
     let unfiltered = options.raw
         || lossless
         || invocation.passthrough_reason.is_some()
@@ -274,7 +297,28 @@ fn filter_captured_output<'a>(
         return filtered;
     }
 
-    let result = crate::pipeline::filter(&captured.stdout);
+    let result = if should_content_redispatch(argv) {
+        crate::pipeline::filter(&captured.stdout)
+    } else if crate::filters::generic::matches(&captured.stdout) {
+        match crate::filters::generic::apply_matched(&captured.stdout) {
+            Ok(output) => crate::pipeline::DispatchResult {
+                bytes: Cow::Owned(output.bytes),
+                filter_name: "generic",
+                evidence: output.evidence,
+            },
+            Err(_) => crate::pipeline::DispatchResult {
+                bytes: Cow::Borrowed(&captured.stdout),
+                filter_name: "passthrough",
+                evidence: EvidenceClass::ByteExact,
+            },
+        }
+    } else {
+        crate::pipeline::DispatchResult {
+            bytes: Cow::Borrowed(&captured.stdout),
+            filter_name: "passthrough",
+            evidence: EvidenceClass::ByteExact,
+        }
+    };
     FilteredStreams {
         stdout: result.bytes,
         stderr: Cow::Borrowed(&captured.stderr),
@@ -315,6 +359,19 @@ fn command_is(argv: &[OsString], expected: &[u8]) -> bool {
     argv.first()
         .and_then(|program| crate::catalog::command_basename(program))
         .is_some_and(|name| name.as_encoded_bytes() == expected)
+}
+
+fn should_content_redispatch(argv: &[OsString]) -> bool {
+    argv.first()
+        .and_then(|command| crate::catalog::command_basename(command.as_os_str()))
+        .is_some_and(|command| matches!(command.as_encoded_bytes(), b"sh" | b"bash" | b"zsh"))
+        && argv.iter().any(|argument| argument == "-c")
+        && !argv.iter().any(|argument| {
+            matches!(
+                argument.as_encoded_bytes(),
+                b"-i" | b"--interactive" | b"-l" | b"--login"
+            )
+        })
 }
 
 fn write_incomplete_diagnostic(incomplete: bool, stderr: &mut dyn Write) -> io::Result<usize> {
