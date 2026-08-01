@@ -294,6 +294,76 @@ fn transparent_runners_and_streaming_commands_are_classified_conservatively() {
 }
 
 #[test]
+fn streaming_is_raw_by_default_and_opt_in_deduplicates_each_stream() {
+    let command = FakeCommand::new(
+        "docker",
+        b"#!/bin/sh\nprintf '2026-08-01 10:00:00 INFO ready\\n2026-08-01 10:00:01 INFO ready\\n'\nprintf '2026-08-01 10:00:00 WARN retry\\n2026-08-01 10:00:01 WARN retry\\n' >&2\nexit 42\n",
+    );
+    let program = command.path().to_str().expect("UTF-8 fake command path");
+    let raw = tapas(&[program, "logs", "-f", "api"], b"", &[]);
+    assert_eq!(raw.status.code(), Some(42));
+    assert_eq!(
+        raw.stdout,
+        b"2026-08-01 10:00:00 INFO ready\n2026-08-01 10:00:01 INFO ready\n"
+    );
+    assert_eq!(
+        raw.stderr,
+        b"2026-08-01 10:00:00 WARN retry\n2026-08-01 10:00:01 WARN retry\n"
+    );
+
+    let filtered = tapas(
+        &[program, "logs", "-f", "api"],
+        b"",
+        &[("TAPAS_STREAM", "1")],
+    );
+    assert_eq!(filtered.status.code(), Some(42));
+    assert_eq!(filtered.stdout, "INFO ready ×2\n".as_bytes());
+    assert_eq!(filtered.stderr, "WARN retry ×2\n".as_bytes());
+
+    for env in [
+        &[("SMLL_STREAM", "1")][..],
+        &[("TAPAS_STREAM", "1"), ("TAPAS_LOSSLESS", "1")][..],
+    ] {
+        let bypassed = tapas(&[program, "logs", "-f", "api"], b"", env);
+        assert_eq!(bypassed.status.code(), Some(42));
+        assert_eq!(bypassed.stdout, raw.stdout);
+        assert_eq!(bypassed.stderr, raw.stderr);
+    }
+}
+
+#[test]
+fn streaming_preserves_signals_and_descendant_pipe_diagnostics() {
+    let signaled = FakeCommand::new("docker", b"#!/bin/sh\nkill -TERM $$\n");
+    let program = signaled.path().to_str().expect("UTF-8 fake command path");
+    let output = tapas(
+        &[program, "logs", "-f", "api"],
+        b"",
+        &[("TAPAS_STREAM", "1")],
+    );
+    assert_eq!(output.status.code(), Some(143));
+    assert!(output.stdout.is_empty());
+    assert!(output.stderr.is_empty());
+
+    let retained = FakeCommand::new(
+        "docker",
+        b"#!/bin/sh\n(sleep 2) &\nprintf '2026-08-01 10:00:00 ready\\n'\n",
+    );
+    let program = retained.path().to_str().expect("UTF-8 fake command path");
+    let started = Instant::now();
+    let output = tapas(
+        &[program, "logs", "-f", "api"],
+        b"",
+        &[("TAPAS_STREAM", "1")],
+    );
+    assert!(started.elapsed() < Duration::from_millis(1_500));
+    assert_eq!(output.stdout, b"ready\n");
+    assert_eq!(
+        output.stderr,
+        b"(tapas: output incomplete; descendants kept stdout/stderr open after child exit)\n"
+    );
+}
+
+#[test]
 fn query_machine_and_exact_output_contracts_bypass_filtering() {
     fn args(values: &[&str]) -> Vec<OsString> {
         values.iter().map(OsString::from).collect()

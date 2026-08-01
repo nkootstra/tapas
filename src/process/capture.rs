@@ -6,8 +6,8 @@ use std::time::{Duration, Instant};
 
 use super::unix;
 
-const DRAIN_GRACE: Duration = Duration::from_millis(500);
-const READ_BUFFER_BYTES: usize = 32 * 1024;
+pub(super) const DRAIN_GRACE: Duration = Duration::from_millis(500);
+pub(super) const READ_BUFFER_BYTES: usize = 32 * 1024;
 
 #[derive(Clone, Copy)]
 pub enum CaptureMode {
@@ -59,7 +59,7 @@ pub fn run_captured(
     result
 }
 
-fn command(argv: &[OsString]) -> io::Result<Command> {
+pub(super) fn command(argv: &[OsString]) -> io::Result<Command> {
     let Some(program) = argv.first() else {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -129,7 +129,7 @@ fn drain_child(
     Ok(state.finish(unix::exit_code(status), incomplete))
 }
 
-fn read_available(
+pub(super) fn read_available(
     reader: &mut (impl Read + ?Sized),
     buffer: &mut [u8; READ_BUFFER_BYTES],
     mut accept: impl FnMut(&[u8]) -> io::Result<()>,
