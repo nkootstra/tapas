@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import concurrent.futures
 import json
 import os
 import pathlib
@@ -127,12 +128,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cases", type=pathlib.Path, default=DEFAULT_CASES)
     parser.add_argument("--contract", type=pathlib.Path, default=DEFAULT_CONTRACT)
     parser.add_argument("--case", action="append", dest="case_ids")
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=min(8, os.cpu_count() or 1),
+        help="number of isolated cases to run concurrently (default: %(default)s)",
+    )
     parser.add_argument("--timeout", type=float, default=10.0)
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.jobs < 1:
+        print("--jobs must be at least 1", file=sys.stderr)
+        return 2
     document = json.loads(args.cases.read_text(encoding="utf-8"))
     cases = [case for case in document["cases"] if case.get("oracle") == "smll" or args.tool == "tapas"]
     if args.case_ids:
@@ -146,11 +156,13 @@ def main() -> int:
     if not binary.is_file():
         print(f"binary not found: {binary}", file=sys.stderr)
         return 2
-    failures: list[Result] = []
-    for case in cases:
-        result = run_case(binary, case, args.contract, args.timeout, args.tool)
-        if result.errors:
-            failures.append(result)
+    run = lambda case: run_case(binary, case, args.contract, args.timeout, args.tool)
+    if args.jobs == 1:
+        results = map(run, cases)
+        failures = [result for result in results if result.errors]
+    else:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as executor:
+            failures = [result for result in executor.map(run, cases) if result.errors]
     print(f"{args.tool} parity cases: {len(cases)}")
     if failures:
         for result in failures:
