@@ -413,3 +413,39 @@ fn git_wrapper_dispatch_compacts_success_and_preserves_failed_streams() {
     assert_eq!(failure_stdout, b"failed stdout\n");
     assert_eq!(failure_stderr, b"failed stderr\n");
 }
+
+#[test]
+fn fact_complete_test_failures_compact_without_changing_the_exit_status() {
+    let cargo = FakeCommand::new(
+        "cargo",
+        b"#!/bin/sh\n\
+          printf 'running 1 test\\n'\n\
+          printf 'test tests::boom ... FAILED\\n'\n\
+          printf '%s\\n' \"---- tests::boom stdout ----\"\n\
+          printf \"thread 'tests::boom' panicked at src/lib.rs:12:3:\\n\"\n\
+          printf 'assertion failed: expected useful fact\\n'\n\
+          printf 'test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; finished in 0.01s\\n'\n\
+          exit 101\n",
+    );
+    let args = [cargo.path().as_os_str().to_owned(), OsString::from("test")];
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+
+    let report = run(&args, &mut stdout, &mut stderr, RunOptions::default())
+        .expect("run failed Cargo test command");
+
+    assert_eq!(report.exit_code, 101);
+    assert_eq!(report.filter_name, "test-tools");
+    assert!(
+        stdout
+            .windows(b"tests::boom".len())
+            .any(|part| part == b"tests::boom")
+    );
+    assert!(
+        stdout
+            .windows(b"src/lib.rs:12:3".len())
+            .any(|part| part == b"src/lib.rs:12:3")
+    );
+    assert!(stdout.len() < report.input_bytes);
+    assert!(stderr.is_empty());
+}
