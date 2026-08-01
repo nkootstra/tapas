@@ -8,10 +8,6 @@ fn always(_: &[u8]) -> bool {
     true
 }
 
-fn no_gate(_: Signals) -> bool {
-    true
-}
-
 fn first(_: &[u8]) -> Result<FilterOutput, FilterError> {
     Ok(FilterOutput::new(
         b"first\n".to_vec(),
@@ -45,8 +41,8 @@ fn empty_and_arbitrary_bytes_pass_through() {
 #[test]
 fn first_match_wins_and_filter_errors_are_transactional() {
     let first_match = [
-        FilterSpec::new("first", no_gate, always, first),
-        FilterSpec::new("second", no_gate, always, second),
+        FilterSpec::new("first", tapas::filters::generic::always, always, first),
+        FilterSpec::new("second", tapas::filters::generic::always, always, second),
     ];
     assert_eq!(
         pipeline::dispatch_with_filters(b"long raw input\n", &first_match),
@@ -55,7 +51,7 @@ fn first_match_wins_and_filter_errors_are_transactional() {
 
     let failing = [FilterSpec::new(
         "failing",
-        no_gate,
+        tapas::filters::generic::always,
         always,
         fails_after_candidate,
     )];
@@ -102,6 +98,10 @@ fn json_passthrough_and_generic_text_compaction_match_the_oracle() {
     assert!(rendered.contains("300"));
     assert!(!rendered.contains("\x1b["));
 
+    let dispatch = pipeline::filter(&noisy);
+    assert_eq!(dispatch.filter_name, "generic");
+    assert_eq!(dispatch.evidence, EvidenceClass::FactComplete);
+
     let repeated_invalid = b"invalid \xff\xfe diagnostic\n".repeat(300);
     assert_eq!(
         pipeline::filter_bytes(&repeated_invalid),
@@ -118,7 +118,10 @@ fn deterministic_random_bytes_fail_open() {
         bytes.push((state >> 24) as u8);
     }
 
-    assert_eq!(pipeline::filter_bytes(&bytes), bytes);
+    let dispatch = pipeline::filter(&bytes);
+    assert_eq!(dispatch.bytes, bytes);
+    assert_eq!(dispatch.filter_name, "passthrough");
+    assert_eq!(dispatch.evidence, EvidenceClass::ByteExact);
 }
 
 #[test]

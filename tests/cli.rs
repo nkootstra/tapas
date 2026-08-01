@@ -194,21 +194,20 @@ fn only_the_tapas_lossless_environment_contract_activates_raw_pipe_mode() {
 }
 
 #[test]
-fn process_boundaries_never_report_placeholder_success() {
-    for args in [
-        &["git", "status"][..],
-        &["--raw", "--", "git", "status"][..],
-        &["--explain", "git", "status"][..],
-    ] {
-        let output = tapas(args);
+fn process_modes_execute_the_requested_child() {
+    let normal = tapas(&["/usr/bin/printf", "normal\\n"]);
+    let raw = tapas(&["--raw", "--", "/usr/bin/printf", "raw\\n"]);
+    let explained = tapas(&["--explain", "/usr/bin/printf", "explained\\n"]);
 
-        assert_eq!(output.status.code(), Some(70), "args: {args:?}");
-        assert!(output.stdout.is_empty(), "args: {args:?}");
-        assert_eq!(
-            output.stderr, b"tapas: process execution is not available in the foundation build\n",
-            "args: {args:?}"
-        );
-    }
+    assert!(normal.status.success());
+    assert_eq!(normal.stdout, b"normal\n");
+    assert!(normal.stderr.is_empty());
+    assert!(raw.status.success());
+    assert_eq!(raw.stdout, b"raw\n");
+    assert!(raw.stderr.is_empty());
+    assert!(explained.status.success());
+    assert_eq!(explained.stdout, b"explained\n");
+    assert!(explained.stderr.starts_with(b"\n(tapas explain:"));
 }
 
 #[test]
@@ -256,16 +255,15 @@ fn legacy_stream_and_home_state_have_no_effect() {
 }
 
 #[test]
-fn tapas_stream_is_the_only_active_stream_environment_name() {
-    let output = tapas_with_stdin(
-        &["git", "status"],
+fn stream_environment_names_do_not_disrupt_non_streaming_execution() {
+    let baseline = tapas_with_stdin(&["/usr/bin/printf", "ok\\n"], b"", &[]);
+    let configured = tapas_with_stdin(
+        &["/usr/bin/printf", "ok\\n"],
         b"",
         &[("TAPAS_STREAM", "1"), ("SMLL_STREAM", "0")],
     );
 
-    assert_eq!(output.status.code(), Some(70));
-    assert_eq!(
-        output.stderr,
-        b"tapas: streaming process execution is not available in the foundation build\n"
-    );
+    assert!(configured.status.success());
+    assert_eq!(configured.stdout, baseline.stdout);
+    assert_eq!(configured.stderr, baseline.stderr);
 }

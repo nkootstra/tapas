@@ -1,0 +1,215 @@
+use std::borrow::Cow;
+use std::ffi::OsString;
+use std::io::{self, Write};
+
+mod capture;
+pub mod invocation;
+mod unix;
+
+use crate::filters::EvidenceClass;
+use capture::CaptureMode;
+use invocation::{StreamDecision, classify, classify_stream, is_raw_curl, requests_exact_output};
+
+pub const MAX_OUTPUT_BYTES: usize = 16 * 1024 * 1024;
+const INCOMPLETE_OUTPUT_DIAGNOSTIC: &[u8] =
+    b"(tapas: output incomplete; descendants kept stdout/stderr open after child exit)\n";
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct RunOptions {
+    pub raw: bool,
+    pub explain: bool,
+}
+
+#[derive(Debug)]
+pub struct RunReport {
+    pub exit_code: i32,
+    pub input_bytes: usize,
+    pub displayed_bytes: usize,
+    pub diagnostic_bytes: usize,
+    pub filter_name: &'static str,
+    pub evidence: EvidenceClass,
+    pub capture_complete: bool,
+    pub capture_overflowed: bool,
+}
+
+pub fn run(
+    argv: &[OsString],
+    stdout: &mut dyn Write,
+    stderr: &mut dyn Write,
+    options: RunOptions,
+) -> io::Result<RunReport> {
+    let invocation = classify(argv);
+    let logical = invocation.logical_argv;
+    let lossless = crate::environment::flag_on("TAPAS_LOSSLESS");
+    let stream = classify_stream(logical);
+    let unfiltered = options.raw
+        || lossless
+        || invocation.passthrough_reason.is_some()
+        || stream != StreamDecision::Capture
+        || is_raw_curl(logical);
+
+    if unfiltered && unix::outputs_are_tty() {
+        let report = RunReport {
+            exit_code: capture::run_inherited(argv)?,
+            input_bytes: 0,
+            displayed_bytes: 0,
+            diagnostic_bytes: 0,
+            filter_name: "passthrough",
+            evidence: EvidenceClass::ByteExact,
+            capture_complete: true,
+            capture_overflowed: false,
+        };
+        return return_report(report, stderr, options.explain);
+    }
+
+    let mode = if unfiltered {
+        CaptureMode::Passthrough
+    } else {
+        CaptureMode::Buffered {
+            limit: MAX_OUTPUT_BYTES,
+        }
+    };
+    let captured = capture::run_captured(argv, mode, stdout, stderr)?;
+
+    if captured.streamed {
+        let diagnostic_bytes = write_incomplete_diagnostic(captured.incomplete, stderr)?;
+        let report = RunReport {
+            exit_code: captured.exit_code,
+            input_bytes: captured.input_bytes,
+            displayed_bytes: captured.input_bytes + diagnostic_bytes,
+            diagnostic_bytes,
+            filter_name: "passthrough",
+            evidence: EvidenceClass::ByteExact,
+            capture_complete: !captured.incomplete,
+            capture_overflowed: captured.overflowed,
+        };
+        return return_report(report, stderr, options.explain);
+    }
+
+    if captured.incomplete {
+        stdout.write_all(&captured.stdout)?;
+        stderr.write_all(&captured.stderr)?;
+        let diagnostic_bytes = write_incomplete_diagnostic(true, stderr)?;
+        let report = RunReport {
+            exit_code: captured.exit_code,
+            input_bytes: captured.input_bytes,
+            displayed_bytes: captured.input_bytes + diagnostic_bytes,
+            diagnostic_bytes,
+            filter_name: "passthrough",
+            evidence: EvidenceClass::ByteExact,
+            capture_complete: false,
+            capture_overflowed: false,
+        };
+        return return_report(report, stderr, options.explain);
+    }
+
+    let (candidate, selected_filter, selected_evidence) = if requests_exact_output(logical) {
+        (
+            Cow::Borrowed(captured.stdout.as_slice()),
+            "passthrough",
+            EvidenceClass::ByteExact,
+        )
+    } else {
+        let result = crate::pipeline::filter(&captured.stdout);
+        (result.bytes, result.filter_name, result.evidence)
+    };
+    let changed = candidate.as_ref() != captured.stdout;
+    let failure_fell_open = captured.exit_code != 0 && changed;
+    let visible_stdout = if failure_fell_open {
+        captured.stdout.as_slice()
+    } else {
+        candidate.as_ref()
+    };
+    let (filter_name, evidence) = if failure_fell_open {
+        ("passthrough", EvidenceClass::ByteExact)
+    } else {
+        (selected_filter, selected_evidence)
+    };
+
+    let diagnostic_bytes = if visible_stdout.is_empty() && captured.stderr.is_empty() {
+        let hint = no_output_hint(logical, captured.exit_code);
+        stdout.write_all(&hint)?;
+        hint.len()
+    } else {
+        stdout.write_all(visible_stdout)?;
+        stderr.write_all(&captured.stderr)?;
+        0
+    };
+    let report = RunReport {
+        exit_code: captured.exit_code,
+        input_bytes: captured.input_bytes,
+        displayed_bytes: visible_stdout.len() + captured.stderr.len() + diagnostic_bytes,
+        diagnostic_bytes,
+        filter_name,
+        evidence,
+        capture_complete: true,
+        capture_overflowed: false,
+    };
+    return_report(report, stderr, options.explain)
+}
+
+fn write_incomplete_diagnostic(incomplete: bool, stderr: &mut dyn Write) -> io::Result<usize> {
+    if !incomplete {
+        return Ok(0);
+    }
+    stderr.write_all(INCOMPLETE_OUTPUT_DIAGNOSTIC)?;
+    Ok(INCOMPLETE_OUTPUT_DIAGNOSTIC.len())
+}
+
+fn return_report(
+    report: RunReport,
+    stderr: &mut dyn Write,
+    explain: bool,
+) -> io::Result<RunReport> {
+    if explain {
+        write_explain(&report, stderr)?;
+    }
+    Ok(report)
+}
+
+fn write_explain(report: &RunReport, stderr: &mut dyn Write) -> io::Result<()> {
+    let omitted = report.input_bytes.saturating_sub(
+        report
+            .displayed_bytes
+            .saturating_sub(report.diagnostic_bytes),
+    );
+    let saved = omitted
+        .saturating_mul(100)
+        .checked_div(report.input_bytes)
+        .unwrap_or(0);
+    writeln!(
+        stderr,
+        "\n(tapas explain: filter={} raw={} displayed={} omitted={} diagnostics={} saved={}% exit={} history=not-recorded)",
+        report.filter_name,
+        report.input_bytes,
+        report.displayed_bytes,
+        omitted,
+        report.diagnostic_bytes,
+        saved,
+        report.exit_code,
+    )
+}
+
+fn no_output_hint(argv: &[OsString], exit_code: i32) -> Vec<u8> {
+    let command = argv
+        .first()
+        .and_then(|program| crate::catalog::command_basename(program.as_os_str()))
+        .map_or(b"command".as_slice(), |name| name.as_encoded_bytes());
+    if exit_code == 0
+        && command == b"git"
+        && argv
+            .get(1)
+            .is_some_and(|subcommand| matches!(subcommand.as_encoded_bytes(), b"status" | b"diff"))
+    {
+        let mut hint = b"(tapas: no changes; git ".to_vec();
+        hint.extend_from_slice(argv[1].as_encoded_bytes());
+        hint.extend_from_slice(b" exited 0 with no output)\n");
+        return hint;
+    }
+    let mut hint = b"(tapas: ".to_vec();
+    hint.extend_from_slice(command);
+    hint.extend_from_slice(b" exited ");
+    hint.extend_from_slice(exit_code.to_string().as_bytes());
+    hint.extend_from_slice(b" with no output)\n");
+    hint
+}
