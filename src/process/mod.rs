@@ -103,42 +103,39 @@ pub fn run(
         return return_report(report, stderr, options.explain);
     }
 
-    let (candidate, selected_filter, selected_evidence) = if requests_exact_output(logical) {
-        (
-            Cow::Borrowed(captured.stdout.as_slice()),
-            "passthrough",
-            EvidenceClass::ByteExact,
-        )
-    } else {
-        let result = crate::pipeline::filter(&captured.stdout);
-        (result.bytes, result.filter_name, result.evidence)
-    };
-    let changed = candidate.as_ref() != captured.stdout;
+    let filtered = filter_captured_output(logical, &captured, lossless);
+    let changed =
+        filtered.stdout.as_ref() != captured.stdout || filtered.stderr.as_ref() != captured.stderr;
     let failure_fell_open = captured.exit_code != 0 && changed;
     let visible_stdout = if failure_fell_open {
         captured.stdout.as_slice()
     } else {
-        candidate.as_ref()
+        filtered.stdout.as_ref()
+    };
+    let visible_stderr = if failure_fell_open {
+        captured.stderr.as_slice()
+    } else {
+        filtered.stderr.as_ref()
     };
     let (filter_name, evidence) = if failure_fell_open {
         ("passthrough", EvidenceClass::ByteExact)
     } else {
-        (selected_filter, selected_evidence)
+        (filtered.filter_name, filtered.evidence)
     };
 
-    let diagnostic_bytes = if visible_stdout.is_empty() && captured.stderr.is_empty() {
+    let diagnostic_bytes = if visible_stdout.is_empty() && visible_stderr.is_empty() {
         let hint = no_output_hint(logical, captured.exit_code);
         stdout.write_all(&hint)?;
         hint.len()
     } else {
         stdout.write_all(visible_stdout)?;
-        stderr.write_all(&captured.stderr)?;
+        stderr.write_all(visible_stderr)?;
         0
     };
     let report = RunReport {
         exit_code: captured.exit_code,
         input_bytes: captured.input_bytes,
-        displayed_bytes: visible_stdout.len() + captured.stderr.len() + diagnostic_bytes,
+        displayed_bytes: visible_stdout.len() + visible_stderr.len() + diagnostic_bytes,
         diagnostic_bytes,
         filter_name,
         evidence,
@@ -146,6 +143,68 @@ pub fn run(
         capture_overflowed: false,
     };
     return_report(report, stderr, options.explain)
+}
+
+struct FilteredStreams<'a> {
+    stdout: Cow<'a, [u8]>,
+    stderr: Cow<'a, [u8]>,
+    filter_name: &'static str,
+    evidence: EvidenceClass,
+}
+
+fn filter_captured_output<'a>(
+    argv: &[OsString],
+    captured: &'a capture::CapturedOutput,
+    lossless: bool,
+) -> FilteredStreams<'a> {
+    if requests_exact_output(argv) {
+        return passthrough_streams(captured);
+    }
+
+    if command_is(argv, b"git") && argv.len() > 1 {
+        let argv_bytes: Vec<&[u8]> = argv
+            .iter()
+            .map(|argument| argument.as_encoded_bytes())
+            .collect();
+        if let Ok(output) = crate::filters::git::dispatch_streams_argv(
+            &argv_bytes,
+            &captured.stdout,
+            &captured.stderr,
+            captured.exit_code,
+            lossless,
+        ) {
+            let unchanged = output.stdout == captured.stdout && output.stderr == captured.stderr;
+            return FilteredStreams {
+                stdout: Cow::Owned(output.stdout),
+                stderr: Cow::Owned(output.stderr),
+                filter_name: if unchanged { "passthrough" } else { "git" },
+                evidence: output.evidence,
+            };
+        }
+    }
+
+    let result = crate::pipeline::filter(&captured.stdout);
+    FilteredStreams {
+        stdout: result.bytes,
+        stderr: Cow::Borrowed(&captured.stderr),
+        filter_name: result.filter_name,
+        evidence: result.evidence,
+    }
+}
+
+fn passthrough_streams(captured: &capture::CapturedOutput) -> FilteredStreams<'_> {
+    FilteredStreams {
+        stdout: Cow::Borrowed(&captured.stdout),
+        stderr: Cow::Borrowed(&captured.stderr),
+        filter_name: "passthrough",
+        evidence: EvidenceClass::ByteExact,
+    }
+}
+
+fn command_is(argv: &[OsString], expected: &[u8]) -> bool {
+    argv.first()
+        .and_then(|program| crate::catalog::command_basename(program))
+        .is_some_and(|name| name.as_encoded_bytes() == expected)
 }
 
 fn write_incomplete_diagnostic(incomplete: bool, stderr: &mut dyn Write) -> io::Result<usize> {
