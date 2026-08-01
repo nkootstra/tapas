@@ -179,20 +179,18 @@ fn raw_stdin_mode_preserves_arbitrary_bytes() {
 
 #[test]
 fn only_the_tapas_lossless_environment_contract_activates_raw_pipe_mode() {
-    let input = b"unimplemented filter input\n";
-    let tapas_env = tapas_with_stdin(&[], input, &[("TAPAS_LOSSLESS", "1")]);
-    let smll_env = tapas_with_stdin(&[], input, &[("SMLL_LOSSLESS", "1")]);
+    let input = "build    complete\n".repeat(300).into_bytes();
+    let tapas_env = tapas_with_stdin(&[], &input, &[("TAPAS_LOSSLESS", "1")]);
+    let smll_env = tapas_with_stdin(&[], &input, &[("SMLL_LOSSLESS", "1")]);
 
     assert!(tapas_env.status.success());
     assert_eq!(tapas_env.stdout, input);
     assert!(tapas_env.stderr.is_empty());
 
-    assert_eq!(smll_env.status.code(), Some(70));
-    assert!(smll_env.stdout.is_empty());
-    assert_eq!(
-        smll_env.stderr,
-        b"tapas: stdin filtering is not available in the foundation build\n"
-    );
+    assert!(smll_env.status.success());
+    assert_ne!(smll_env.stdout, input);
+    assert_eq!(smll_env.stdout, b"build complete \xc3\x97300\n");
+    assert!(smll_env.stderr.is_empty());
 }
 
 #[test]
