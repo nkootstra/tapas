@@ -38,10 +38,14 @@ pub fn run_inherited(argv: &[OsString]) -> io::Result<i32> {
 pub fn run_captured(
     argv: &[OsString],
     mode: CaptureMode,
+    force_c_locale: bool,
     raw_stdout: &mut dyn Write,
     raw_stderr: &mut dyn Write,
 ) -> io::Result<CapturedOutput> {
     let mut command = command(argv)?;
+    if force_c_locale {
+        command.env("LC_ALL", "C").env("LANG", "C");
+    }
     let mut child = command
         .stdin(Stdio::inherit())
         .stdout(Stdio::piped())

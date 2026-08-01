@@ -449,3 +449,21 @@ fn fact_complete_test_failures_compact_without_changing_the_exit_status() {
     assert!(stdout.len() < report.input_bytes);
     assert!(stderr.is_empty());
 }
+
+#[test]
+fn filtered_human_ls_uses_the_stable_c_locale() {
+    let ls = FakeCommand::new(
+        "ls",
+        b"#!/bin/sh\nprintf '%s/%s\\n' \"${LC_ALL-unset}\" \"${LANG-unset}\"\n",
+    );
+    let args = [ls.path().as_os_str().to_owned()];
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+
+    let report =
+        run(&args, &mut stdout, &mut stderr, RunOptions::default()).expect("run human ls command");
+
+    assert_eq!(report.exit_code, 0);
+    assert_eq!(stdout, b"C/C\n");
+    assert!(stderr.is_empty());
+}
