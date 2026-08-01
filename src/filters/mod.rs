@@ -1,3 +1,4 @@
+pub mod data;
 pub mod generic;
 pub mod git;
 pub mod listing;
