@@ -26,11 +26,7 @@ pub fn matches(input: &[u8]) -> bool {
     controls * 10 <= sample.len()
 }
 
-pub fn apply(input: &[u8]) -> Result<FilterOutput, FilterError> {
-    if !matches(input) {
-        return Err(FilterError::InvalidInput);
-    }
-
+pub(crate) fn apply_matched(input: &[u8]) -> Result<FilterOutput, FilterError> {
     let mut cleaned = Vec::<Vec<u8>>::new();
     for raw in input.split(|byte| *byte == b'\n') {
         let line = collapse_whitespace(trim_end(&strip_ansi(raw)));
@@ -47,7 +43,6 @@ pub fn apply(input: &[u8]) -> Result<FilterOutput, FilterError> {
     let mut emitted = HashSet::<&[u8]>::new();
     let mut output_lines = Vec::<Vec<u8>>::new();
     let mut previous: Option<&[u8]> = None;
-    let mut run_count = 0_usize;
     let mut pending_blank = false;
 
     for line in &cleaned {
@@ -58,7 +53,6 @@ pub fn apply(input: &[u8]) -> Result<FilterOutput, FilterError> {
         let body = line.as_slice();
 
         if previous == Some(body) {
-            run_count += 1;
             pending_blank = false;
             continue;
         }
@@ -73,7 +67,6 @@ pub fn apply(input: &[u8]) -> Result<FilterOutput, FilterError> {
         let frequency = frequencies[body];
         if frequency >= 3 && emitted.contains(body) {
             previous = None;
-            run_count = 0;
             pending_blank = false;
             continue;
         }
@@ -83,10 +76,9 @@ pub fn apply(input: &[u8]) -> Result<FilterOutput, FilterError> {
             emitted.insert(body);
         }
         previous = Some(body);
-        run_count = 1;
     }
 
-    if let Some(previous_body) = previous.filter(|_| run_count > 0) {
+    if let Some(previous_body) = previous {
         append_output_line(&mut output_lines, previous_body, frequencies[previous_body]);
     }
 

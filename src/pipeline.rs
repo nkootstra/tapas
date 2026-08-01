@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::io::{self, Read, Write};
 
 use crate::filters::generic;
@@ -14,7 +15,7 @@ pub type ApplyFn = fn(&[u8]) -> Result<FilterOutput, FilterError>;
 #[derive(Clone, Copy)]
 pub struct FilterSpec {
     pub name: &'static str,
-    gate: GateFn,
+    gate: Option<GateFn>,
     matches: MatchFn,
     apply: ApplyFn,
 }
@@ -23,19 +24,34 @@ impl FilterSpec {
     pub const fn new(name: &'static str, gate: GateFn, matches: MatchFn, apply: ApplyFn) -> Self {
         Self {
             name,
-            gate,
+            gate: Some(gate),
+            matches,
+            apply,
+        }
+    }
+
+    pub const fn ungated(name: &'static str, matches: MatchFn, apply: ApplyFn) -> Self {
+        Self {
+            name,
+            gate: None,
             matches,
             apply,
         }
     }
 }
 
-const DEFAULT_FILTERS: &[FilterSpec] = &[FilterSpec::new(
+const DEFAULT_FILTERS: &[FilterSpec] = &[FilterSpec::ungated(
     "generic",
-    generic::always,
     generic::matches,
-    generic::apply,
+    generic::apply_matched,
 )];
+
+#[derive(Debug)]
+pub struct DispatchResult<'a> {
+    pub bytes: Cow<'a, [u8]>,
+    pub filter_name: &'static str,
+    pub evidence: crate::filters::EvidenceClass,
+}
 
 pub fn run(reader: &mut dyn Read, writer: &mut dyn Write) -> io::Result<()> {
     let mut retained = Vec::with_capacity(READ_BUFFER_BYTES);
@@ -57,18 +73,43 @@ pub fn run(reader: &mut dyn Read, writer: &mut dyn Write) -> io::Result<()> {
 }
 
 pub fn filter_bytes(input: &[u8]) -> Vec<u8> {
-    dispatch_with_filters(input, DEFAULT_FILTERS)
+    filter(input).bytes.into_owned()
+}
+
+pub fn filter(input: &[u8]) -> DispatchResult<'_> {
+    dispatch(input, DEFAULT_FILTERS)
 }
 
 pub fn dispatch_with_filters(input: &[u8], filters: &[FilterSpec]) -> Vec<u8> {
-    let signals = Signals::compute(input);
+    dispatch(input, filters).bytes.into_owned()
+}
+
+fn dispatch<'a>(input: &'a [u8], filters: &[FilterSpec]) -> DispatchResult<'a> {
+    let mut signals = None;
     for filter in filters {
-        if !(filter.gate)(signals) || !(filter.matches)(input) {
+        if filter
+            .gate
+            .is_some_and(|gate| !gate(*signals.get_or_insert_with(|| Signals::compute(input))))
+            || !(filter.matches)(input)
+        {
             continue;
         }
-        return (filter.apply)(input)
-            .map(|candidate| candidate.bytes)
-            .unwrap_or_else(|_| input.to_vec());
+        return match (filter.apply)(input) {
+            Ok(candidate) => DispatchResult {
+                bytes: Cow::Owned(candidate.bytes),
+                filter_name: filter.name,
+                evidence: candidate.evidence,
+            },
+            Err(_) => passthrough(input),
+        };
     }
-    input.to_vec()
+    passthrough(input)
+}
+
+fn passthrough(input: &[u8]) -> DispatchResult<'_> {
+    DispatchResult {
+        bytes: Cow::Borrowed(input),
+        filter_name: "passthrough",
+        evidence: crate::filters::EvidenceClass::ByteExact,
+    }
 }
