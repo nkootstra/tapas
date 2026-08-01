@@ -1,23 +1,6 @@
 use std::collections::HashSet;
 
-use super::{EvidenceClass, FilterError, FilterOutput};
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct StreamFilterOutput {
-    pub stdout: Vec<u8>,
-    pub stderr: Vec<u8>,
-    pub evidence: EvidenceClass,
-}
-
-impl StreamFilterOutput {
-    fn new(stdout: Vec<u8>, stderr: Vec<u8>, evidence: EvidenceClass) -> Self {
-        Self {
-            stdout,
-            stderr,
-            evidence,
-        }
-    }
-}
+use super::{EvidenceClass, FilterError, FilterOutput, StreamFilterOutput};
 
 pub fn matches(input: &[u8]) -> bool {
     matches_status(input)
