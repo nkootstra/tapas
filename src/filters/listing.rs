@@ -1,4 +1,18 @@
-use super::{EvidenceClass, FilterError, FilterOutput, StreamFilterOutput};
+use super::{
+    EvidenceClass, FilterError, FilterOutput, StreamFilterOutput, command_basename, find_subslice,
+};
+
+pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
+    argv.first()
+        .copied()
+        .map(command_basename)
+        .is_some_and(|command| {
+            matches!(
+                command,
+                b"find" | b"tree" | b"ls" | b"du" | b"wc" | b"env" | b"rg"
+            )
+        })
+}
 
 pub fn matches(input: &[u8]) -> bool {
     matches_tree(input) || matches_ls_long(input) || matches_find_ls(input) || matches_du(input)
@@ -41,15 +55,15 @@ pub fn dispatch_streams_argv(
         return Err(FilterError::InvalidInput);
     }
     if lossless {
-        return Ok(stream_passthrough(stdout, stderr));
+        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
     let command = command_basename(argv[0]);
     if requests_exact_query(argv) {
-        return Ok(stream_passthrough(stdout, stderr));
+        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
     if command == b"find" {
         if find_requests_exact(argv) {
-            return Ok(stream_passthrough(stdout, stderr));
+            return Ok(StreamFilterOutput::passthrough(stdout, stderr));
         }
         if matches_find_plain(stdout) {
             return Ok(StreamFilterOutput::new(
@@ -58,14 +72,14 @@ pub fn dispatch_streams_argv(
                 EvidenceClass::PotentiallyLossy,
             ));
         }
-        return Ok(stream_passthrough(stdout, stderr));
+        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
     if command == b"tree" {
         if tree_requests_exact(argv) || !matches_tree(stdout) {
-            return Ok(stream_passthrough(stdout, stderr));
+            return Ok(StreamFilterOutput::passthrough(stdout, stderr));
         }
         let Some(compact) = apply_tree_compact(stdout) else {
-            return Ok(stream_passthrough(stdout, stderr));
+            return Ok(StreamFilterOutput::passthrough(stdout, stderr));
         };
         return Ok(StreamFilterOutput::new(
             compact,
@@ -75,7 +89,7 @@ pub fn dispatch_streams_argv(
     }
     if command == b"ls" {
         if ls_requests_exact(argv) {
-            return Ok(stream_passthrough(stdout, stderr));
+            return Ok(StreamFilterOutput::passthrough(stdout, stderr));
         }
         let compact = if matches_ls_long(stdout) {
             apply_ls_long(stdout)
@@ -83,7 +97,7 @@ pub fn dispatch_streams_argv(
             apply_ls_plain(stdout, ls_wants_columns(argv))
         };
         let Some(compact) = compact else {
-            return Ok(stream_passthrough(stdout, stderr));
+            return Ok(StreamFilterOutput::passthrough(stdout, stderr));
         };
         return Ok(StreamFilterOutput::new(
             compact,
@@ -93,7 +107,7 @@ pub fn dispatch_streams_argv(
     }
     if command == b"du" {
         if !matches_du(stdout) {
-            return Ok(stream_passthrough(stdout, stderr));
+            return Ok(StreamFilterOutput::passthrough(stdout, stderr));
         }
         return Ok(StreamFilterOutput::new(
             apply_du(stdout, du_has_summarize(argv)),
@@ -124,7 +138,7 @@ pub fn dispatch_streams_argv(
             ));
         }
         if rg_requests_exact(argv) {
-            return Ok(stream_passthrough(stdout, stderr));
+            return Ok(StreamFilterOutput::passthrough(stdout, stderr));
         }
         if matches_rg_pattern(stdout) {
             return Ok(StreamFilterOutput::new(
@@ -134,7 +148,7 @@ pub fn dispatch_streams_argv(
             ));
         }
     }
-    Ok(stream_passthrough(stdout, stderr))
+    Ok(StreamFilterOutput::passthrough(stdout, stderr))
 }
 
 fn find_requests_exact(argv: &[&[u8]]) -> bool {
@@ -246,13 +260,6 @@ fn write_parent_label(output: &mut Vec<u8>, parent: &[u8]) {
     if !parent.ends_with(b"/") {
         output.push(b'/');
     }
-}
-
-fn command_basename(command: &[u8]) -> &[u8] {
-    command
-        .iter()
-        .rposition(|byte| matches!(byte, b'/' | b'\\'))
-        .map_or(command, |separator| &command[separator + 1..])
 }
 
 fn requests_exact_query(argv: &[&[u8]]) -> bool {
@@ -1579,17 +1586,4 @@ fn apply_tree_pipe(input: &[u8]) -> Vec<u8> {
         }
     }
     output
-}
-
-fn stream_passthrough(stdout: &[u8], stderr: &[u8]) -> StreamFilterOutput {
-    StreamFilterOutput::new(stdout.to_vec(), stderr.to_vec(), EvidenceClass::ByteExact)
-}
-
-fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    if needle.is_empty() {
-        return Some(0);
-    }
-    haystack
-        .windows(needle.len())
-        .position(|window| window == needle)
 }

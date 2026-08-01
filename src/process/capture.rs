@@ -153,14 +153,19 @@ enum Stream {
 }
 
 struct DrainState<'a> {
-    mode: CaptureMode,
+    mode: DrainMode,
     stdout: Vec<u8>,
     stderr: Vec<u8>,
     raw_stdout: &'a mut dyn Write,
     raw_stderr: &'a mut dyn Write,
-    streamed: bool,
-    overflowed: bool,
     input_bytes: usize,
+}
+
+#[derive(Clone, Copy)]
+enum DrainMode {
+    Buffered { limit: usize },
+    Passthrough,
+    Overflowed,
 }
 
 impl<'a> DrainState<'a> {
@@ -169,21 +174,23 @@ impl<'a> DrainState<'a> {
         raw_stdout: &'a mut dyn Write,
         raw_stderr: &'a mut dyn Write,
     ) -> Self {
+        let mode = match mode {
+            CaptureMode::Buffered { limit } => DrainMode::Buffered { limit },
+            CaptureMode::Passthrough => DrainMode::Passthrough,
+        };
         Self {
             mode,
             stdout: Vec::new(),
             stderr: Vec::new(),
             raw_stdout,
             raw_stderr,
-            streamed: matches!(mode, CaptureMode::Passthrough),
-            overflowed: false,
             input_bytes: 0,
         }
     }
 
     fn accept(&mut self, stream: Stream, chunk: &[u8]) -> io::Result<()> {
         self.input_bytes += chunk.len();
-        if self.streamed {
+        if !matches!(self.mode, DrainMode::Buffered { .. }) {
             return self.write_raw(stream, chunk);
         }
 
@@ -191,12 +198,12 @@ impl<'a> DrainState<'a> {
             Stream::Stdout => self.stdout.extend_from_slice(chunk),
             Stream::Stderr => self.stderr.extend_from_slice(chunk),
         }
-        let CaptureMode::Buffered { limit } = self.mode else {
-            unreachable!("passthrough mode starts streamed")
+        let limit = match self.mode {
+            DrainMode::Buffered { limit } => limit,
+            DrainMode::Passthrough | DrainMode::Overflowed => return self.write_raw(stream, chunk),
         };
         if self.stdout.len() >= limit || self.stderr.len() >= limit {
-            self.streamed = true;
-            self.overflowed = true;
+            self.mode = DrainMode::Overflowed;
             self.raw_stdout.write_all(&self.stdout)?;
             self.raw_stderr.write_all(&self.stderr)?;
             self.stdout.clear();
@@ -213,13 +220,15 @@ impl<'a> DrainState<'a> {
     }
 
     fn finish(self, exit_code: i32, incomplete: bool) -> CapturedOutput {
+        let streamed = !matches!(self.mode, DrainMode::Buffered { .. });
+        let overflowed = matches!(self.mode, DrainMode::Overflowed);
         CapturedOutput {
             stdout: self.stdout,
             stderr: self.stderr,
             exit_code,
             incomplete,
-            streamed: self.streamed,
-            overflowed: self.overflowed,
+            streamed,
+            overflowed,
             input_bytes: self.input_bytes,
         }
     }
