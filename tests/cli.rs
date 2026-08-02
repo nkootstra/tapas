@@ -50,8 +50,11 @@ fn help_exposes_only_the_milestone_cli_surface() {
         "--explain",
         "--rewrite",
         "--hook-eval claude",
+        "--hook-eval codex",
         "--setup claude",
+        "--setup codex",
         "--unsetup claude",
+        "--unsetup codex",
     ] {
         assert!(help.contains(option), "missing {option:?} in {help:?}");
     }
@@ -148,13 +151,8 @@ fn deferred_state_modes_are_concise_usage_errors() {
 }
 
 #[test]
-fn non_claude_setup_targets_are_usage_errors() {
-    for args in [
-        &["--setup", "codex"][..],
-        &["--setup=cursor"][..],
-        &["--unsetup", "opencode"][..],
-        &["--unsetup=codex"][..],
-    ] {
+fn unsupported_setup_targets_are_usage_errors() {
+    for args in [&["--setup=cursor"][..], &["--unsetup", "opencode"][..]] {
         let output = tapas(args);
 
         assert_eq!(output.status.code(), Some(2), "args: {args:?}");
@@ -162,7 +160,7 @@ fn non_claude_setup_targets_are_usage_errors() {
         let error = String::from_utf8(output.stderr).expect("UTF-8 usage error");
         assert_eq!(
             error,
-            "usage: tapas --setup claude [--dry-run]\n       tapas --unsetup claude [--dry-run]\n"
+            "usage: tapas --setup <claude|codex> [--dry-run]\n       tapas --unsetup <claude|codex> [--dry-run]\n"
         );
     }
 }
@@ -256,6 +254,61 @@ fn claude_hook_updates_only_simple_supported_commands_without_granting_authority
     }
 
     let self_check = tapas(&["--hook-eval", "claude", "--self-check"]);
+    assert!(self_check.status.success());
+    assert!(self_check.stdout.is_empty());
+    assert!(self_check.stderr.is_empty());
+}
+
+#[test]
+fn codex_hook_allows_only_the_rewritten_command() {
+    let eligible = tapas_with_stdin(
+        &["--hook-eval", "codex"],
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git status --short","description":"working tree"}}"#,
+        &[],
+    );
+
+    assert!(eligible.status.success());
+    let executable = env!("CARGO_BIN_EXE_tapas");
+    let expected = format!(
+        "{{\"hookSpecificOutput\":{{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"updatedInput\":{{\"command\":\"'{executable}' git status --short\",\"description\":\"working tree\"}}}}}}\n"
+    );
+    assert_eq!(eligible.stdout, expected.as_bytes());
+    assert!(eligible.stderr.is_empty());
+
+    for input in [
+        br#"{"tool_name":"Bash","tool_input":{"command":"git status"}}"#.as_slice(),
+        br#"{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git status"}}"#,
+        br#"{"hook_event_name":"PreToolUse","tool_input":{"command":"git status"}}"#,
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Shell","tool_input":{"command":"git status"}}"#,
+    ] {
+        let ignored = tapas_with_stdin(&["--hook-eval", "codex"], input, &[]);
+        assert!(ignored.status.success());
+        assert!(ignored.stdout.is_empty(), "input: {input:?}");
+        assert!(ignored.stderr.is_empty(), "input: {input:?}");
+    }
+
+    let already_wrapped = format!(
+        "{{\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{{\"command\":\"'{executable}' git status\"}}}}"
+    );
+    let oversized = format!(
+        "{{\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{{\"command\":\"git status\",\"description\":\"{}\"}}}}",
+        "x".repeat(64 * 1024)
+    );
+    for input in [
+        b"invalid JSON".to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git status | cat"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git status\nrm -rf x"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"unknown command"}}"#.to_vec(),
+        already_wrapped.into_bytes(),
+        oversized.into_bytes(),
+    ] {
+        let ignored = tapas_with_stdin(&["--hook-eval", "codex"], &input, &[]);
+        assert!(ignored.status.success());
+        assert!(ignored.stdout.is_empty(), "input length: {}", input.len());
+        assert!(ignored.stderr.is_empty(), "input length: {}", input.len());
+    }
+
+    let self_check = tapas(&["--hook-eval", "codex", "--self-check"]);
     assert!(self_check.status.success());
     assert!(self_check.stdout.is_empty());
     assert!(self_check.stderr.is_empty());

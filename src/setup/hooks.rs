@@ -1,14 +1,18 @@
-pub(super) fn parse_config(existing: Option<&[u8]>, stderr: &mut dyn Write) -> io::Result<Value> {
+pub(super) fn parse_config(
+    existing: Option<&[u8]>,
+    config_name: &str,
+    stderr: &mut dyn Write,
+) -> io::Result<Value> {
     let input = existing
         .filter(|bytes| !bytes.iter().all(u8::is_ascii_whitespace))
         .unwrap_or(b"{}");
     match json::parse(input) {
         Ok(value @ Value::Object(_)) => Ok(value),
         _ => {
-            stderr.write_all(b"settings.json: invalid JSON\n")?;
+            writeln!(stderr, "{config_name}: invalid JSON")?;
             Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                "invalid settings.json",
+                format!("invalid {config_name}"),
             ))
         }
     }
@@ -50,6 +54,22 @@ pub(super) fn hook_entry(hook_command: &[u8]) -> Value {
             ])]),
         ),
     ])
+}
+
+pub(super) fn hook_exists(root: &Value, owned_entry: &Value) -> Result<bool, ()> {
+    let Some(hooks) = root.get(b"hooks") else {
+        return Ok(false);
+    };
+    if !matches!(hooks, Value::Object(_)) {
+        return Err(());
+    }
+    let Some(events) = hooks.get(b"PreToolUse") else {
+        return Ok(false);
+    };
+    let Value::Array(entries) = events else {
+        return Err(());
+    };
+    Ok(entries.contains(owned_entry))
 }
 
 #[cfg(test)]
@@ -200,9 +220,10 @@ fn push_token(token: &mut [u8; 256], length: &mut usize, byte: u8) -> bool {
     true
 }
 
-pub(super) fn hook_command(executable: &OsStr) -> Vec<u8> {
+pub(super) fn hook_command(executable: &OsStr, target: Target) -> Vec<u8> {
     let mut command = shell_escape(executable);
-    command.extend_from_slice(b" --hook-eval claude");
+    command.extend_from_slice(b" --hook-eval ");
+    command.extend_from_slice(target.name().as_bytes());
     command
 }
 
@@ -220,9 +241,9 @@ pub(super) fn shell_escape(value: &OsStr) -> Vec<u8> {
     output
 }
 
-pub(super) fn validate_hook(executable: &Path) -> io::Result<bool> {
+pub(super) fn validate_hook(executable: &Path, target: Target) -> io::Result<bool> {
     let output = Command::new(executable)
-        .args(["--hook-eval", "claude", "--self-check"])
+        .args(["--hook-eval", target.name(), "--self-check"])
         .stdin(Stdio::null())
         .output()?;
     Ok(output.status.success() && output.stdout.is_empty() && output.stderr.is_empty())
@@ -241,7 +262,7 @@ pub(super) fn contains_conflicting_integration(input: &[u8]) -> bool {
     .iter()
     .any(|needle| contains_ignore_ascii_case(input, needle))
 }
-use super::{Value, json};
+use super::{Target, Value, json};
 use crate::filters::contains_ignore_ascii_case;
 use std::ffi::OsStr;
 use std::io::{self, Write};

@@ -12,8 +12,11 @@ Usage:
   tapas --explain <cmd...>
   tapas --rewrite <cmd...>
   tapas --hook-eval claude
+  tapas --hook-eval codex
   tapas --setup claude [--dry-run]
+  tapas --setup codex [--dry-run]
   tapas --unsetup claude [--dry-run]
+  tapas --unsetup codex [--dry-run]
 
 Options:
   -h, --help       Show this help
@@ -21,7 +24,7 @@ Options:
   --filters        List the static compatibility catalogs
 ";
 const SETUP_USAGE: &[u8] =
-    b"usage: tapas --setup claude [--dry-run]\n       tapas --unsetup claude [--dry-run]\n";
+    b"usage: tapas --setup <claude|codex> [--dry-run]\n       tapas --unsetup <claude|codex> [--dry-run]\n";
 
 pub fn main_entry() -> i32 {
     let args: Vec<OsString> = std::env::args_os().skip(1).collect();
@@ -44,6 +47,8 @@ pub fn run(
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> io::Result<i32> {
+    let hook_request = hook_request(args);
+    let setup_request = setup_request(args);
     match args {
         [] if stdin_is_tty() => {
             stdout.write_all(HELP.as_bytes())?;
@@ -128,19 +133,12 @@ pub fn run(
             stdout.write_all(b"\n")?;
             Ok(0)
         }
-        [flag, target, self_check]
-            if flag == OsStr::new("--hook-eval")
-                && target == OsStr::new("claude")
-                && self_check == OsStr::new("--self-check") =>
-        {
-            crate::setup::hook_eval(stdin, stdout, stderr, true)
-        }
-        [flag, target] if flag == OsStr::new("--hook-eval") && target == OsStr::new("claude") => {
-            crate::setup::hook_eval(stdin, stdout, stderr, false)
-        }
         [flag, ..] if flag == OsStr::new("--hook-eval") => {
-            stderr.write_all(b"usage: tapas --hook-eval claude\n")?;
-            Ok(2)
+            let Some((target, self_check)) = hook_request else {
+                stderr.write_all(b"usage: tapas --hook-eval <claude|codex>\n")?;
+                return Ok(2);
+            };
+            crate::setup::hook_eval_for_target(target, stdin, stdout, stderr, self_check)
         }
         [flag, ..]
             if ["--stats", "--discover", "--err", "--test"]
@@ -150,16 +148,9 @@ pub fn run(
             stderr.write_all(b"usage: tapas does not expose deferred state modes in 0.1.0\n")?;
             Ok(2)
         }
-        args if is_claude_setup(args) => {
-            let action = if args[0].as_encoded_bytes().starts_with(b"--unsetup") {
-                crate::setup::Action::Unsetup
-            } else {
-                crate::setup::Action::Setup
-            };
-            let dry_run = args
-                .iter()
-                .any(|argument| argument == OsStr::new("--dry-run"));
-            crate::setup::configure(action, dry_run, stdout, stderr)
+        _ if setup_request.is_some() => {
+            let (action, target, dry_run) = setup_request.expect("validated setup request");
+            crate::setup::configure_for_target(action, target, dry_run, stdout, stderr)
         }
         [flag, ..] if is_setup_flag(flag) => {
             stderr.write_all(SETUP_USAGE)?;
@@ -235,28 +226,55 @@ fn is_setup_flag(argument: &OsStr) -> bool {
         || bytes.starts_with(b"--unsetup=")
 }
 
-fn is_claude_setup(args: &[OsString]) -> bool {
-    matches!(
-        args,
-        [flag, target]
-            if (flag == OsStr::new("--setup") || flag == OsStr::new("--unsetup"))
-                && target == OsStr::new("claude")
-    ) || matches!(
-        args,
-        [flag, target, dry_run]
-            if (flag == OsStr::new("--setup") || flag == OsStr::new("--unsetup"))
-                && target == OsStr::new("claude")
-                && dry_run == OsStr::new("--dry-run")
-    ) || matches!(
-        args,
-        [flag]
-            if flag == OsStr::new("--setup=claude")
-                || flag == OsStr::new("--unsetup=claude")
-    ) || matches!(
-        args,
-        [flag, dry_run]
-            if (flag == OsStr::new("--setup=claude")
-                || flag == OsStr::new("--unsetup=claude"))
-                && dry_run == OsStr::new("--dry-run")
-    )
+fn hook_request(args: &[OsString]) -> Option<(crate::setup::Target, bool)> {
+    match args {
+        [flag, target] if flag == OsStr::new("--hook-eval") => {
+            Some((crate::setup::Target::parse(target)?, false))
+        }
+        [flag, target, self_check]
+            if flag == OsStr::new("--hook-eval") && self_check == OsStr::new("--self-check") =>
+        {
+            Some((crate::setup::Target::parse(target)?, true))
+        }
+        _ => None,
+    }
+}
+
+fn setup_request(args: &[OsString]) -> Option<(crate::setup::Action, crate::setup::Target, bool)> {
+    let (flag, target, dry_run) = match args {
+        [combined, dry_run] if dry_run == OsStr::new("--dry-run") => {
+            return setup_request_combined(combined.as_encoded_bytes(), true);
+        }
+        [flag, target, dry_run] if dry_run == OsStr::new("--dry-run") => {
+            (flag.as_os_str(), target.as_os_str(), true)
+        }
+        [flag, target] => (flag.as_os_str(), target.as_os_str(), false),
+        [combined] => {
+            return setup_request_combined(combined.as_encoded_bytes(), false);
+        }
+        _ => return None,
+    };
+    setup_request_parts(flag.as_encoded_bytes(), target.as_encoded_bytes(), dry_run)
+}
+
+fn setup_request_combined(
+    argument: &[u8],
+    dry_run: bool,
+) -> Option<(crate::setup::Action, crate::setup::Target, bool)> {
+    let separator = argument.iter().position(|byte| *byte == b'=')?;
+    let (flag, value) = argument.split_at(separator);
+    setup_request_parts(flag, &value[1..], dry_run)
+}
+
+fn setup_request_parts(
+    flag: &[u8],
+    target: &[u8],
+    dry_run: bool,
+) -> Option<(crate::setup::Action, crate::setup::Target, bool)> {
+    let action = match flag {
+        b"--setup" => crate::setup::Action::Setup,
+        b"--unsetup" => crate::setup::Action::Unsetup,
+        _ => return None,
+    };
+    Some((action, crate::setup::Target::parse_bytes(target)?, dry_run))
 }
