@@ -1,5 +1,6 @@
 mod json;
 
+use std::ffi::OsStr;
 use std::fs;
 use std::io::{self, Read, Write};
 use std::path::Path;
@@ -20,7 +21,79 @@ pub enum Action {
     Unsetup,
 }
 
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub enum Target {
+    Claude,
+    Codex,
+}
+
+struct SetupLocation {
+    config_path: std::path::PathBuf,
+    ownership_path: std::path::PathBuf,
+    target: Target,
+}
+
+impl Target {
+    pub fn parse(value: &OsStr) -> Option<Self> {
+        Self::parse_bytes(value.as_encoded_bytes())
+    }
+
+    pub(crate) fn parse_bytes(value: &[u8]) -> Option<Self> {
+        match value {
+            b"claude" => Some(Self::Claude),
+            b"codex" => Some(Self::Codex),
+            _ => None,
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Claude => "claude",
+            Self::Codex => "codex",
+        }
+    }
+
+    fn config_path(self, home: &Path, codex_home: Option<&Path>) -> std::path::PathBuf {
+        match self {
+            Self::Claude => home.join(".claude").join(self.config_name()),
+            Self::Codex => codex_home
+                .map_or_else(|| home.join(".codex"), Path::to_path_buf)
+                .join(self.config_name()),
+        }
+    }
+
+    fn config_name(self) -> &'static str {
+        match self {
+            Self::Claude => "settings.json",
+            Self::Codex => "hooks.json",
+        }
+    }
+
+    fn grants_rewrite_permission(self) -> bool {
+        self == Self::Codex
+    }
+
+    fn accepts_hook_event(self, value: &Value) -> bool {
+        self == Self::Claude
+            || matches!(
+                (value.get(b"hook_event_name"), value.get(b"tool_name")),
+                (Some(Value::String(event)), Some(Value::String(tool)))
+                    if event == b"PreToolUse" && tool == b"Bash"
+            )
+    }
+}
+
 pub fn hook_eval(
+    stdin: &mut dyn Read,
+    stdout: &mut dyn Write,
+    stderr: &mut dyn Write,
+    self_check: bool,
+) -> io::Result<i32> {
+    hook_eval_for_target(Target::Claude, stdin, stdout, stderr, self_check)
+}
+
+pub fn hook_eval_for_target(
+    target: Target,
     stdin: &mut dyn Read,
     stdout: &mut dyn Write,
     _stderr: &mut dyn Write,
@@ -37,6 +110,9 @@ pub fn hook_eval(
     let Ok(value) = json::parse(&input) else {
         return Ok(0);
     };
+    if !target.accepts_hook_event(&value) {
+        return Ok(0);
+    }
     let Some(command) = event_command(&value) else {
         return Ok(0);
     };
@@ -56,15 +132,21 @@ pub fn hook_eval(
         .insert(b"command", Value::String(updated_command))
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "tool_input is not an object"))?;
 
+    let mut hook_output = Vec::with_capacity(2 + usize::from(target.grants_rewrite_permission()));
+    hook_output.push((
+        b"hookEventName".to_vec(),
+        Value::String(b"PreToolUse".to_vec()),
+    ));
+    if target.grants_rewrite_permission() {
+        hook_output.push((
+            b"permissionDecision".to_vec(),
+            Value::String(b"allow".to_vec()),
+        ));
+    }
+    hook_output.push((b"updatedInput".to_vec(), updated_input));
     let output = Value::Object(vec![(
         b"hookSpecificOutput".to_vec(),
-        Value::Object(vec![
-            (
-                b"hookEventName".to_vec(),
-                Value::String(b"PreToolUse".to_vec()),
-            ),
-            (b"updatedInput".to_vec(), updated_input),
-        ]),
+        Value::Object(hook_output),
     )]);
     stdout.write_all(&json::serialize(&output))?;
     stdout.write_all(b"\n")?;
@@ -77,68 +159,103 @@ pub fn configure(
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> io::Result<i32> {
+    configure_for_target(action, Target::Claude, dry_run, stdout, stderr)
+}
+
+pub fn configure_for_target(
+    action: Action,
+    target: Target,
+    dry_run: bool,
+    stdout: &mut dyn Write,
+    stderr: &mut dyn Write,
+) -> io::Result<i32> {
     let Some(home) = std::env::var_os("HOME") else {
         stderr.write_all(b"tapas agent setup: HOME is not set\n")?;
         return Ok(1);
     };
     let executable = std::env::current_exe()?;
-    configure_at(
-        Path::new(&home),
-        &executable,
-        action,
-        dry_run,
-        stdout,
-        stderr,
-    )
+    let codex_home = if target == Target::Codex {
+        std::env::var_os("CODEX_HOME")
+            .filter(|value| !value.is_empty())
+            .map(std::path::PathBuf::from)
+    } else {
+        None
+    };
+    let home = Path::new(&home);
+    let location = SetupLocation {
+        config_path: target.config_path(home, codex_home.as_deref()),
+        ownership_path: home.join(format!(".tapas/setup/{}.owned", target.name())),
+        target,
+    };
+    configure_at(&location, &executable, action, dry_run, stdout, stderr)
 }
 
 fn configure_at(
-    home: &Path,
+    location: &SetupLocation,
     executable: &Path,
     action: Action,
     dry_run: bool,
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> io::Result<i32> {
-    let config_path = home.join(".claude/settings.json");
-    let ownership_path = home.join(".tapas/setup/claude.owned");
-    let hook_command = hook_command(executable.as_os_str());
     match action {
-        Action::Setup => setup(
-            &config_path,
-            &ownership_path,
-            executable,
-            &hook_command,
-            dry_run,
-            stdout,
-            stderr,
-        ),
-        Action::Unsetup => unsetup(&config_path, &ownership_path, dry_run, stdout, stderr),
+        Action::Setup => {
+            let hook_command = hook_command(executable.as_os_str(), location.target);
+            setup(location, executable, &hook_command, dry_run, stdout, stderr)
+        }
+        Action::Unsetup => unsetup(location, dry_run, stdout, stderr),
     }
 }
 
 fn setup(
-    config_path: &Path,
-    ownership_path: &Path,
+    location: &SetupLocation,
     executable: &Path,
     hook_command: &[u8],
     dry_run: bool,
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> io::Result<i32> {
-    if !validate_hook(executable)? {
+    let SetupLocation {
+        config_path,
+        ownership_path,
+        target,
+    } = location;
+    if reject_symlink(config_path, stderr)? {
+        return Ok(1);
+    }
+    if !validate_hook(executable, *target)? {
         stderr.write_all(b"tapas hook evaluator self-check failed\n")?;
         return Ok(1);
     }
     let existing = read_optional(config_path, MAX_CONFIG_BYTES)?;
-    if existing
+    let inline_config = if *target == Target::Codex {
+        read_optional(&config_path.with_file_name("config.toml"), MAX_CONFIG_BYTES)?
+    } else {
+        None
+    };
+    let conflict_name = if existing
         .as_deref()
         .is_some_and(contains_conflicting_integration)
     {
-        stderr.write_all(b"Conflicting command-wrapper integration detected in settings.json. Remove it first, then run tapas --setup claude again.\n")?;
+        Some(target.config_name())
+    } else if inline_config
+        .as_deref()
+        .is_some_and(contains_conflicting_integration)
+    {
+        Some("config.toml")
+    } else {
+        None
+    };
+    if let Some(conflict_name) = conflict_name {
+        writeln!(
+            stderr,
+            "Conflicting command-wrapper integration detected in {}. Remove it first, then run tapas --setup {} again.",
+            conflict_name,
+            target.name()
+        )?;
         return Ok(1);
     }
-    let mut root = match parse_config(existing.as_deref(), stderr) {
+    let mut root = match parse_config(existing.as_deref(), target.config_name(), stderr) {
         Ok(root) => root,
         Err(error) if error.kind() == io::ErrorKind::InvalidData => return Ok(1),
         Err(error) => return Err(error),
@@ -156,13 +273,35 @@ fn setup(
     };
 
     let expected_entry = hook_entry(hook_command);
-    let removed_owned = owned_entry
-        .filter(|owned| *owned != &expected_entry)
-        .is_some_and(|owned| remove_hook(&mut root, owned).unwrap_or(false));
+    let removed_owned = match owned_entry {
+        Some(owned) if owned == &expected_entry => match hook_exists(&root, owned) {
+            Ok(true) => false,
+            Ok(false) => {
+                stderr.write_all(b"tapas-owned hook entry was modified or removed; configuration left untouched\n")?;
+                return Ok(1);
+            }
+            Err(()) => {
+                writeln!(stderr, "{}: invalid JSON", target.config_name())?;
+                return Ok(1);
+            }
+        },
+        Some(owned) => match remove_hook(&mut root, owned) {
+            Ok(true) => true,
+            Ok(false) => {
+                stderr.write_all(b"tapas-owned hook entry was modified or removed; configuration left untouched\n")?;
+                return Ok(1);
+            }
+            Err(()) => {
+                writeln!(stderr, "{}: invalid JSON", target.config_name())?;
+                return Ok(1);
+            }
+        },
+        None => false,
+    };
     let already_installed = match ensure_hook(&mut root, hook_command) {
         Ok(installed) => installed,
         Err(()) => {
-            stderr.write_all(b"settings.json: invalid JSON\n")?;
+            writeln!(stderr, "{}: invalid JSON", target.config_name())?;
             return Ok(1);
         }
     };
@@ -197,30 +336,31 @@ fn setup(
 }
 
 fn unsetup(
-    config_path: &Path,
-    ownership_path: &Path,
+    location: &SetupLocation,
     dry_run: bool,
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> io::Result<i32> {
-    unsetup_with_remove(
-        config_path,
-        ownership_path,
-        dry_run,
-        stdout,
-        stderr,
-        |path| fs::remove_file(path),
-    )
+    unsetup_with_remove(location, dry_run, stdout, stderr, |path| {
+        fs::remove_file(path)
+    })
 }
 
 fn unsetup_with_remove(
-    config_path: &Path,
-    ownership_path: &Path,
+    location: &SetupLocation,
     dry_run: bool,
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
     remove_ownership: impl FnOnce(&Path) -> io::Result<()>,
 ) -> io::Result<i32> {
+    let SetupLocation {
+        config_path,
+        ownership_path,
+        target,
+    } = location;
+    if reject_symlink(config_path, stderr)? {
+        return Ok(1);
+    }
     let owned_entry = match read_ownership(ownership_path)? {
         Ownership::Missing => {
             stderr.write_all(b"tapas hook ownership record not found; no hook was removed\n")?;
@@ -236,7 +376,7 @@ fn unsetup_with_remove(
         stdout.write_all(b"not found\n")?;
         return Ok(0);
     };
-    let mut root = match parse_config(Some(&existing), stderr) {
+    let mut root = match parse_config(Some(&existing), target.config_name(), stderr) {
         Ok(root) => root,
         Err(error) if error.kind() == io::ErrorKind::InvalidData => return Ok(1),
         Err(error) => return Err(error),
@@ -244,12 +384,16 @@ fn unsetup_with_remove(
     let removed = match remove_hook(&mut root, &owned_entry) {
         Ok(removed) => removed,
         Err(()) => {
-            stderr.write_all(b"settings.json: invalid JSON\n")?;
+            writeln!(stderr, "{}: invalid JSON", target.config_name())?;
             return Ok(1);
         }
     };
     if !removed {
-        stderr.write_all(b"tapas-owned hook entry was modified or removed; configuration left untouched; rerun tapas --setup claude to recover\n")?;
+        writeln!(
+            stderr,
+            "tapas-owned hook entry was modified or removed; configuration left untouched; rerun tapas --setup {} to recover",
+            target.name()
+        )?;
         return Ok(0);
     }
     if dry_run {
@@ -278,6 +422,18 @@ fn unsetup_with_remove(
     Ok(0)
 }
 
+fn reject_symlink(path: &Path, stderr: &mut dyn Write) -> io::Result<bool> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => {
+            stderr.write_all(b"tapas agent setup: symbolic-link configuration is not supported; configuration left untouched\n")?;
+            Ok(true)
+        }
+        Ok(_) => Ok(false),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error),
+    }
+}
+
 mod hooks;
 mod ownership;
 mod storage;
@@ -286,7 +442,7 @@ mod storage;
 use hooks::nested_hook_exists;
 use hooks::{
     contains_conflicting_integration, eligible, ensure_hook, event_command, hook_command,
-    hook_entry, parse_config, remove_hook, shell_escape, validate_hook,
+    hook_entry, hook_exists, parse_config, remove_hook, shell_escape, validate_hook,
 };
 use ownership::{Ownership, read_ownership, write_ownership};
 use storage::{
@@ -300,7 +456,8 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
 
     use super::{
-        Value, eligible, ensure_hook, hook_entry, remove_hook, unsetup_with_remove, write_ownership,
+        SetupLocation, Target, Value, eligible, ensure_hook, hook_entry, remove_hook,
+        unsetup_with_remove, write_ownership,
     };
 
     #[test]
@@ -380,8 +537,11 @@ mod tests {
         let mut stderr = Vec::new();
 
         let error = unsetup_with_remove(
-            &config_path,
-            &ownership_path,
+            &SetupLocation {
+                config_path: config_path.clone(),
+                ownership_path: ownership_path.clone(),
+                target: Target::Claude,
+            },
             false,
             &mut stdout,
             &mut stderr,
