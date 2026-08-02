@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn compact_pip_table(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
     if stdout.is_empty() {
         return stderr.to_vec();
@@ -284,3 +282,6 @@ pub(super) fn matches_npm_install(input: &[u8]) -> bool {
         .any(|needle| find_subslice(input, needle).is_some())
         || find_subslice(input, b"Done in ").is_some() && find_subslice(input, b"s.").is_some()
 }
+use super::bun_yarn::first_token;
+use super::exact::trim_ascii;
+use super::{append_line, find_subslice, strip_ansi};

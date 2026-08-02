@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn compact_package_tree(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
     let pnpm = is_pnpm_list(stdout);
     let mut root: Option<Vec<u8>> = None;
@@ -122,3 +120,5 @@ pub(super) fn is_pnpm_list(input: &[u8]) -> bool {
         || find_subslice(input, b"\ndevDependencies:").is_some()
         || find_subslice(input, b"\noptionalDependencies:").is_some()
 }
+use super::exact::trim_ascii;
+use super::{TREE_PREFIXES, find_subslice, strip_ansi, trim_end};

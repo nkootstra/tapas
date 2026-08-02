@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn is_logs_invocation(command: &[u8], argv: &[&[u8]]) -> bool {
     command == b"kubectl" && argv.get(1).copied() == Some(b"logs")
         || command == b"docker" && argv.get(1).copied() == Some(b"logs")
@@ -87,3 +85,5 @@ pub(super) fn matches_docker_ps(input: &[u8]) -> bool {
                 && find_subslice(header, b"STATUS").is_some()
     })
 }
+use super::table::first_nonempty;
+use super::{find_subslice, normalize_log_line, strip_ansi, timestamp_end};

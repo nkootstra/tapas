@@ -20,7 +20,6 @@ fn structured_json_dispatch_minifies_single_containers_byte_safely() {
 
     for argv in [
         &[b"aws".as_slice(), b"sts", b"get-caller-identity"][..],
-        &[b"jq".as_slice(), b"."][..],
         &[
             b"gh".as_slice(),
             b"issue",
@@ -40,6 +39,11 @@ fn structured_json_dispatch_minifies_single_containers_byte_safely() {
             "argv {argv:?}",
         );
     }
+
+    assert_eq!(
+        data::dispatch_streams_argv(&[b"jq", b"."], input, b"", 0, false).unwrap(),
+        StreamFilterOutput::new(input.to_vec(), Vec::new(), EvidenceClass::ByteExact),
+    );
 }
 
 #[test]

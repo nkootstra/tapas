@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn compact_cat(input: &[u8], argv: &[&[u8]]) -> Option<Vec<u8>> {
     let language = detect_language(argv);
     if language == Language::Data || language == Language::Unknown && !looks_like_code(input) {
@@ -303,15 +301,4 @@ fn leading_spaces(line: &[u8]) -> usize {
         .map(|byte| if *byte == b'\t' { 4 } else { 1 })
         .sum()
 }
-
-pub(super) fn cat_requests_exact(argv: &[&[u8]]) -> bool {
-    let mut options = true;
-    for argument in &argv[1..] {
-        if options && *argument == b"--" {
-            options = false;
-        } else if options && argument.starts_with(b"-") {
-            return true;
-        }
-    }
-    false
-}
+use super::{Language, find_subslice};

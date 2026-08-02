@@ -1,6 +1,7 @@
 use super::{
     EvidenceClass, FilterError, FilterOutput, StreamFilterOutput, append_line, command_basename,
-    find_subslice, normalize_log_line, strip_ansi_csi as strip_ansi, timestamp_end,
+    data::compact_json, find_subslice, normalize_log_line, strip_ansi_csi as strip_ansi,
+    timestamp_end,
 };
 
 pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
@@ -25,7 +26,7 @@ pub fn dispatch_streams_argv(
     let Some(command) = argv.first().copied().map(command_basename) else {
         return Err(FilterError::InvalidInput);
     };
-    if lossless || requests_exact_output(command, argv) {
+    if lossless || crate::invocation_policy::requests_passthrough(argv) {
         return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
     let arg1 = argv.get(1).copied().unwrap_or_default();
@@ -57,7 +58,14 @@ pub fn dispatch_streams_argv(
         ));
     }
 
-    let output = if is_docker_ps(command, argv) && matches_docker_ps(stdout) {
+    let output = if command == b"acli"
+        && argv[1..]
+            .iter()
+            .take_while(|argument| **argument != b"--")
+            .any(|argument| *argument == b"--json" || argument.starts_with(b"--json="))
+    {
+        compact_json(stdout)
+    } else if is_docker_ps(command, argv) && matches_docker_ps(stdout) {
         Some(compact_docker_ps(stdout))
     } else if is_docker_images(command, argv) && matches_docker_images(stdout) {
         Some(compact_docker_images(stdout))
@@ -115,9 +123,11 @@ mod github;
 mod logs;
 mod table;
 
-use atlassian::*;
-use containers::*;
-use curl::*;
-use github::*;
-use logs::*;
-use table::*;
+use atlassian::compact_acli;
+use containers::{
+    compact_docker_images, compact_docker_ps, compact_kubectl, is_docker_images,
+    matches_docker_images, matches_kubectl,
+};
+use curl::{compact_curl, compact_curl_trace, has_verbose_flag};
+use github::compact_gh;
+use logs::{compact_logs, is_docker_ps, is_logs_invocation, matches_docker_ps};

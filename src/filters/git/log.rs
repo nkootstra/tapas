@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn matches_log(input: &[u8]) -> bool {
     first_nonempty_line(input).is_some_and(is_commit_line)
 }
@@ -367,3 +365,6 @@ fn is_stat_summary_line(line: &[u8]) -> bool {
     find_subslice(line, b" file changed").is_some()
         || find_subslice(line, b" files changed").is_some()
 }
+use super::commit::first_number;
+use super::diff::first_nonempty_line;
+use super::{apply_diff, find_subslice};

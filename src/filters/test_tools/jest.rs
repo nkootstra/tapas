@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn matches_jest(input: &[u8]) -> bool {
     find_subslice(input, b"Test Suites:").is_some()
         || find_subslice(input, b"Test Files").is_some()
@@ -94,3 +92,5 @@ pub(super) fn nonzero_count_before(line: &[u8], marker: &[u8]) -> bool {
     }
     start < end - 1 && line[start..end - 1].iter().any(|byte| *byte != b'0')
 }
+use super::cargo::head_tail;
+use super::{append_line, find_subslice, strip_ansi};

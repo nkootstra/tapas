@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use super::{
     EvidenceClass, FilterError, FilterOutput, StreamFilterOutput, find_subslice, rfind_subslice,
     strip_ansi,
@@ -283,8 +281,23 @@ pub fn dispatch_streams_argv(
             EvidenceClass::ByteExact,
         ));
     }
-    if matches!(argv[1], b"fetch" | b"push") && !stdout.is_empty() {
+    if argv[1] == b"fetch" && !stdout.is_empty() {
         return Ok(StreamFilterOutput::passthrough(stdout, stderr));
+    }
+
+    if argv[1] == b"pull" {
+        return Ok(StreamFilterOutput::new(
+            compact_pull_stdout(stdout).unwrap_or_else(|| stdout.to_vec()),
+            compact_pull_stderr(stderr).unwrap_or_else(|| stderr.to_vec()),
+            EvidenceClass::FactComplete,
+        ));
+    }
+    if argv[1] == b"push" {
+        return Ok(StreamFilterOutput::new(
+            compact_push_stdout(stdout).unwrap_or_else(|| stdout.to_vec()),
+            compact_push_stderr(stderr).unwrap_or_else(|| stderr.to_vec()),
+            EvidenceClass::FactComplete,
+        ));
     }
 
     type Compact = fn(&[u8], &[u8]) -> Vec<u8>;
@@ -292,8 +305,6 @@ pub fn dispatch_streams_argv(
         b"add" => Some(apply_add),
         b"checkout" | b"switch" => Some(apply_checkout),
         b"fetch" => Some(|_, stderr| apply_fetch(stderr)),
-        b"pull" => Some(apply_pull),
-        b"push" => Some(|_, stderr| apply_push(stderr)),
         b"merge" => Some(apply_merge),
         b"rebase" => Some(apply_rebase),
         b"stash" => Some(apply_stash),
@@ -325,11 +336,18 @@ mod refs;
 mod status;
 mod wrapper;
 
-use blame::*;
-use commit::*;
-use diff::*;
-use log::*;
-use merge::*;
-use refs::*;
-use status::*;
-use wrapper::*;
+use blame::{apply_blame, matches_blame};
+use commit::{apply_commit, matches_commit};
+use diff::apply_diff;
+use log::{apply_log_compact, apply_log_stat_compact, apply_show, matches_log, matches_show};
+use merge::{apply_merge, matches_merge};
+use refs::{
+    apply_branch, apply_reflog, has_arg, has_format_or_pretty_arg, matches_branch, matches_diff,
+    matches_reflog, passthrough,
+};
+use status::{apply_status, matches_status};
+use wrapper::{
+    apply_add, apply_checkout, apply_fetch, apply_pull, apply_push, apply_rebase, apply_stash,
+    apply_status_short, compact_pull_stderr, compact_pull_stdout, compact_push_stderr,
+    compact_push_stdout,
+};

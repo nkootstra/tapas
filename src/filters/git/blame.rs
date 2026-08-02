@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn matches_blame(input: &[u8]) -> bool {
     if input.len() < 60 {
         return false;
@@ -172,3 +170,4 @@ fn truncate_blame_blocks(input: &[u8]) -> Vec<u8> {
     }
     output
 }
+use super::rfind_subslice;

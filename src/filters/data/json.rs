@@ -1,4 +1,4 @@
-pub(super) fn compact_json(input: &[u8]) -> Option<Vec<u8>> {
+pub(crate) fn compact_json(input: &[u8]) -> Option<Vec<u8>> {
     let input = trim_bom_and_space(input);
     if !is_single_top_level_container(input) {
         return None;

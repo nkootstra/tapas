@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) const UV_VALUE: &[&[u8]] = &[
     b"--project",
     b"--directory",
@@ -152,36 +150,6 @@ fn matches_boolean(argument: &[u8], options: &[&[u8]]) -> bool {
     }
 }
 
-pub(super) fn has_option(argv: &[OsString], long: &[u8], short: &[u8], joined_short: bool) -> bool {
-    argv.iter()
-        .take_while(|arg| bytes(arg) != b"--")
-        .any(|argument| {
-            let argument = bytes(argument);
-            !long.is_empty()
-                && (argument == long
-                    || argument
-                        .strip_prefix(long)
-                        .is_some_and(|rest| rest.starts_with(b"=")))
-                || !short.is_empty()
-                    && (argument == short
-                        || joined_short
-                            && argument.starts_with(short)
-                            && argument.len() > short.len())
-        })
-}
-
-pub(super) fn short_bundle_contains(argv: &[OsString], needles: &[u8]) -> bool {
-    argv.iter()
-        .take_while(|arg| bytes(arg) != b"--")
-        .any(|argument| {
-            let argument = bytes(argument);
-            argument.len() >= 3
-                && argument[0] == b'-'
-                && argument[1] != b'-'
-                && argument[1..].iter().any(|byte| needles.contains(byte))
-        })
-}
-
 pub(super) fn has_any_arg(argv: &[OsString], needles: &[&[u8]]) -> bool {
     argv.iter()
         .take_while(|argument| bytes(argument) != b"--")
@@ -216,3 +184,4 @@ pub(super) fn basename(argument: &OsString) -> &[u8] {
 pub(super) fn bytes(argument: &OsString) -> &[u8] {
     argument.as_encoded_bytes()
 }
+use std::ffi::OsString;

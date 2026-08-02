@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn matches_pup_table(input: &[u8]) -> bool {
     let mut saw_border = false;
     let mut saw_row = false;
@@ -207,3 +205,4 @@ pub(super) fn is_columnar_command(command: &[u8]) -> bool {
             | b"bun"
     )
 }
+use super::strip_ansi;

@@ -1,5 +1,3 @@
-use super::*;
-
 #[derive(Clone, Copy)]
 struct TreeEntry<'a> {
     depth: usize,
@@ -229,3 +227,6 @@ fn write_indent(output: &mut Vec<u8>, depth: usize) {
         output.extend_from_slice(b"  ");
     }
 }
+use super::find_subslice;
+use super::pipe::write_omission;
+use super::tree_pipe::{parse_ascii_tree_line, tree_depth, tree_prefix_len};

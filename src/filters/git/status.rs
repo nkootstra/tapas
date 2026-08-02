@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn matches_status(input: &[u8]) -> bool {
     first_nonempty_line(input).is_some_and(|line| {
         line.starts_with(b"On branch ")
@@ -406,3 +404,5 @@ pub(super) fn parent_dir(path: &[u8]) -> &[u8] {
         .rposition(|byte| *byte == b'/')
         .map_or(b"", |position| &path[..=position])
 }
+use super::diff::first_nonempty_line;
+use super::find_subslice;

@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn compact_dotnet(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
     let mut output = Vec::with_capacity(stdout.len() + stderr.len());
     for input in [stdout, stderr] {
@@ -103,3 +101,7 @@ pub(super) fn matches_build_output(input: &[u8]) -> bool {
         || find_subslice(input, b"\xe2\x9c\x93 built in ").is_some()
         || find_subslice(input, b"\xce\xa3 Total size:").is_some()
 }
+use super::exact::{strip_ansi, trim_ascii};
+use super::{
+    EvidenceClass, append_line, contains_ignore_ascii_case, find_subslice, trim_ascii_end,
+};

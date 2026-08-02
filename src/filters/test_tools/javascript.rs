@@ -1,5 +1,3 @@
-use super::*;
-
 #[derive(Clone, Copy)]
 enum JsTestMode {
     Mocha,
@@ -164,3 +162,4 @@ fn is_node_trailer(line: &[u8]) -> bool {
         .iter()
         .any(|prefix| line.starts_with(prefix))
 }
+use super::{append_line, find_subslice, strip_ansi};

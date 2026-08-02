@@ -48,7 +48,7 @@ pub fn dispatch_streams_argv(
     if argv.is_empty() {
         return Err(FilterError::InvalidInput);
     }
-    if lossless || requests_exact_output(argv) {
+    if lossless || crate::invocation_policy::requests_passthrough(argv) {
         return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
 
@@ -159,9 +159,9 @@ mod frontend;
 mod java;
 mod native;
 
-use apple::*;
-use dotnet::*;
-use exact::*;
-use frontend::*;
-use java::*;
-use native::*;
+use apple::{compact_apple_build, compact_package_tool, matches_gradle};
+use dotnet::{compact_dotnet, compact_evidence, has_recognized_failure, matches_build_output};
+use exact::trim_ascii_start;
+use frontend::{compact_build_output, matches_build_compact};
+use java::{compact_gradle, compact_maven, matches_maven};
+use native::compact_build;

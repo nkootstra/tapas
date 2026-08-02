@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn parse_config(existing: Option<&[u8]>, stderr: &mut dyn Write) -> io::Result<Value> {
     let input = existing
         .filter(|bytes| !bytes.iter().all(u8::is_ascii_whitespace))
@@ -243,3 +241,10 @@ pub(super) fn contains_conflicting_integration(input: &[u8]) -> bool {
     .iter()
     .any(|needle| contains_ignore_ascii_case(input, needle))
 }
+use super::{Value, json};
+use crate::filters::contains_ignore_ascii_case;
+use std::ffi::OsStr;
+use std::io::{self, Write};
+use std::os::unix::ffi::OsStrExt;
+use std::path::Path;
+use std::process::{Command, Stdio};

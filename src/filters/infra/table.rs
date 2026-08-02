@@ -20,28 +20,6 @@ pub(super) fn collapse_table(input: &[u8]) -> Vec<u8> {
     output
 }
 
-pub(super) fn requests_exact_output(command: &[u8], argv: &[&[u8]]) -> bool {
-    argv[1..]
-        .iter()
-        .take_while(|arg| **arg != b"--")
-        .any(|arg| {
-            matches!(*arg, b"--help" | b"--version" | b"-h" | b"-V")
-                || long_option(arg, b"--format")
-                || long_option(arg, b"--output")
-                || arg.starts_with(b"-o") && command == b"kubectl"
-                || long_option(arg, b"--json")
-                || long_option(arg, b"--jq")
-                || long_option(arg, b"--template")
-        })
-}
-
-fn long_option(argument: &[u8], option: &[u8]) -> bool {
-    argument == option
-        || argument
-            .strip_prefix(option)
-            .is_some_and(|rest| rest.starts_with(b"="))
-}
-
 pub(super) fn first_nonempty(input: &[u8]) -> Option<&[u8]> {
     input
         .split(|byte| *byte == b'\n')

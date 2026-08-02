@@ -42,7 +42,7 @@ pub fn dispatch_streams_argv(
     if argv.is_empty() {
         return Err(FilterError::InvalidInput);
     }
-    if lossless || requests_query(argv) {
+    if lossless || crate::invocation_policy::requests_passthrough(argv) {
         return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
 
@@ -50,10 +50,6 @@ pub fn dispatch_streams_argv(
     if matches!(command, b"pup" | b"acli") && exit_code != 0 {
         return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
-    if requests_machine_output(command, argv) {
-        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
-    }
-
     let wants_json = matches!(command, b"aws" | b"jq" | b"pup" | b"acli")
         || command == b"gh" && gh_wants_data_output(argv);
     if wants_json
@@ -77,7 +73,6 @@ pub fn dispatch_streams_argv(
 
     if command == b"cat"
         && stdout.len() > 512
-        && !cat_requests_exact(argv)
         && let Some(compact) = compact_cat(stdout, argv)
     {
         return Ok(StreamFilterOutput::new(
@@ -118,8 +113,10 @@ mod exact;
 mod json;
 mod table;
 
-use cat::*;
-use exact::{gh_wants_data_output, requests_machine_output, requests_query};
+use cat::compact_cat;
+use exact::gh_wants_data_output;
 pub use exact::{sigil_rle, ws_rle};
-use json::*;
-use table::*;
+pub(crate) use json::compact_json;
+use table::{
+    compact_columnar, compact_pup_table, is_columnar_command, matches_columnar, matches_pup_table,
+};

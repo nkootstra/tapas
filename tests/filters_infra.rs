@@ -252,6 +252,25 @@ fn acli_table_and_view_fixtures_match_the_pinned_contract() {
 }
 
 #[test]
+fn acli_json_is_minified_without_changing_its_data() {
+    let input = fixture("acli_jira_workitem_search_json.txt");
+    let output = infra::dispatch_streams_argv(
+        &[b"acli", b"jira", b"workitem", b"search", b"--json"],
+        &input,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+
+    assert_eq!(
+        output.stdout,
+        b"[{\"key\":\"EXAMPLE-101\",\"fields\":{\"summary\":\"Anonymized sample work item\",\"status\":{\"name\":\"In Progress\"},\"assignee\":{\"displayName\":\"Ada Example\"}}},{\"key\":\"EXAMPLE-102\",\"fields\":{\"summary\":\"Consectetur adipiscing elit sed\",\"status\":{\"name\":\"To Do\"},\"assignee\":null}}]\n"
+    );
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
 fn exact_lossless_failures_and_unknown_shapes_are_byte_exact() {
     let stdout = b"raw \xff\n";
     let stderr = b"err \xfe\n";

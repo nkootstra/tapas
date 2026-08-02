@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn matches_pytest(input: &[u8]) -> bool {
     if find_subslice(input, b"test session starts").is_some()
         || find_subslice(input, b"passed in ").is_some()
@@ -88,3 +86,6 @@ fn trim_bytes(input: &[u8], predicate: impl Fn(u8) -> bool) -> &[u8] {
         .map_or(start, |position| position + 1);
     &input[start..end]
 }
+use super::cargo::head_tail;
+use super::jest::nonzero_count_before;
+use super::{append_line, find_subslice, strip_ansi};
