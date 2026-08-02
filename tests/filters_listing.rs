@@ -81,6 +81,24 @@ fn find_ls_pipe_filter_matches_the_pinned_oracle() {
 }
 
 #[test]
+fn find_ls_pipe_filter_preserves_the_final_group_entry() {
+    let input = concat!(
+        "1 0 -rw-r--r-- 1 user staff 1 Apr 23 12:34 ./src/a.zig\n",
+        "2 0 -rw-r--r-- 1 user staff 1 Apr 23 12:34 ./src/b.zig\n",
+        "3 0 -rw-r--r-- 1 user staff 1 Apr 23 12:34 ./src/c.zig\n",
+        "4 0 -rw-r--r-- 1 user staff 1 Apr 23 12:34 ./src/d.zig\n",
+        "5 0 -rw-r--r-- 1 user staff 1 Apr 23 12:34 ./src/e.zig\n",
+    );
+    let expected =
+        b"./src/ (5 entries: a.zig, b.zig, c.zig; 1 omitted; last: e.zig; --raw for all)\n";
+
+    assert_eq!(
+        listing::apply_matched(input.as_bytes()).unwrap(),
+        FilterOutput::new(expected.to_vec(), EvidenceClass::PotentiallyLossy)
+    );
+}
+
+#[test]
 fn du_pipe_filter_matches_the_pinned_oracle() {
     let input = fixture("du_sh.txt");
     let expected = concat!(
@@ -159,15 +177,15 @@ fn rg_machine_file_modes_are_byte_exact() {
 }
 
 #[test]
-fn find_plain_dispatch_matches_the_pinned_fixture_output() {
+fn find_plain_dispatch_preserves_group_boundaries() {
     let input = fixture("find_plain_many.txt");
     let expected = concat!(
         "README.md\n",
         "build.zig\n",
         "scripts/audit-fixtures.py\n",
-        "src/core/ (12 entries: analyzer.zig, cache.zig, config.zig; 9 omitted; --raw for all)\n",
-        "src/filters/ (12 entries: build_output.zig, cargo_test.zig, find_compact.zig; 9 omitted; --raw for all)\n",
-        "tests/fixtures/ (12 entries: build_output.txt, cargo_test_failing.txt, find_plain_many.txt; 9 omitted; --raw for all)\n",
+        "src/core/ (12 entries: analyzer.zig, cache.zig, config.zig; 8 omitted; last: vm.zig; --raw for all)\n",
+        "src/filters/ (12 entries: build_output.zig, cargo_test.zig, find_compact.zig; 8 omitted; last: validator.zig; --raw for all)\n",
+        "tests/fixtures/ (12 entries: build_output.txt, cargo_test_failing.txt, find_plain_many.txt; 8 omitted; last: tree_large.txt; --raw for all)\n",
     );
 
     assert_eq!(
@@ -185,6 +203,19 @@ fn find_plain_dispatch_matches_the_pinned_fixture_output() {
             .unwrap()
             .stdout,
         expected_files.as_bytes(),
+    );
+}
+
+#[test]
+fn find_plain_four_entry_group_exposes_every_boundary_byte() {
+    let input = b"dir/a\ndir/b\ndir/c\ndir/\xff\n";
+    let expected = b"dir/ (4 entries: a, b, c; last: \xff)\n";
+
+    assert_eq!(
+        listing::dispatch_streams_argv(&[b"find", b"."], input, b"", 0, false)
+            .unwrap()
+            .stdout,
+        expected,
     );
 }
 

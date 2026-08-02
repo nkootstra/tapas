@@ -174,7 +174,8 @@ pub(super) fn apply_find_ls(input: &[u8]) -> Vec<u8> {
                     output.push(b'/');
                 }
             }
-            write_omission(&mut output, group.len(), 3);
+            let last = group.last().expect("find group is non-empty");
+            write_find_boundary(&mut output, group.len(), basename(last.path), last.is_dir);
             output.extend_from_slice(b")\n");
         } else {
             for entry in group {
@@ -230,5 +231,30 @@ pub(super) fn write_omission(output: &mut Vec<u8>, total: usize, shown: usize) {
     output.extend_from_slice(b"; ");
     output.extend_from_slice((total - shown).to_string().as_bytes());
     output.extend_from_slice(b" omitted; --raw for all");
+}
+
+pub(super) fn write_find_boundary(
+    output: &mut Vec<u8>,
+    total: usize,
+    last: &[u8],
+    last_is_dir: bool,
+) {
+    if total <= 3 {
+        return;
+    }
+    let omitted = total - 4;
+    if omitted > 0 {
+        output.extend_from_slice(b"; ");
+        output.extend_from_slice(omitted.to_string().as_bytes());
+        output.extend_from_slice(b" omitted");
+    }
+    output.extend_from_slice(b"; last: ");
+    output.extend_from_slice(last);
+    if last_is_dir {
+        output.push(b'/');
+    }
+    if omitted > 0 {
+        output.extend_from_slice(b"; --raw for all");
+    }
 }
 use super::tree_pipe::{parse_ascii_tree_line, unicode_tree_line};

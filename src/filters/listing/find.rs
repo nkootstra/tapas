@@ -65,7 +65,8 @@ pub(super) fn apply_find_plain(input: &[u8], files_noun: bool) -> Vec<u8> {
                 }
                 output.extend_from_slice(basename(entry.path));
             }
-            write_omission(&mut output, group.len(), 3);
+            let last = group.last().expect("find group is non-empty");
+            write_find_boundary(&mut output, group.len(), basename(last.path), false);
             output.extend_from_slice(b")\n");
         } else {
             for entry in group {
@@ -88,4 +89,4 @@ fn write_parent_label(output: &mut Vec<u8>, parent: &[u8]) {
         output.push(b'/');
     }
 }
-use super::pipe::{basename, parent_dir, write_omission};
+use super::pipe::{basename, parent_dir, write_find_boundary};
