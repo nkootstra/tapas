@@ -54,12 +54,13 @@ TAPAS_STREAM=1 tapas tsc --watch
 
 Tapas never invokes a shell to run a wrapped command. Shell execution happens only when the caller explicitly requests a shell, such as `tapas sh -c '...'`.
 
-## Claude setup
+## Agent setup
 
-Install the Claude `PreToolUse` hook:
+Install a user-level `PreToolUse` hook for either supported coding agent:
 
 ```sh
 tapas --setup claude
+tapas --setup codex
 ```
 
 Preview or remove it:
@@ -67,9 +68,20 @@ Preview or remove it:
 ```sh
 tapas --setup claude --dry-run
 tapas --unsetup claude
+tapas --setup codex --dry-run
+tapas --unsetup codex
 ```
 
-Setup preserves unrelated settings and handlers, writes atomically, keeps a backup beside `settings.json`, and records private ownership under `~/.tapas/setup`. Unsetup removes only the exact hook recorded by Tapas. Hook evaluation provides guidance; it never grants command permission.
+If you use a custom client home, pass the same value during setup and removal:
+
+```sh
+CODEX_HOME=/path/to/codex-home tapas --setup codex
+CODEX_HOME=/path/to/codex-home tapas --unsetup codex
+```
+
+Setup preserves unrelated settings and handlers, writes atomically, keeps a backup beside the client configuration file, and records private ownership under `~/.tapas/setup`. Unsetup removes only the exact hook recorded by Tapas.
+
+The Claude integration writes `~/.claude/settings.json` and provides rewrite guidance without granting command permission. The Codex integration writes `${CODEX_HOME:-$HOME/.codex}/hooks.json`; after setup, open `/hooks` to review and trust the exact hook that was added. Review other matching hooks from every active user, project, profile, and plugin layer at the same time. Codex requires an allow decision when a hook supplies updated input, so Tapas grants it only for commands accepted by the same conservative parser and only after replacing the command with the Tapas-wrapped form. That protocol decision does not bypass the client's sandbox or approval controls. Shell operators, substitutions, multiline commands, unsupported commands, and already wrapped commands are left untouched.
 
 ## Build
 
@@ -114,7 +126,7 @@ The source inventory, fixtures, benchmark cases, tokenizer asset, and smll outpu
 
 ## Current scope
 
-`0.1.0` covers the command, pipe, process, streaming, and Claude-hook behavior of the pinned smll release. Stats, history, discovery, failure tee storage, and other agent integrations are intentionally deferred to later Tapas versions.
+`0.1.0` covers command, pipe, process, streaming, and user-level hook behavior for Claude and Codex. Stats, history, discovery, failure tee storage, and other agent integrations are intentionally deferred to later Tapas versions.
 
 ## License
 
