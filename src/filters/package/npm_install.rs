@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn compact_npm_install(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
     if (looks_like_pnpm(stdout) || looks_like_pnpm(stderr))
         && let Some(output) = compact_pnpm(stdout, stderr)
@@ -45,3 +43,8 @@ fn looks_like_pnpm(input: &[u8]) -> bool {
     .iter()
     .any(|needle| find_subslice(input, needle).is_some())
 }
+use super::bun_yarn::{compact_bun_yarn, looks_like_npm};
+use super::exact::trim_ascii;
+use super::npm::{compact_npm, head_tail, should_keep_install_line};
+use super::pnpm::{compact_pnpm, looks_like_bun_yarn};
+use super::{find_subslice, strip_ansi};

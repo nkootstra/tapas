@@ -33,7 +33,7 @@ pub fn dispatch_streams_argv(
     let Some(command) = argv.first().copied().map(command_basename) else {
         return Err(FilterError::InvalidInput);
     };
-    if lossless || requests_query(argv) {
+    if lossless || crate::invocation_policy::requests_passthrough(argv) {
         return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
 
@@ -483,18 +483,6 @@ fn keep_plan_line(line: &[u8], in_actions: bool) -> bool {
                 || [b"-/+ ".as_slice(), b"~ ", b"+ ", b"- "]
                     .iter()
                     .any(|prefix| line.starts_with(prefix)))
-}
-
-fn requests_query(argv: &[&[u8]]) -> bool {
-    argv[1..]
-        .iter()
-        .take_while(|arg| **arg != b"--")
-        .any(|arg| {
-            matches!(*arg, b"--help" | b"--version" | b"-h" | b"-V")
-                || arg.starts_with(b"--format")
-                || arg.starts_with(b"--output")
-                || arg.starts_with(b"--json")
-        })
 }
 
 fn append_collapsed(output: &mut Vec<u8>, line: &[u8]) {

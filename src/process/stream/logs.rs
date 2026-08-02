@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) struct LogState {
     compose: bool,
     pending: Vec<u8>,
@@ -60,3 +58,5 @@ impl LogState {
         Ok(())
     }
 }
+use super::{normalize_log_line, strip_ansi, timestamp_end};
+use std::io::{self, Write};

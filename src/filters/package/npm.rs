@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn compact_npm(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
     let mut deprecations = Vec::new();
     let mut deprecation_count = 0usize;
@@ -205,3 +203,6 @@ pub(super) fn has_package_error_marker(input: &[u8]) -> bool {
 pub(super) fn matches_package_tree(input: &[u8]) -> bool {
     contains_tree_marker(input) || is_pnpm_list(input)
 }
+use super::exact::trim_ascii;
+use super::tree::{contains_tree_marker, is_pnpm_list};
+use super::{byte_after_lines, find_subslice, strip_ansi};

@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn compact_curl_trace(input: &[u8]) -> Vec<u8> {
     let mut output = Vec::with_capacity(input.len());
     let mut in_certificate = false;
@@ -248,3 +246,5 @@ pub(super) fn has_verbose_flag(argv: &[&[u8]]) -> bool {
         .take_while(|arg| **arg != b"--")
         .any(|arg| **arg == *b"--verbose" || arg.starts_with(b"-") && arg[1..].contains(&b'v'))
 }
+use super::table::strip_prefix_ignore_ascii_case;
+use super::{append_line, find_subslice};

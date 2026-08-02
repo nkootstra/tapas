@@ -1,25 +1,3 @@
-use super::*;
-
-pub(super) fn find_requests_exact(argv: &[&[u8]]) -> bool {
-    argv[1..].iter().any(|argument| {
-        matches!(
-            *argument,
-            b"-ls"
-                | b"-fls"
-                | b"-printf"
-                | b"-fprintf"
-                | b"-print0"
-                | b"-fprint0"
-                | b"-exec"
-                | b"-execdir"
-                | b"-ok"
-                | b"-okdir"
-                | b"-delete"
-                | b"-D"
-        )
-    })
-}
-
 pub(super) fn find_has_type_file(argv: &[&[u8]]) -> bool {
     argv.windows(2)
         .any(|pair| pair[0] == b"-type" && pair[1] == b"f")
@@ -110,15 +88,4 @@ fn write_parent_label(output: &mut Vec<u8>, parent: &[u8]) {
         output.push(b'/');
     }
 }
-
-pub(super) fn requests_exact_query(argv: &[&[u8]]) -> bool {
-    for argument in &argv[1..] {
-        if *argument == b"--" {
-            break;
-        }
-        if matches!(*argument, b"--help" | b"--version") {
-            return true;
-        }
-    }
-    matches!(argv.get(1), Some(&b"help") | Some(&b"version"))
-}
+use super::pipe::{basename, parent_dir, write_omission};

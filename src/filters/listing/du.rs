@@ -1,5 +1,3 @@
-use super::*;
-
 #[derive(Clone, Copy)]
 struct DuRow<'a> {
     number: &'a [u8],
@@ -204,3 +202,4 @@ fn write_human_size(output: &mut Vec<u8>, bytes: u64) {
     output.push(b'0' + (tenths % 10) as u8);
     output.push(suffix);
 }
+use super::pipe::trim_ascii_end_space;

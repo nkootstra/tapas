@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn matches_commit(input: &[u8]) -> bool {
     first_nonempty_line(input).is_some_and(is_commit_summary_header)
 }
@@ -160,3 +158,6 @@ fn number_before_marker<'a>(input: &'a [u8], marker: &[u8]) -> Option<&'a [u8]> 
     }
     (start < end).then_some(&input[start..end])
 }
+use super::diff::first_nonempty_line;
+use super::find_subslice;
+use super::status::parent_dir;

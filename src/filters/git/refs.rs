@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn passthrough(input: &[u8]) -> FilterOutput {
     FilterOutput::new(input.to_vec(), EvidenceClass::ByteExact)
 }
@@ -234,3 +232,7 @@ fn write_compact_verbose_tail(output: &mut Vec<u8>, tail: &[u8]) {
         output.extend_from_slice(subject);
     }
 }
+use super::diff::first_nonempty_line;
+use super::log::find_diff_start;
+use super::{EvidenceClass, FilterOutput, find_subslice};
+use std::collections::HashSet;

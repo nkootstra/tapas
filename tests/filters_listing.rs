@@ -139,30 +139,8 @@ fn rg_pattern_dispatch_elides_only_repeated_paths_losslessly() {
 }
 
 #[test]
-fn rg_files_dispatch_matches_the_pinned_dirname_rle_oracle() {
+fn rg_machine_file_modes_are_byte_exact() {
     let input = fixture("rg_files.txt");
-    let expected = concat!(
-        "src/pipeline.zig\n",
-        ":util.zig\n",
-        ":main.zig\n",
-        ":filters/git_pull.zig\n",
-        ":git_merge.zig\n",
-        ":git_rebase.zig\n",
-        ":git_push.zig\n",
-        ":git_add.zig\n",
-        ":git_fetch.zig\n",
-        ":git_commit.zig\n",
-        ":git_status.zig\n",
-        ":git_branch.zig\n",
-        ":git_blame.zig\n",
-        ":git_log.zig\n",
-        ":git_show.zig\n",
-        ":git_checkout.zig\n",
-        ":git_stash.zig\n",
-        ":git_diff.zig\n",
-        ":detect.zig\n",
-    );
-
     for flag in [
         b"--files".as_slice(),
         b"-l".as_slice(),
@@ -171,9 +149,9 @@ fn rg_files_dispatch_matches_the_pinned_dirname_rle_oracle() {
         assert_eq!(
             listing::dispatch_streams_argv(&[b"rg", flag], &input, b"", 0, false).unwrap(),
             tapas::filters::StreamFilterOutput::new(
-                expected.as_bytes().to_vec(),
+                input.clone(),
                 Vec::new(),
-                EvidenceClass::FactComplete,
+                EvidenceClass::ByteExact,
             ),
             "flag {flag:?}",
         );

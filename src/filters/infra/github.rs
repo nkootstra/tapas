@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn compact_gh(argv: &[&[u8]], stdout: &[u8]) -> Vec<u8> {
     let arg1 = argv.get(1).copied().unwrap_or_default();
     let arg2 = argv.get(2).copied().unwrap_or_default();
@@ -298,3 +296,5 @@ fn gh_footer(line: &[u8]) -> bool {
         || line.starts_with(b"To see what failed")
         || line.starts_with(b"View this run on GitHub")
 }
+use super::table::collapse_table;
+use super::{append_line, find_subslice};

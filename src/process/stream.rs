@@ -301,11 +301,10 @@ mod line;
 mod logs;
 mod tsc;
 
-use github::*;
-use jest::*;
-use line::*;
-use logs::*;
-use tsc::*;
+use github::GhState;
+use jest::JestState;
+use logs::LogState;
+use tsc::TscState;
 
 #[cfg(test)]
 mod tests {

@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn compact_bun_yarn(stdout: &[u8], stderr: &[u8]) -> Option<Vec<u8>> {
     let mut head = Vec::new();
     let mut dependencies = Vec::new();
@@ -95,3 +93,6 @@ pub(super) fn looks_like_npm(input: &[u8]) -> bool {
     .iter()
     .any(|needle| find_subslice(input, needle).is_some())
 }
+use super::exact::trim_ascii;
+use super::npm::write_name_summary;
+use super::{append_line, find_subslice, strip_ansi};

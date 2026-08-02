@@ -1,5 +1,3 @@
-use super::*;
-
 #[derive(Default)]
 pub(super) struct TscState {
     clean_emitted: bool,
@@ -41,3 +39,6 @@ impl TscState {
         Ok(())
     }
 }
+use super::line::append_written_line;
+use super::{find_subslice, strip_ansi};
+use std::io::{self, Write};

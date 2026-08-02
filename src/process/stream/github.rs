@@ -1,5 +1,3 @@
-use super::*;
-
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum JobStatus {
     Queued,
@@ -182,3 +180,6 @@ fn looks_like_duration(input: &[u8]) -> bool {
             .iter()
             .all(|byte| byte.is_ascii_digit() || matches!(byte, b'h' | b'm' | b's' | b'.' | b'u'))
 }
+use super::line::append_written_line;
+use super::{MAX_FRAME_BYTES, rfind_subslice, strip_ansi};
+use std::io::{self, Write};

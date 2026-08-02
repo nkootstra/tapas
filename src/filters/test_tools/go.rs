@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn matches_go_test(input: &[u8]) -> bool {
     find_subslice(input, b"=== RUN").is_some()
         || find_subslice(input, b"--- FAIL:").is_some()
@@ -82,3 +80,5 @@ fn scan_go_test(input: &[u8], output: &mut Vec<u8>, has_benchmark_or_fuzz: &mut 
 fn is_go_benchmark(line: &[u8]) -> bool {
     line.starts_with(b"Benchmark") && line.contains(&b'\t')
 }
+use super::cargo::head_tail;
+use super::{append_line, find_subslice, strip_ansi};

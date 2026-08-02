@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn matches_cargo_test(input: &[u8]) -> bool {
     if find_subslice(input, b"test result:").is_some() {
         return true;
@@ -164,3 +162,5 @@ pub(super) fn head_tail(input: Vec<u8>, head: usize, tail: usize) -> Vec<u8> {
     }
     output
 }
+use super::{append_line, find_subslice, strip_ansi};
+use std::collections::VecDeque;

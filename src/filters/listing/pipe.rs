@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn matches_tree(input: &[u8]) -> bool {
     if input.is_empty() || matches!(input[0], b' ' | b'\t' | 0..=0x1f) {
         return false;
@@ -233,3 +231,4 @@ pub(super) fn write_omission(output: &mut Vec<u8>, total: usize, shown: usize) {
     output.extend_from_slice((total - shown).to_string().as_bytes());
     output.extend_from_slice(b" omitted; --raw for all");
 }
+use super::tree_pipe::{parse_ascii_tree_line, unicode_tree_line};

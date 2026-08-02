@@ -1,5 +1,3 @@
-use super::*;
-
 #[derive(Debug)]
 struct TscDiagnostic {
     location: Vec<u8>,
@@ -125,3 +123,4 @@ fn message_key(message: &[u8]) -> &[u8] {
 fn is_tsc_summary(line: &[u8]) -> bool {
     line.starts_with(b"Found ") && find_subslice(line, b"error").is_some()
 }
+use super::{append_line, find_subslice, strip_ansi};

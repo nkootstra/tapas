@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn compact_build(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
     if let Some(summary) =
         find_zig_success_summary(stdout).or_else(|| find_zig_success_summary(stderr))
@@ -120,3 +118,6 @@ fn is_make_directory_noise(line: &[u8]) -> bool {
 fn is_cargo_generated_warning_summary(line: &[u8]) -> bool {
     line.starts_with(b"warning: `") && find_subslice(line, b" generated ").is_some()
 }
+use super::exact::strip_ansi;
+use super::frontend::{BuildLine, classify_build_line};
+use super::{append_line, find_subslice};

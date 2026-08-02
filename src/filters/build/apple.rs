@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn compact_apple_build(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
     let mut output = Vec::with_capacity(stdout.len() + stderr.len());
     for input in [stdout, stderr] {
@@ -106,3 +104,7 @@ pub(super) fn matches_gradle(input: &[u8]) -> bool {
     .iter()
     .any(|needle| find_subslice(input, needle).is_some())
 }
+use super::exact::strip_ansi;
+use super::{
+    append_line, contains_ignore_ascii_case, find_subslice, trim_ascii_end, trim_ascii_start,
+};
