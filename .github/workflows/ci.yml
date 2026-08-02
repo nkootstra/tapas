@@ -87,6 +87,47 @@ jobs:
           retention-days: 14
           compression-level: 9
 
+  executable-compatibility-benchmark:
+    name: Executable compatibility benchmark
+    needs: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out the tested commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Build the benchmark binary
+        run: cargo build --locked
+
+      - name: Install the hash-locked benchmark tokenizer
+        run: |
+          python3 -m venv .executable-benchmark-venv
+          .executable-benchmark-venv/bin/python -m pip install \
+            --disable-pip-version-check \
+            --only-binary=:all: \
+            --require-hashes \
+            --requirement scripts/requirements-benchmark.txt
+
+      - name: Enforce the executable compatibility baseline
+        run: |
+          .executable-benchmark-venv/bin/python scripts/benchmark.py \
+            --baseline tests/compat/smll-v1.9.0/executable-benchmark-baseline.json \
+            --tapas-bin target/debug/tapas \
+            --output executable-benchmark-report.json
+
+      - name: Upload the executable benchmark report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tapas-${{ env.TAPAS_VERSION }}-executable-compatibility-benchmark
+          path: executable-benchmark-report.json
+          if-no-files-found: warn
+          retention-days: 14
+          compression-level: 9
+
   test-and-package:
     name: ${{ matrix.target }}
     needs: quality

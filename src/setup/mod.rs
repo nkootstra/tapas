@@ -1,15 +1,12 @@
 mod json;
 
-use std::ffi::{OsStr, OsString};
-use std::fs::{self, File, OpenOptions, Permissions};
+use std::fs;
 use std::io::{self, Read, Write};
-use std::os::unix::ffi::OsStrExt;
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::path::Path;
+use std::sync::atomic::AtomicU64;
+#[cfg(test)]
+use std::sync::atomic::Ordering;
 
-use crate::filters::contains_ignore_ascii_case;
 use json::Value;
 
 const MAX_HOOK_INPUT: u64 = 64 * 1024;
@@ -285,9 +282,16 @@ mod hooks;
 mod ownership;
 mod storage;
 
-use hooks::*;
-use ownership::*;
-use storage::*;
+#[cfg(test)]
+use hooks::nested_hook_exists;
+use hooks::{
+    contains_conflicting_integration, eligible, ensure_hook, event_command, hook_command,
+    hook_entry, parse_config, remove_hook, shell_escape, validate_hook,
+};
+use ownership::{Ownership, read_ownership, write_ownership};
+use storage::{
+    existing_mode, read_optional, remove_backup, restore_optional, write_atomic, write_backup,
+};
 
 #[cfg(test)]
 mod tests {

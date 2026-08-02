@@ -29,32 +29,6 @@ pub(super) fn rg_is_file_mode(argv: &[&[u8]]) -> bool {
         .any(|argument| matches!(*argument, b"--files" | b"-l" | b"--files-with-matches"))
 }
 
-pub(super) fn rg_requests_exact(argv: &[&[u8]]) -> bool {
-    argv.iter().any(|argument| {
-        matches!(
-            *argument,
-            b"--json"
-                | b"--vimgrep"
-                | b"-c"
-                | b"--count"
-                | b"--count-matches"
-                | b"--files-without-match"
-                | b"--type-list"
-                | b"-0"
-                | b"--null"
-                | b"--null-data"
-                | b"-o"
-                | b"--only-matching"
-                | b"--passthru"
-                | b"--stats"
-        ) || argument.starts_with(b"--json=")
-            || argument.starts_with(b"--replace=")
-            || (argument.starts_with(b"-r") && argument.len() > 2)
-            || *argument == b"-r"
-            || *argument == b"--replace"
-    })
-}
-
 pub(super) fn matches_rg_files(input: &[u8]) -> bool {
     if input.is_empty() {
         return false;

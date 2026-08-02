@@ -1,5 +1,3 @@
-use super::*;
-
 #[derive(Default)]
 pub(super) struct JestState {
     frame: Vec<u8>,
@@ -56,3 +54,6 @@ impl JestState {
         Ok(())
     }
 }
+use super::line::{append_written_line, clear_frame_index};
+use super::{MAX_FRAME_BYTES, test_tools};
+use std::io::{self, Write};

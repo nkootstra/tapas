@@ -444,25 +444,119 @@ fn stream_dispatch_matches_pinned_argv_only_command_helpers() {
         assert_eq!(output.evidence, EvidenceClass::FactComplete);
     }
 
-    for (subcommand, stdout_fixture, stderr_fixture) in [
-        (
-            b"pull".as_slice(),
-            "git_pull_ff.stdout.txt",
-            "git_pull_ff.stderr.txt",
+    assert_eq!(
+        git::dispatch_streams_argv(
+            &[b"git", b"pull"],
+            &fixture("git_pull_ff.stdout.txt"),
+            &fixture("git_pull_ff.stderr.txt"),
+            0,
+            false,
+        )
+        .unwrap(),
+        StreamFilterOutput::new(
+            b"@ fast-forward 43fe7da..2cee6f5\n+1/-0 files=1\n".to_vec(),
+            b"< 43fe7da..2cee6f5 main       -> origin/main\n".to_vec(),
+            EvidenceClass::FactComplete,
         ),
-        (
-            b"push".as_slice(),
-            "git_push_simple.stdout.txt",
-            "git_push_simple.stderr.txt",
+    );
+    assert_eq!(
+        git::dispatch_streams_argv(
+            &[b"git", b"push"],
+            &fixture("git_push_simple.stdout.txt"),
+            &fixture("git_push_simple.stderr.txt"),
+            0,
+            false,
+        )
+        .unwrap(),
+        StreamFilterOutput::new(
+            Vec::new(),
+            b"+ new main -> main\n".to_vec(),
+            EvidenceClass::FactComplete,
         ),
-    ] {
-        let stdout = fixture(stdout_fixture);
-        let stderr = fixture(stderr_fixture);
+    );
+}
+
+#[test]
+fn pull_and_push_fail_open_only_on_the_unrecognized_source_stream() {
+    let pull_stdout = fixture("git_pull_ff.stdout.txt");
+    let pull_stderr = fixture("git_pull_ff.stderr.txt");
+    let unexpected_stdout = b"server supplied an unexpected success notice\n";
+    assert_eq!(
+        git::dispatch_streams_argv(
+            &[b"git", b"pull"],
+            unexpected_stdout,
+            &pull_stderr,
+            0,
+            false,
+        )
+        .unwrap(),
+        StreamFilterOutput::new(
+            unexpected_stdout.to_vec(),
+            b"< 43fe7da..2cee6f5 main       -> origin/main\n".to_vec(),
+            EvidenceClass::FactComplete,
+        ),
+    );
+
+    let unknown_stderr = b"remote helper supplied an unexpected success notice\n";
+    assert_eq!(
+        git::dispatch_streams_argv(&[b"git", b"pull"], &pull_stdout, unknown_stderr, 0, false,)
+            .unwrap(),
+        StreamFilterOutput::new(
+            b"@ fast-forward 43fe7da..2cee6f5\n+1/-0 files=1\n".to_vec(),
+            unknown_stderr.to_vec(),
+            EvidenceClass::FactComplete,
+        ),
+    );
+
+    let push_stderr = fixture("git_push_simple.stderr.txt");
+    assert_eq!(
+        git::dispatch_streams_argv(
+            &[b"git", b"push"],
+            b"unexpected stdout\n",
+            &push_stderr,
+            0,
+            false,
+        )
+        .unwrap(),
+        StreamFilterOutput::new(
+            b"unexpected stdout\n".to_vec(),
+            b"+ new main -> main\n".to_vec(),
+            EvidenceClass::FactComplete,
+        ),
+    );
+}
+
+#[test]
+fn pull_and_push_preserve_unsafe_variants_byte_exact() {
+    let invalid = b"branch 'main' set up to track 'origin/main'.\n\xff";
+    let malformed = b"branch 'main' set up to track origin/main.\n";
+    let stderr = fixture("git_push_simple.stderr.txt");
+    for stdout in [invalid.as_slice(), malformed.as_slice()] {
+        let output =
+            git::dispatch_streams_argv(&[b"git", b"push"], stdout, &stderr, 0, false).unwrap();
+        assert_eq!(output.stdout, stdout);
+        assert_eq!(output.stderr, b"+ new main -> main\n");
+    }
+
+    for (exit_code, lossless) in [(1, false), (0, true)] {
+        let stdout = fixture("git_pull_ff.stdout.txt");
+        let stderr = fixture("git_pull_ff.stderr.txt");
         assert_eq!(
-            git::dispatch_streams_argv(&[b"git", subcommand], &stdout, &stderr, 0, false,).unwrap(),
+            git::dispatch_streams_argv(&[b"git", b"pull"], &stdout, &stderr, exit_code, lossless,)
+                .unwrap(),
             StreamFilterOutput::passthrough(&stdout, &stderr),
         );
     }
+}
+
+#[test]
+fn push_suppresses_each_recognized_tracking_boilerplate_line() {
+    let stdout = b"branch 'main' set up to track 'origin/main'.\n\
+branch 'feature' set up to track 'origin/feature'.\n";
+    assert_eq!(
+        git::dispatch_streams_argv(&[b"git", b"push"], stdout, b"", 0, false).unwrap(),
+        StreamFilterOutput::new(Vec::new(), Vec::new(), EvidenceClass::FactComplete),
+    );
 }
 
 #[test]

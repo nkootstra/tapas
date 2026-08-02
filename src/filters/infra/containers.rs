@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn compact_docker_ps(input: &[u8]) -> Vec<u8> {
     let mut lines = input.split(|byte| *byte == b'\n');
     let header = lines.next().unwrap_or_default();
@@ -209,3 +207,5 @@ fn field_at(line: &[u8], column: usize) -> &[u8] {
     }
     &line[start..cursor]
 }
+use super::find_subslice;
+use super::table::{first_field, first_nonempty, last_field};

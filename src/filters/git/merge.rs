@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn matches_merge(input: &[u8]) -> bool {
     first_nonempty_line(input).is_some_and(|line| {
         line.starts_with(b"Merge made by")
@@ -192,3 +190,6 @@ fn merge_create_dir(line: &[u8]) -> Option<&[u8]> {
     let slash = path.iter().rposition(|byte| *byte == b'/')?;
     Some(&path[..=slash])
 }
+use super::commit::{skip_mode_number, write_summary};
+use super::diff::first_nonempty_line;
+use super::{find_subslice, rfind_subslice};

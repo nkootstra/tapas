@@ -1,5 +1,3 @@
-use super::*;
-
 #[derive(Default)]
 struct GradleState {
     in_cause_block: bool,
@@ -161,3 +159,5 @@ fn is_maven_error_continuation(line: &[u8]) -> bool {
             || line.starts_with(b"reason:")
             || find_subslice(line, b"cannot find symbol").is_some())
 }
+use super::exact::{strip_ansi, trim_ascii};
+use super::{append_line, find_subslice};

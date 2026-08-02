@@ -54,17 +54,11 @@ pub fn dispatch_streams_argv(
     if argv.is_empty() {
         return Err(FilterError::InvalidInput);
     }
-    if lossless {
+    if lossless || crate::invocation_policy::requests_passthrough(argv) {
         return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
     let command = command_basename(argv[0]);
-    if requests_exact_query(argv) {
-        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
-    }
     if command == b"find" {
-        if find_requests_exact(argv) {
-            return Ok(StreamFilterOutput::passthrough(stdout, stderr));
-        }
         if matches_find_plain(stdout) {
             return Ok(StreamFilterOutput::new(
                 apply_find_plain(stdout, find_has_type_file(argv)),
@@ -75,7 +69,7 @@ pub fn dispatch_streams_argv(
         return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
     if command == b"tree" {
-        if tree_requests_exact(argv) || !matches_tree(stdout) {
+        if !matches_tree(stdout) {
             return Ok(StreamFilterOutput::passthrough(stdout, stderr));
         }
         let Some(compact) = apply_tree_compact(stdout) else {
@@ -88,9 +82,6 @@ pub fn dispatch_streams_argv(
         ));
     }
     if command == b"ls" {
-        if ls_requests_exact(argv) {
-            return Ok(StreamFilterOutput::passthrough(stdout, stderr));
-        }
         let compact = if matches_ls_long(stdout) {
             apply_ls_long(stdout)
         } else {
@@ -137,9 +128,6 @@ pub fn dispatch_streams_argv(
                 EvidenceClass::FactComplete,
             ));
         }
-        if rg_requests_exact(argv) {
-            return Ok(StreamFilterOutput::passthrough(stdout, stderr));
-        }
         if matches_rg_pattern(stdout) {
             return Ok(StreamFilterOutput::new(
                 apply_rg_pattern(stdout),
@@ -160,11 +148,11 @@ mod shell;
 mod tree;
 mod tree_pipe;
 
-use du::*;
-use find::*;
-use ls::*;
-use pipe::*;
-use rg::*;
-use shell::*;
-use tree::*;
-use tree_pipe::*;
+use du::{apply_du, matches_du};
+use find::{apply_find_plain, find_has_type_file, matches_find_plain};
+use ls::{apply_ls_plain, ls_wants_columns};
+use pipe::{apply_find_ls, apply_ls_long, matches_find_ls, matches_ls_long, matches_tree};
+use rg::{apply_rg_files, apply_rg_pattern, matches_rg_files, matches_rg_pattern, rg_is_file_mode};
+use shell::{apply_env, apply_wc, du_has_summarize, env_is_listing};
+use tree::apply_tree_compact;
+use tree_pipe::apply_tree_pipe;

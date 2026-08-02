@@ -1,14 +1,3 @@
-use super::*;
-
-pub(super) fn is_human_ls_format(argument: &[u8]) -> bool {
-    argument.strip_prefix(b"--format=").is_some_and(|format| {
-        matches!(
-            format,
-            b"across" | b"commas" | b"horizontal" | b"single-column" | b"vertical"
-        )
-    })
-}
-
 pub(super) fn ls_wants_columns(argv: &[&[u8]]) -> bool {
     argv.iter().any(|argument| {
         if let Some(format) = argument.strip_prefix(b"--format=") {
@@ -220,3 +209,5 @@ fn flush_ls_segment(output: &mut Vec<u8>, header: Option<&[u8]>, entries: &[&[u8
         }
     }
 }
+use super::pipe::write_omission;
+use super::tree::{start_output_line, write_output_line};

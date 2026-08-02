@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn compact_acli(
     arg1: &[u8],
     arg2: &[u8],
@@ -119,3 +117,5 @@ fn looks_like_label(line: &[u8]) -> bool {
                 || matches!(byte, b' ' | b'-' | b'_' | b'/' | b'&' | b'(' | b')')
         })
 }
+use super::table::collapse_table;
+use super::{append_line, strip_ansi};

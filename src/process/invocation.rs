@@ -1,18 +1,5 @@
 use std::ffi::OsString;
 
-const QUERY_SHORT_FLAG_COMMANDS: &[&[u8]] = &[
-    b"pytest",
-    b"ruff",
-    b"mypy",
-    b"prettier",
-    b"uv",
-    b"uvx",
-    b"poetry",
-    b"pnpm",
-    b"npx",
-    b"jq",
-];
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PassthroughReason {
     Query,
@@ -192,4 +179,7 @@ mod runners;
 
 use policy::{exact_output_reason, is_follow_logs};
 pub use policy::{is_raw_curl, requests_exact_output};
-use runners::*;
+use runners::{
+    UV_BOOLEAN, UV_VALUE, UVX_VALUE, basename, bytes, equals_at, has_any_arg, has_arg, is_any,
+    unwrap_direct, unwrap_subcommand,
+};

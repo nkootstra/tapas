@@ -1,5 +1,3 @@
-use super::*;
-
 #[derive(Debug)]
 struct AssetEntry {
     bytes: usize,
@@ -329,3 +327,6 @@ pub(super) fn classify_build_line(line: &[u8]) -> BuildLine {
     }
     BuildLine::Other
 }
+use super::exact::{strip_ansi, trim_ascii};
+use super::native::ninja_completed;
+use super::{append_line, byte_after_lines, find_subslice, trim_ascii_end, trim_ascii_start};

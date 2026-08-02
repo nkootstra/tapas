@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use super::{
     EvidenceClass, FilterError, FilterOutput, StreamFilterOutput, append_line, command_basename,
     find_subslice, strip_ansi,
@@ -51,13 +49,10 @@ pub fn dispatch_streams_argv(
     if argv.is_empty() {
         return Err(FilterError::InvalidInput);
     }
-    if lossless {
+    if lossless || crate::invocation_policy::requests_passthrough(argv) {
         return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
     let command = command_basename(argv[0]);
-    if requests_exact_output(command, argv) {
-        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
-    }
     let arg1 = argv.get(1).copied().unwrap_or_default();
     let script_test = arg1 == b"test" && matches!(command, b"npm" | b"pnpm" | b"yarn" | b"bun");
 
@@ -104,42 +99,6 @@ fn stream_matches(stdout: &[u8], stderr: &[u8], matcher: fn(&[u8]) -> bool) -> b
     matcher(stdout) || matcher(stderr)
 }
 
-fn requests_exact_output(command: &[u8], argv: &[&[u8]]) -> bool {
-    for argument in &argv[1..] {
-        if *argument == b"--" {
-            break;
-        }
-        if matches!(*argument, b"--help" | b"--version") {
-            return true;
-        }
-        if matches!(*argument, b"-h" | b"-V") && command == b"pytest" {
-            return true;
-        }
-    }
-    if matches!(argv.get(1), Some(&b"help") | Some(&b"version")) {
-        return true;
-    }
-    if command == b"pytest"
-        && argv[1..].iter().any(|argument| {
-            matches!(
-                *argument,
-                b"--collect-only"
-                    | b"--co"
-                    | b"--fixtures"
-                    | b"--fixtures-per-test"
-                    | b"--markers"
-                    | b"--trace-config"
-            )
-        })
-    {
-        return true;
-    }
-    command == b"tsc"
-        && argv[1..]
-            .iter()
-            .any(|argument| matches!(*argument, b"--showConfig" | b"--listFilesOnly"))
-}
-
 mod cargo;
 mod go;
 mod javascript;
@@ -147,9 +106,9 @@ mod jest;
 mod pytest;
 mod tsc;
 
-use cargo::*;
-use go::*;
-use javascript::*;
-use jest::*;
-use pytest::*;
-use tsc::*;
+use cargo::{apply_cargo_test, matches_cargo_test};
+use go::{apply_go_test, matches_go_test};
+use javascript::{apply_js_test, matches_js_test};
+use jest::{apply_jest, matches_jest};
+use pytest::{apply_pytest, matches_pytest};
+use tsc::{apply_tsc, matches_tsc};

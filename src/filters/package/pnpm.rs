@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn compact_pnpm(stdout: &[u8], stderr: &[u8]) -> Option<Vec<u8>> {
     #[derive(Clone, Copy)]
     enum Section {
@@ -127,3 +125,6 @@ pub(super) fn looks_like_bun_yarn(input: &[u8]) -> bool {
     .iter()
     .any(|needle| find_subslice(input, needle).is_some())
 }
+use super::exact::trim_ascii;
+use super::npm::{deprecated_package_name, write_name_summary};
+use super::{append_line, find_subslice, strip_ansi, trim_end};

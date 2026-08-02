@@ -1,0 +1,2227 @@
+{
+  "corpus_sha256": "6358f1ac45167d12bb59f21aeec9c800e2fe7c277da000583652f4252ec0d86a",
+  "records": [
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "policy output"
+        ]
+      },
+      "case_id": "bypass:ambiguous-runner",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 299910791,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "policy output"
+        ]
+      },
+      "case_id": "bypass:find",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 254609792,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "policy output"
+        ]
+      },
+      "case_id": "bypass:git-format",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 252300375,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "policy output"
+        ]
+      },
+      "case_id": "bypass:ls",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 301985375,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "policy output"
+        ]
+      },
+      "case_id": "bypass:machine",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 264857542,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "policy output"
+        ]
+      },
+      "case_id": "bypass:query",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 899771083,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "policy output"
+        ]
+      },
+      "case_id": "bypass:tree",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 240069833,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "docker-compose output"
+        ]
+      },
+      "case_id": "catalog:docker-compose",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 254880750,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 22,
+        "stdout_proxy_tokens": 4,
+        "stdout_sha256": "f846bdaf323926f98b7e7f753efab510bb89dbe203de81bc7703302e661c5245"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "mocha output"
+        ]
+      },
+      "case_id": "catalog:mocha",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 273355209,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 13,
+        "stdout_proxy_tokens": 4,
+        "stdout_sha256": "5e61d5e5c4dbc3f0a828eccce6756fee5d89313abf9cd49800e839c1484945cf"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "ninja output"
+        ]
+      },
+      "case_id": "catalog:ninja",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 276786500,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 13,
+        "stdout_proxy_tokens": 4,
+        "stdout_sha256": "10d247cee7233e5cb551a317e6df69b75686f4b66015df2eb2929612d6897780"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "pup output"
+        ]
+      },
+      "case_id": "catalog:pup",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 474168791,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 11,
+        "stdout_proxy_tokens": 4,
+        "stdout_sha256": "06e6af8024b24cbbeb8275f80b48d682b4e357161da0c3d1eecdc9bfce202760"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "webpack output"
+        ]
+      },
+      "case_id": "catalog:webpack",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 248655375,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 15,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "0cf40d3d695eb7dcdf64553ec457ba2bf92659298ca484d56371f226007a45be"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "git:switch",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 253513000,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 36,
+        "stdout_proxy_tokens": 11,
+        "stdout_sha256": "9a11f89c71569f4a10a4f2219fb27917185f96088c3d7fbc4a0d969c383bc70e"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "runner:npx",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 254255000,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "runner:pnpm-exec",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 258585417,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "runner:poetry",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 251912625,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "runner:uv-run",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 260259542,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "runner:uvx",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 264794375,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 36,
+        "stdout_proxy_tokens": 12,
+        "stdout_sha256": "e33337bb9a6e60cb5ebffdacc16fb301e9753265543a69f8758074499afe0dec"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:acli-confluence-page-view",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 309131333,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 407,
+        "stdout_proxy_tokens": 128,
+        "stdout_sha256": "e35faad58f6ad597837f036470b718f23d2e2ec15aef569ebc47c603b0c34270"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:acli-jira-workitem-search",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 254423042,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 341,
+        "stdout_proxy_tokens": 80,
+        "stdout_sha256": "f394d38c21c78c75e1b05a8e4907c57eb89e6fa9bac0b3c64958ca6a0c36491b"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:aws-json",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 258586541,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 71,
+        "stdout_proxy_tokens": 23,
+        "stdout_sha256": "421982288194174ed039232311e9976c9241a3b18a4a544fc11f9e8a73355105"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:biome",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 261517875,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 66,
+        "stdout_proxy_tokens": 20,
+        "stdout_sha256": "a3b1786cddd755f31227323874165fa8a8fd2a1253a53aacbc2a7628e3f25b07"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:brew",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 256257708,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 41,
+        "stdout_proxy_tokens": 30,
+        "stdout_sha256": "eb68682980180a418e1b1ab26e7d0cb04220684274cc0bc79ccbfd25df702038"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:bun-add",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 281601209,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 232,
+        "stdout_proxy_tokens": 81,
+        "stdout_sha256": "42e279e615811d4bc2196f311dcdf81134c6e3439e391744e6d50a1301a6518d"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:bun-pm-ls",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 258772959,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 320,
+        "stdout_proxy_tokens": 143,
+        "stdout_sha256": "aeb149a063deac5727fd3d666b1c7a2df7b40fccc77ae03ca1229e830accd589"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:cargo-build",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 239685500,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 253,
+        "stdout_proxy_tokens": 76,
+        "stdout_sha256": "3f8b29e818c12a3c56a97988f5a982b20bc2ae9528496fbf358714aca35bf3c6"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:cargo-test",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 239923500,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 397,
+        "stdout_proxy_tokens": 125,
+        "stdout_sha256": "8472f91bbacf2c280ecdbf1575ece3a6550a765244369ea0e4646ae380968399"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:cat-code",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 266691833,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 58,
+        "stdout_proxy_tokens": 17,
+        "stdout_sha256": "9ae1ccd32c07fdf6bb3bd6951267aeaed9b7b80a40421f0c7f704a3a7e109452"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:composer-require",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 253702375,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 195,
+        "stdout_proxy_tokens": 53,
+        "stdout_sha256": "4a782890a0a6823a540b84587018acae84ae2da8217923746e6eb980fce6ecca"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:curl-v",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 251832208,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 236,
+        "stdout_proxy_tokens": 65,
+        "stdout_sha256": "c8950c9cad0142ffc5fa66e4e246b338bb07fcc5d7f37c6e311efcf18512ed27"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:df-h",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 269587667,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 75,
+        "stdout_proxy_tokens": 29,
+        "stdout_sha256": "5906d474cbed5c4cd359428954885c16f8dec31ef6720a7e96b47ae66eb93f32"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:docker-logs",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 270600166,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 324,
+        "stdout_proxy_tokens": 96,
+        "stdout_sha256": "4390601b5ab1da0fa1ae5a90ca6c40d5f51d5a7a97a1147f1d19a2f68d93d27a"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:docker-ps",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 262035375,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 81,
+        "stdout_proxy_tokens": 25,
+        "stdout_sha256": "f024037afd7eb45ec4b929a14e9a3f9855bcf76cf1f0c3a8ca826ea6c7f474fa"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:dotnet-build",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 257433958,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 125,
+        "stdout_proxy_tokens": 41,
+        "stdout_sha256": "fa542f32420bbca1164fa8b620a4313d2e32d49975142fc1a4b778238816ceac"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:dotnet-format",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 250020834,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 39,
+        "stdout_proxy_tokens": 12,
+        "stdout_sha256": "a525bff2966556c7e657295cc346bc4fd3a4b4db1123ebba3d5338184a2ee936"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:dotnet-restore",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 270303458,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 34,
+        "stdout_proxy_tokens": 13,
+        "stdout_sha256": "c075d2abea8bfcd01a9f5bd484d35060504c3a2e67a6983822c8ff2f76d4ac48"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:dotnet-test",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 262483417,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 429,
+        "stdout_proxy_tokens": 137,
+        "stdout_sha256": "a64301dd15ced12a7ad187758cb2a5c3b3ad7845d6180e4012b1c944915f753b"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:du",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 260232417,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 79,
+        "stdout_proxy_tokens": 41,
+        "stdout_sha256": "220c89f069d189133920cb77af283adbdf9194c2bef47def1e5cf2dec5e6d817"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:env",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 242531834,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 46,
+        "stdout_proxy_tokens": 15,
+        "stdout_sha256": "010559a0ebacd5a9df88dd7c8721b03bc30932536daaaff07c1334c9c5f37675"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:eslint",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 245363834,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 111,
+        "stdout_proxy_tokens": 32,
+        "stdout_sha256": "8bcf9c08ef5d8753e57c6c3ded992afe82c836d8efd86b993783958213655909"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:find-ls",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 253706416,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 398,
+        "stdout_proxy_tokens": 162,
+        "stdout_sha256": "49e135254e2c9108e29c3eb9dcc2e612deb552be2b10757b17a73d150f889f59"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:gh-pr-list",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 254854458,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 867,
+        "stdout_proxy_tokens": 192,
+        "stdout_sha256": "5b32123a1c247d9f2dae7685973b607a51cb66333f1ac0be6598c40eec336a9a"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:gh-run-list",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 266561875,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 402,
+        "stdout_proxy_tokens": 103,
+        "stdout_sha256": "9dccb22a6e55bb851b3cdbce42c6ee37842eba1aab861fae35c2d8bd048ede49"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:git-add-error",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 247317625,
+        "exit_result": 128,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 59,
+        "stdout_proxy_tokens": 15,
+        "stdout_sha256": "af7eddf614d08962f8e5da99dc65f6903a03f8e271764c24d981708daa1ce9a8"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:git-blame",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 243427375,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 390,
+        "stdout_proxy_tokens": 108,
+        "stdout_sha256": "b53ade50cb224427651f0b1b7094143028531dc558683eb6d33ffae06e9b6f65"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:git-branch",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 260402500,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 29,
+        "stdout_proxy_tokens": 9,
+        "stdout_sha256": "9141c3c67931191bcba3d7d644b1372af85c45ac5a638a3341eef5fb75808a8b"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:git-checkout",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 260140000,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 12,
+        "stdout_proxy_tokens": 4,
+        "stdout_sha256": "637a9a8ba3f530edc5378fc3a866fbca6415801fa6b08ce289df7fa94242069a"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:git-commit",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 236076667,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 53,
+        "stdout_proxy_tokens": 27,
+        "stdout_sha256": "e17a4c7b0027fb3178d428ef9fa3cef2dd095b7b58c75c6d1bf6b5759f1ad143"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:git-diff",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 256192750,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 52,
+        "stdout_proxy_tokens": 22,
+        "stdout_sha256": "4d9f61abd5a764f486eab1b79f882aaf7bda044c6e370d2e4f9123fe33834e48"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:git-fetch",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 265742834,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 45,
+        "stdout_proxy_tokens": 19,
+        "stdout_sha256": "2b50dcfa0fb5178bd64020e901e1f07fc386d032e1acda4c7cc0917190e69ad0"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:git-grep",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 252902875,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 77,
+        "stdout_proxy_tokens": 24,
+        "stdout_sha256": "67b392db8913418004e42ece3e72abdbb30c0a20da67a56b21a1d3cd66df702f"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:git-log",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 257803833,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 89,
+        "stdout_proxy_tokens": 32,
+        "stdout_sha256": "4925b01e74a0bf4d868ed8a1a531600e165449e08bb007cb7cbd26b643be1620"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:git-merge",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 268758625,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 143,
+        "stdout_proxy_tokens": 30,
+        "stdout_sha256": "db76a9921097817fe448eb15324d410c668796e38fd782ee6ff674847a255f4e"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:git-pull",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 254040667,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 91,
+        "stdout_proxy_tokens": 41,
+        "stdout_sha256": "70fc8ad075299e5e301f97bed1b4d702b931330a969163221eaff9988ed212ea"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:git-push",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 270368583,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 19,
+        "stdout_proxy_tokens": 6,
+        "stdout_sha256": "0659f042d60c4b4faac9167a437d30e666ea5e5403689aaf785f9c5f8ce133b9"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:git-rebase",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 257083167,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 24,
+        "stdout_proxy_tokens": 8,
+        "stdout_sha256": "0ea53a582b48b0d964c20b3e98dd405a98c650425223f800a87745e0e0ea6959"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:git-reflog",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 256862375,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 714,
+        "stdout_proxy_tokens": 209,
+        "stdout_sha256": "79690867fa2800f826bb1f7ab615725a4d28eec66ea948725b55ba284ee4e067"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:git-show",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 255240292,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 158,
+        "stdout_proxy_tokens": 48,
+        "stdout_sha256": "f6ccfa52d992b0e2b16e5fcdab239b9e481bf44e4dd79a30cff3d87c8c3320bf"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:git-stash",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 257812459,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 70,
+        "stdout_proxy_tokens": 24,
+        "stdout_sha256": "22c8289068b41e9102c69deec4c012d425a2874726d25c7e028412fdfbf759fa"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:git-status",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 254358917,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 121,
+        "stdout_proxy_tokens": 37,
+        "stdout_sha256": "6fd71c93c81d7bba1fade73cc0e5c330ca9d37d60987e46031f9eeba5b71a774"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:go-build",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 253102583,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 75,
+        "stdout_proxy_tokens": 22,
+        "stdout_sha256": "3ce8d8a53f6f01d5baba3e52d30ab5e1a70f4dc165b578f8b1b574460866a540"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:go-test",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 250429041,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 188,
+        "stdout_proxy_tokens": 73,
+        "stdout_sha256": "731ca58bb2bcc308f88450234ff7d46b3a3a67881a42842ffa0c0c17f47d8c75"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:gradle-build",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 257118208,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 474,
+        "stdout_proxy_tokens": 123,
+        "stdout_sha256": "3e529ac563ae87267657e77ae9a7e7aa77a71b8adb27315e9242a48dde758964"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:gradlew-test",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 266255750,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 648,
+        "stdout_proxy_tokens": 162,
+        "stdout_sha256": "2cdeea78d159d5d86dd4785712d7afbe1d6da00375d117d001edd2fc96565f28"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:head",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 263140375,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 11,
+        "stdout_proxy_tokens": 4,
+        "stdout_sha256": "e49c81e2d2f84e259d40e2fb8192f3bcd198b355184845d76d8f58807d0d78ee"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:jest",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 263019708,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 550,
+        "stdout_proxy_tokens": 149,
+        "stdout_sha256": "fe8f904ba5e0d749ad02f101478c840d943d886c98d85bdaa415c7ea25f876d5"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:jq-json",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 259464625,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 39,
+        "stdout_proxy_tokens": 21,
+        "stdout_sha256": "a5c4e3a225769786d3294b0360a7a9565e9e3ca2e361c047f016f3022891e037"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:kubectl-get",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 259755833,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 240,
+        "stdout_proxy_tokens": 106,
+        "stdout_sha256": "9109ee1c2e7914e935b901365c5962898cf178b0431038c1d2b6855c5b01675e"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:kubectl-logs",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 257620375,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 324,
+        "stdout_proxy_tokens": 96,
+        "stdout_sha256": "4390601b5ab1da0fa1ae5a90ca6c40d5f51d5a7a97a1147f1d19a2f68d93d27a"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:ls-la",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 275225250,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 389,
+        "stdout_proxy_tokens": 183,
+        "stdout_sha256": "fc2c7e2ed27ecc4140d3c5eaca0267d8389ce7a3e37f65638c6083565c4d6896"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:ls-recursive",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 262661958,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 132,
+        "stdout_proxy_tokens": 46,
+        "stdout_sha256": "736a6a20caf91a67aa75f07d2072fade40c951a51e58322a62b780b68f76e6c4"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:lsof",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 257951459,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 100,
+        "stdout_proxy_tokens": 36,
+        "stdout_sha256": "c6e5ad2a7b4ae4ac474887e905d16b56478ac5bde2f9f38f6f2c1108b6c2978d"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:make",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 250134375,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 131,
+        "stdout_proxy_tokens": 43,
+        "stdout_sha256": "cadbadf7afcfc1d575c540db419687086314dee6b260abddb7b6db27cd25dd5a"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:mvn-package",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 271140416,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 121,
+        "stdout_proxy_tokens": 38,
+        "stdout_sha256": "3c4e23185e8a26a865c3fe55240652a29922074f740a18777ab56144178fa6b3"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:mvnw-package",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 265318083,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 121,
+        "stdout_proxy_tokens": 38,
+        "stdout_sha256": "3c4e23185e8a26a865c3fe55240652a29922074f740a18777ab56144178fa6b3"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:mypy",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 266196459,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 77,
+        "stdout_proxy_tokens": 23,
+        "stdout_sha256": "ea959b3e8868a1a33f95f518707e36d7a25d71eae22ab9ad9e0d5809495ee3dc"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:next-build",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 260839959,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 1395,
+        "stdout_proxy_tokens": 384,
+        "stdout_sha256": "8181bf56e4f2ee9c58444cbd9e704c47f60260d63af69155999cd3ccd61742dd"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:npm-build",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 267994416,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 605,
+        "stdout_proxy_tokens": 186,
+        "stdout_sha256": "18a3825673fac1cae7487d8e2ea689f4c9bca4baecf77966531e6a0d66a058f3"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:npm-install",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 258106709,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 164,
+        "stdout_proxy_tokens": 47,
+        "stdout_sha256": "ced59beafdbfccfe8a28d9e7393646087a0203b2eed4419c48f5a032ca6d1ad1"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:pip-install",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 257133083,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 421,
+        "stdout_proxy_tokens": 192,
+        "stdout_sha256": "1f8049f58bf67adb1b2097b868dbd92be1022ab93c0279324b7b6b22a86a10da"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:pip3-list",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 258569875,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 16,
+        "stdout_proxy_tokens": 8,
+        "stdout_sha256": "f06220db94baff30815e965a22964b2f8cad7662f4daae9698cb6c7657ab4df2"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:pnpm-install",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 265060875,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 97,
+        "stdout_proxy_tokens": 45,
+        "stdout_sha256": "7ada1c4f2998011c5168aedcfbf2c847919ea3caf7681f5c07b6d0ca81ea84f1"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:pre-commit",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 265783750,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 71,
+        "stdout_proxy_tokens": 26,
+        "stdout_sha256": "de49aef04c9d7c9bffb704d52bc6afc3fc38acedaaa8288368ccce082ec96750"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:prettier",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 256542625,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 68,
+        "stdout_proxy_tokens": 19,
+        "stdout_sha256": "9b25ea088369b3ccb97e85788386f180884019b3ed09f91dcb88d2b40aef6341"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:ps-aux",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 271240792,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 819,
+        "stdout_proxy_tokens": 427,
+        "stdout_sha256": "7d60a612f3031c76d44a8f5ccb85fbf615607a46d877575a8b309842f4463c5a"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:psql",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 262525208,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 39,
+        "stdout_proxy_tokens": 15,
+        "stdout_sha256": "2b43e41e424a879224fe11dfec4144eaa33170b715abf2bf9f73ba55f1089560"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:pytest",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 257414667,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 700,
+        "stdout_proxy_tokens": 206,
+        "stdout_sha256": "3483f704623ab45db4431725cd7c8a88e2b364d4c2a3f0f5ccd77ec46ee16b3b"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:rg-files",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 256513500,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 455,
+        "stdout_proxy_tokens": 147,
+        "stdout_sha256": "c3a4193de6786270babd527e478675cb18a47371385e9456910164abcb06a168"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:ruff",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 250478750,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 62,
+        "stdout_proxy_tokens": 23,
+        "stdout_sha256": "9bcbbb5a4976bbb94305b5ee7040aa9ee3d17020bddd9903e21b195b3c457b45"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:swift-build",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 236958917,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 3,
+        "stdout_proxy_tokens": 2,
+        "stdout_sha256": "dc51b8c96c2d745df3bd5590d990230a482fd247123599548e0632fdbf97fc22"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:systemctl",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 253876167,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 71,
+        "stdout_proxy_tokens": 13,
+        "stdout_sha256": "83fafcadedb4208f85f22b2d99955c20ef3d6c15cb45e741dfde4836dbff8bd3"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:tail",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 259423834,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 6,
+        "stdout_proxy_tokens": 2,
+        "stdout_sha256": "3eeb0cea8bf176427633a47a62ee8c813844d574d48554a0d715e12dcbbaeda6"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:terraform-plan",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 258905167,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 159,
+        "stdout_proxy_tokens": 42,
+        "stdout_sha256": "b9bd67571397d27cc313278b0a255199570573c021621232d402dca3bade7240"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:tofu-plan",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 261612584,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 159,
+        "stdout_proxy_tokens": 42,
+        "stdout_sha256": "b9bd67571397d27cc313278b0a255199570573c021621232d402dca3bade7240"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:tree-src",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 266793500,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 155,
+        "stdout_proxy_tokens": 55,
+        "stdout_sha256": "cbf1535bb160b071a2430e61b0758a4870a1e0b26e585b389f577a634cc59f0f"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:tsc",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 252503583,
+        "exit_result": 2,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 446,
+        "stdout_proxy_tokens": 132,
+        "stdout_sha256": "b5f2f16d9a695ca84431e58cce0763be8f2e5f7725b4c023ec8632975b20b51f"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:uv-pip-install",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 258779584,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 132,
+        "stdout_proxy_tokens": 58,
+        "stdout_sha256": "40754ae9172ff1bca286e6254b52fb6991ee617017f9cb42453ab54a5df698bf"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:uvx",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 262310459,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 3,
+        "stdout_proxy_tokens": 2,
+        "stdout_sha256": "dc51b8c96c2d745df3bd5590d990230a482fd247123599548e0632fdbf97fc22"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:vitest",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 263844917,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 550,
+        "stdout_proxy_tokens": 149,
+        "stdout_sha256": "fe8f904ba5e0d749ad02f101478c840d943d886c98d85bdaa415c7ea25f876d5"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:wc",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 267678791,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 12,
+        "stdout_proxy_tokens": 4,
+        "stdout_sha256": "9fde362414432783ef5203e6e205b5d54427a8827f012ca7be7130973fa09219"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:xcodebuild",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 260978458,
+        "exit_result": 65,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 52,
+        "stdout_proxy_tokens": 11,
+        "stdout_sha256": "b2011e36e15a95f0c419a560f2945af7c1c706dbc980e5f1fb9cd5b6cb66f567"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:yarn-add",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 283361500,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 243,
+        "stdout_proxy_tokens": 82,
+        "stdout_sha256": "cf3dd67224cfd889be7866746b8e3c46b241383167752f99a91884f4028f52c8"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": []
+      },
+      "case_id": "smoke:zig-build",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 253689000,
+        "exit_result": 1,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 46,
+        "stdout_proxy_tokens": 11,
+        "stdout_sha256": "01973d187de0d9be0404779ad3eeaad104588b909e49fb693a61dca19db959e9"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "policy output"
+        ]
+      },
+      "case_id": "stream:docker",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 298424958,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "policy output"
+        ]
+      },
+      "case_id": "stream:docker-compose",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 243158291,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "policy output"
+        ]
+      },
+      "case_id": "stream:gh",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 248682292,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "policy output"
+        ]
+      },
+      "case_id": "stream:inherit",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 256253000,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "policy output"
+        ]
+      },
+      "case_id": "stream:jest",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 250423916,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "policy output"
+        ]
+      },
+      "case_id": "stream:journalctl",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 257504708,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "policy output"
+        ]
+      },
+      "case_id": "stream:kubectl",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 252455542,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "policy output"
+        ]
+      },
+      "case_id": "stream:tail",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 244162500,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "policy output"
+        ]
+      },
+      "case_id": "stream:tsc",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 242506416,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "policy output"
+        ]
+      },
+      "case_id": "stream:vitest",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 238966000,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    },
+    {
+      "asserted_facts": {
+        "stderr": [],
+        "stdout": [
+          "policy output"
+        ]
+      },
+      "case_id": "wrapper:shell-redispatch",
+      "smll": {
+        "assertion_errors": [],
+        "binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+        "elapsed_ns": 247122959,
+        "exit_result": 0,
+        "stderr_bytes": 0,
+        "stderr_proxy_tokens": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 14,
+        "stdout_proxy_tokens": 3,
+        "stdout_sha256": "bfe41a546dbe702e4df3f422967a18d74393f7b83f790847c3e828fe70441b40"
+      }
+    }
+  ],
+  "schema_version": 2,
+  "smll_binary_sha256": "3e40f631a0c8add9d3e807e7b8ddae00858fe94120f5f21d7b08cef0dbe731f5",
+  "source_commit": "dbe73932586043f2d8e482df0e246c372125e1b2",
+  "target": "darwin-arm64",
+  "tokenizer": {
+    "asset_sha256": "446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d",
+    "encoding": "o200k_base",
+    "package": "tiktoken",
+    "version": "0.12.0"
+  }
+}

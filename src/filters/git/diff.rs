@@ -1,5 +1,3 @@
-use super::*;
-
 pub(super) fn apply_diff(input: &[u8]) -> Vec<u8> {
     let had_trailing_newline = input.ends_with(b"\n");
     let content = input.strip_suffix(b"\n").unwrap_or(input);
@@ -97,3 +95,4 @@ pub(super) fn first_nonempty_line(input: &[u8]) -> Option<&[u8]> {
         .split(|byte| *byte == b'\n')
         .find(|line| !line.is_empty())
 }
+use super::{find_subslice, rfind_subslice, strip_ansi};

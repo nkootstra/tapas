@@ -2,6 +2,7 @@
 
 use std::ffi::OsString;
 use std::io::Write;
+use std::os::unix::ffi::OsStringExt;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Output, Stdio};
@@ -580,6 +581,41 @@ fn query_machine_and_exact_output_contracts_bypass_filtering() {
 }
 
 #[test]
+fn invocation_policy_is_byte_safe_and_stops_option_scans_at_the_terminator() {
+    let invalid = OsString::from_vec(vec![b'-', b'-', 0xff]);
+
+    assert_eq!(
+        classify(&[
+            OsString::from("docker"),
+            invalid.clone(),
+            OsString::from("--help"),
+        ])
+        .passthrough_reason,
+        Some(PassthroughReason::Query),
+    );
+    assert_eq!(
+        classify(&[
+            OsString::from("docker"),
+            OsString::from("--"),
+            OsString::from("--format=json"),
+        ])
+        .passthrough_reason,
+        None,
+    );
+    assert!(!requests_exact_output(&[
+        OsString::from("find"),
+        OsString::from("--"),
+        OsString::from("-print0"),
+    ]));
+    assert!(!requests_exact_output(&[
+        OsString::from("git"),
+        OsString::from("log"),
+        OsString::from("--"),
+        OsString::from("--format=%H"),
+    ]));
+}
+
+#[test]
 fn explain_reports_the_process_outcome_without_state_claims() {
     let output = tapas(
         &["--explain", "/bin/sh", "-c", "printf 'visible\\n'"],
@@ -640,6 +676,44 @@ fn git_wrapper_dispatch_compacts_success_and_preserves_failed_streams() {
     assert_eq!(failure.filter_name, "passthrough");
     assert_eq!(failure_stdout, b"failed stdout\n");
     assert_eq!(failure_stderr, b"failed stderr\n");
+}
+
+#[test]
+fn git_pull_and_push_compaction_keeps_descriptors_separate() {
+    let git = FakeCommand::new(
+        "git",
+        b"#!/bin/sh\n\
+          if [ \"$1\" = pull ]; then\n\
+            printf 'Updating 43fe7da..2cee6f5\\nFast-forward\\n d.txt | 1 +\\n 1 file changed, 1 insertion(+)\\n'\n\
+            printf 'From /fixture\\n   43fe7da..2cee6f5  main -> origin/main\\n' >&2\n\
+            exit 0\n\
+          fi\n\
+          printf \"branch 'main' set up to track 'origin/main'.\\n\"\n\
+          printf 'To /fixture\\n * [new branch]      main -> main\\n' >&2\n",
+    );
+
+    for (subcommand, expected_stdout, expected_stderr) in [
+        (
+            "pull",
+            b"@ fast-forward 43fe7da..2cee6f5\n+1/-0 files=1\n".as_slice(),
+            b"< 43fe7da..2cee6f5 main -> origin/main\n".as_slice(),
+        ),
+        ("push", b"".as_slice(), b"+ new main -> main\n".as_slice()),
+    ] {
+        let args = [
+            git.path().as_os_str().to_owned(),
+            OsString::from(subcommand),
+        ];
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        let report = run(&args, &mut stdout, &mut stderr, RunOptions::default())
+            .expect("run successful Git transfer");
+
+        assert_eq!(report.exit_code, 0);
+        assert_eq!(report.filter_name, "git");
+        assert_eq!(stdout, expected_stdout);
+        assert_eq!(stderr, expected_stderr);
+    }
 }
 
 #[test]

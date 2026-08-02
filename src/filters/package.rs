@@ -34,7 +34,7 @@ pub fn dispatch_streams_argv(
     if argv.is_empty() {
         return Err(FilterError::InvalidInput);
     }
-    if lossless || requests_exact_output(argv) {
+    if lossless || crate::invocation_policy::requests_passthrough(argv) {
         return Ok(StreamFilterOutput::passthrough(stdout, stderr));
     }
 
@@ -131,10 +131,7 @@ mod pip;
 mod pnpm;
 mod tree;
 
-use bun_yarn::*;
-use exact::*;
-use npm::*;
-use npm_install::*;
-use pip::*;
-use pnpm::*;
-use tree::*;
+use npm::{has_package_error_marker, matches_package_tree};
+use npm_install::compact_npm_install;
+use pip::{compact_pip, compact_pip_table, looks_like_pip_install, matches_npm_install};
+use tree::compact_package_tree;
