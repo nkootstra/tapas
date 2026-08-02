@@ -22,6 +22,39 @@ DEFAULT_BASELINE = DEFAULT_CONTRACT / "benchmark-baseline.json"
 DEFAULT_DIFFERENCES = pathlib.Path("tests/compat/tapas-0.1.0-intentional-differences.json")
 
 
+def intentional_difference_allowances(document: dict[str, Any]) -> dict[str, int]:
+    allowances: dict[str, int] = {}
+    for entry in document.get("differences", []):
+        case = entry.get("case")
+        limit = entry.get("max_proxy_token_increase", 0)
+        if not isinstance(case, str) or not case:
+            raise ValueError("intentional difference case must be a non-empty string")
+        if case in allowances:
+            raise ValueError(f"duplicate intentional difference: {case}")
+        if type(limit) is not int or limit < 0:
+            raise ValueError(
+                f"intentional difference {case} has invalid max_proxy_token_increase"
+            )
+        allowances[case] = limit
+    return allowances
+
+
+def token_regression_error(
+    case: str,
+    current: int,
+    baseline: int,
+    allowances: dict[str, int],
+) -> str | None:
+    increase = current - baseline
+    allowed = allowances.get(case, 0)
+    if increase <= allowed:
+        return None
+    return (
+        f"{case}: token regression {current} > {baseline} "
+        f"(increase {increase}, allowed {allowed})"
+    )
+
+
 def fixture_bytes(contract: pathlib.Path, source_path: str) -> bytes:
     return (contract / "fixtures" / source_path).read_bytes()
 
@@ -144,7 +177,7 @@ def compare(
     contract: pathlib.Path,
     encoder: Any,
     timeout: float,
-    intentional_differences: set[str],
+    intentional_differences: dict[str, int],
 ) -> tuple[dict[str, Any], list[str]]:
     errors: list[str] = []
     if baseline.get("corpus_sha256") != benchmark.digest(corpus):
@@ -188,14 +221,15 @@ def compare(
             errors.append(f"{case['name']}: combined output differs from the smll baseline")
         if missing_facts:
             errors.append(f"{case['name']}: missing oracle-visible facts: {', '.join(missing_facts)}")
-        if (
-            metrics["proxy_tokens"] is not None
-            and oracle.get("proxy_tokens") is not None
-            and metrics["proxy_tokens"] > oracle["proxy_tokens"]
-        ):
-            errors.append(
-                f"{case['name']}: token regression {metrics['proxy_tokens']} > {oracle['proxy_tokens']}"
+        if metrics["proxy_tokens"] is not None and oracle.get("proxy_tokens") is not None:
+            regression = token_regression_error(
+                case["name"],
+                metrics["proxy_tokens"],
+                oracle["proxy_tokens"],
+                intentional_differences,
             )
+            if regression is not None:
+                errors.append(regression)
         if raw_tokens is not None and metrics["proxy_tokens"] is not None:
             total_raw_tokens += raw_tokens
             total_tapas_tokens += metrics["proxy_tokens"]
@@ -276,11 +310,13 @@ def main() -> int:
         return 2
     baseline = json.loads(args.baseline.read_bytes())
     difference_document = json.loads(args.intentional_differences.read_bytes())
-    intentional_differences = {
-        entry["case"] for entry in difference_document.get("differences", [])
-    }
+    try:
+        intentional_differences = intentional_difference_allowances(difference_document)
+    except ValueError as error:
+        print(f"benchmark intentional differences invalid: {error}", file=sys.stderr)
+        return 1
     known_cases = {case["name"] for case in cases}
-    unknown_differences = intentional_differences - known_cases
+    unknown_differences = set(intentional_differences) - known_cases
     if unknown_differences:
         print(
             "benchmark intentional differences name unknown cases: "

@@ -8,6 +8,11 @@
     {
       "case": "curl-verbose-large",
       "reason": "Tapas keeps the response body on stdout and compact request metadata on stderr."
+    },
+    {
+      "case": "find-plain-many",
+      "reason": "Tapas preserves the lexicographically final entry in each compacted directory group.",
+      "max_proxy_token_increase": 18
     }
   ]
 }
