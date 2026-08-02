@@ -47,8 +47,6 @@ pub fn run(
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> io::Result<i32> {
-    let hook_request = hook_request(args);
-    let setup_request = setup_request(args);
     match args {
         [] if stdin_is_tty() => {
             stdout.write_all(HELP.as_bytes())?;
@@ -134,7 +132,7 @@ pub fn run(
             Ok(0)
         }
         [flag, ..] if flag == OsStr::new("--hook-eval") => {
-            let Some((target, self_check)) = hook_request else {
+            let Some((target, self_check)) = hook_request(args) else {
                 stderr.write_all(b"usage: tapas --hook-eval <claude|codex>\n")?;
                 return Ok(2);
             };
@@ -148,13 +146,12 @@ pub fn run(
             stderr.write_all(b"usage: tapas does not expose deferred state modes in 0.1.0\n")?;
             Ok(2)
         }
-        _ if setup_request.is_some() => {
-            let (action, target, dry_run) = setup_request.expect("validated setup request");
-            crate::setup::configure_for_target(action, target, dry_run, stdout, stderr)
-        }
         [flag, ..] if is_setup_flag(flag) => {
-            stderr.write_all(SETUP_USAGE)?;
-            Ok(2)
+            let Some((action, target, dry_run)) = setup_request(args) else {
+                stderr.write_all(SETUP_USAGE)?;
+                return Ok(2);
+            };
+            crate::setup::configure_for_target(action, target, dry_run, stdout, stderr)
         }
         [flag, ..] if flag.as_encoded_bytes().starts_with(b"-") => {
             stderr.write_all(b"usage: tapas [--help|--version|--filters] <cmd...>\n")?;
