@@ -87,10 +87,10 @@ fn find_ls_pipe_filter_preserves_the_final_group_entry() {
         "2 0 -rw-r--r-- 1 user staff 1 Apr 23 12:34 ./src/b.zig\n",
         "3 0 -rw-r--r-- 1 user staff 1 Apr 23 12:34 ./src/c.zig\n",
         "4 0 -rw-r--r-- 1 user staff 1 Apr 23 12:34 ./src/d.zig\n",
-        "5 0 -rw-r--r-- 1 user staff 1 Apr 23 12:34 ./src/e.zig\n",
+        "5 0 drwxr-xr-x 1 user staff 1 Apr 23 12:34 ./src/e.zig\n",
     );
     let expected =
-        b"./src/ (5 entries: a.zig, b.zig, c.zig; 1 omitted; last: e.zig; --raw for all)\n";
+        b"./src/ (5 entries: a.zig, b.zig, c.zig; 1 omitted; last: e.zig/; --raw for all)\n";
 
     assert_eq!(
         listing::apply_matched(input.as_bytes()).unwrap(),
