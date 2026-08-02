@@ -79,8 +79,14 @@ fn drain_child(
     raw_stdout: &mut dyn Write,
     raw_stderr: &mut dyn Write,
 ) -> io::Result<CapturedOutput> {
-    let mut child_stdout = child.stdout.take().expect("piped child stdout");
-    let mut child_stderr = child.stderr.take().expect("piped child stderr");
+    let mut child_stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| io::Error::other("child stdout pipe was not created"))?;
+    let mut child_stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| io::Error::other("child stderr pipe was not created"))?;
     unix::set_nonblocking(child_stdout.as_raw_fd())?;
     unix::set_nonblocking(child_stderr.as_raw_fd())?;
 
