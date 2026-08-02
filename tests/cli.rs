@@ -1,5 +1,6 @@
 use std::fs;
 use std::io::Write;
+use std::os::unix::fs::PermissionsExt;
 use std::process::{Command, Output, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -263,17 +264,80 @@ fn claude_hook_updates_only_simple_supported_commands_without_granting_authority
 fn codex_hook_allows_only_the_rewritten_command() {
     let eligible = tapas_with_stdin(
         &["--hook-eval", "codex"],
-        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git status --short","description":"working tree"}}"#,
-        &[],
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"git status --short","description":"working tree"}}"#,
+        &[("PATH", "/usr/bin:/bin")],
     );
 
     assert!(eligible.status.success());
     let executable = env!("CARGO_BIN_EXE_tapas");
-    let expected = format!(
-        "{{\"hookSpecificOutput\":{{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"updatedInput\":{{\"command\":\"'{executable}' git status --short\",\"description\":\"working tree\"}}}}}}\n"
-    );
-    assert_eq!(eligible.stdout, expected.as_bytes());
+    let output = String::from_utf8(eligible.stdout).expect("UTF-8 hook output");
+    assert!(output.contains("\"permissionDecision\":\"allow\""));
+    assert!(output.contains("GIT_OPTIONAL_LOCKS=0"));
+    assert!(output.contains("GIT_CONFIG_KEY_1=log.showSignature"));
+    assert!(output.contains("GIT_CONFIG_KEY_2=format.pretty"));
+    assert!(output.contains(&format!("'{executable}'")));
+    assert!(output.contains("'/usr/bin/git' 'status' '--short'"));
+    assert!(output.contains("\"description\":\"working tree\""));
     assert!(eligible.stderr.is_empty());
+
+    let diff = tapas_with_stdin(
+        &["--hook-eval", "codex"],
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"git diff --stat"}}"#,
+        &[("PATH", "/usr/bin:/bin")],
+    );
+    let diff_output = String::from_utf8(diff.stdout).expect("UTF-8 hook output");
+    assert!(diff_output.contains("'diff' '--no-ext-diff' '--no-textconv' '--stat'"));
+
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("time after epoch")
+        .as_nanos();
+    let shadow_root =
+        std::env::temp_dir().join(format!("tapas-cli-shadow-{}-{unique}", std::process::id()));
+    let shadow_bin = shadow_root.join("bin");
+    fs::create_dir_all(&shadow_bin).expect("create shadow bin");
+    let shadow_git = shadow_bin.join("git");
+    fs::write(&shadow_git, b"#!/bin/sh\nexit 0\n").expect("write shadow git");
+    fs::set_permissions(&shadow_git, fs::Permissions::from_mode(0o755))
+        .expect("make shadow git executable");
+    let shadow_input = format!(
+        "{{\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"cwd\":{:?},\"tool_input\":{{\"command\":\"git status\"}}}}",
+        shadow_root.to_str().expect("UTF-8 shadow path")
+    );
+    let shadowed = tapas_with_stdin(
+        &["--hook-eval", "codex"],
+        shadow_input.as_bytes(),
+        &[("PATH", shadow_bin.to_str().expect("UTF-8 shadow bin"))],
+    );
+    assert!(shadowed.status.success());
+    assert!(shadowed.stdout.is_empty());
+    assert!(shadowed.stderr.is_empty());
+
+    let workspace = shadow_root.join("project");
+    let nested = workspace.join("subdirectory");
+    let workspace_bin = workspace.join("bin");
+    fs::create_dir_all(&nested).expect("create nested workspace directory");
+    fs::create_dir_all(&workspace_bin).expect("create workspace bin");
+    fs::create_dir(workspace.join(".git")).expect("create workspace marker");
+    let workspace_git = workspace_bin.join("git");
+    fs::write(&workspace_git, b"#!/bin/sh\nexit 0\n").expect("write workspace git");
+    fs::set_permissions(&workspace_git, fs::Permissions::from_mode(0o755))
+        .expect("make workspace git executable");
+    let nested_input = format!(
+        "{{\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"cwd\":{:?},\"tool_input\":{{\"command\":\"git status\"}}}}",
+        nested.to_str().expect("UTF-8 nested path")
+    );
+    let nested_path = format!("{}:/usr/bin:/bin", workspace_bin.display());
+    let nested_shadow = tapas_with_stdin(
+        &["--hook-eval", "codex"],
+        nested_input.as_bytes(),
+        &[("PATH", &nested_path)],
+    );
+    fs::remove_dir_all(&shadow_root).expect("remove shadow root");
+    let nested_output = String::from_utf8(nested_shadow.stdout).expect("UTF-8 hook output");
+    assert!(nested_shadow.status.success());
+    assert!(nested_output.contains("'/usr/bin/git' 'status'"));
+    assert!(nested_shadow.stderr.is_empty());
 
     for input in [
         br#"{"tool_name":"Bash","tool_input":{"command":"git status"}}"#.as_slice(),
@@ -281,28 +345,55 @@ fn codex_hook_allows_only_the_rewritten_command() {
         br#"{"hook_event_name":"PreToolUse","tool_input":{"command":"git status"}}"#,
         br#"{"hook_event_name":"PreToolUse","tool_name":"Shell","tool_input":{"command":"git status"}}"#,
     ] {
-        let ignored = tapas_with_stdin(&["--hook-eval", "codex"], input, &[]);
+        let ignored = tapas_with_stdin(
+            &["--hook-eval", "codex"],
+            input,
+            &[("PATH", "/usr/bin:/bin")],
+        );
         assert!(ignored.status.success());
         assert!(ignored.stdout.is_empty(), "input: {input:?}");
         assert!(ignored.stderr.is_empty(), "input: {input:?}");
     }
 
     let already_wrapped = format!(
-        "{{\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{{\"command\":\"'{executable}' git status\"}}}}"
+        "{{\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"cwd\":\"/tmp\",\"tool_input\":{{\"command\":\"'{executable}' git status\"}}}}"
     );
     let oversized = format!(
-        "{{\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{{\"command\":\"git status\",\"description\":\"{}\"}}}}",
+        "{{\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"cwd\":\"/tmp\",\"tool_input\":{{\"command\":\"git status\",\"description\":\"{}\"}}}}",
         "x".repeat(64 * 1024)
     );
     for input in [
         b"invalid JSON".to_vec(),
-        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git status | cat"}}"#.to_vec(),
-        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git status\nrm -rf x"}}"#.to_vec(),
-        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"unknown command"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"git status | cat"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"git status\nrm -rf x"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"git reset --hard"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"./git status"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"rg --pre 'rm -rf .' needle"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"rg --pre-glob='*.md' needle"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"rg --hostname-bin=touch needle"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"rg --search-zip needle"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"rg -z needle"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"find . -delete"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"find . -exec touch changed {} +"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"find . -fprint listing.txt"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"git diff --output=changes.patch"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"git diff --ext-diff"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"git show --textconv HEAD:file"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"git log --show-signature"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"git log --format=%G?"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"git log --pretty=verify"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"tree -o listing.txt"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"tree --output=listing.txt"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"npm test"}}"#.to_vec(),
+        br#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{"command":"unknown command"}}"#.to_vec(),
         already_wrapped.into_bytes(),
         oversized.into_bytes(),
     ] {
-        let ignored = tapas_with_stdin(&["--hook-eval", "codex"], &input, &[]);
+        let ignored = tapas_with_stdin(
+            &["--hook-eval", "codex"],
+            &input,
+            &[("PATH", "/usr/bin:/bin")],
+        );
         assert!(ignored.status.success());
         assert!(ignored.stdout.is_empty(), "input length: {}", input.len());
         assert!(ignored.stderr.is_empty(), "input length: {}", input.len());

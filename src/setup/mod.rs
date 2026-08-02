@@ -73,6 +73,10 @@ impl Target {
         self == Self::Codex
     }
 
+    fn accepts_command(self, command: &[u8]) -> bool {
+        eligible(command) && (self == Self::Claude || codex_read_only(command))
+    }
+
     fn accepts_hook_event(self, value: &Value) -> bool {
         self == Self::Claude
             || matches!(
@@ -100,7 +104,7 @@ pub fn hook_eval_for_target(
     self_check: bool,
 ) -> io::Result<i32> {
     if self_check {
-        return Ok(i32::from(!eligible(b"git status")));
+        return Ok(i32::from(!target.accepts_command(b"git status")));
     }
     let mut input = Vec::new();
     stdin.take(MAX_HOOK_INPUT + 1).read_to_end(&mut input)?;
@@ -116,18 +120,29 @@ pub fn hook_eval_for_target(
     let Some(command) = event_command(&value) else {
         return Ok(0);
     };
-    if !eligible(command) {
-        return Ok(0);
-    }
+    let (environment, command) = match target {
+        Target::Claude if target.accepts_command(command) => (b"".as_slice(), command.to_vec()),
+        Target::Codex => {
+            let Some(Value::String(cwd)) = value.get(b"cwd") else {
+                return Ok(0);
+            };
+            let Some(command) = codex_command(command, cwd) else {
+                return Ok(0);
+            };
+            (command.environment, command.command)
+        }
+        Target::Claude => return Ok(0),
+    };
 
     let mut updated_input = value
         .get(b"tool_input")
         .cloned()
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "tool_input disappeared"))?;
     let executable = std::env::current_exe()?;
-    let mut updated_command = shell_escape(executable.as_os_str());
+    let mut updated_command = environment.to_vec();
+    updated_command.extend_from_slice(&shell_escape(executable.as_os_str()));
     updated_command.push(b' ');
-    updated_command.extend_from_slice(command);
+    updated_command.extend_from_slice(&command);
     updated_input
         .insert(b"command", Value::String(updated_command))
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "tool_input is not an object"))?;
@@ -389,11 +404,7 @@ fn unsetup_with_remove(
         }
     };
     if !removed {
-        writeln!(
-            stderr,
-            "tapas-owned hook entry was modified or removed; configuration left untouched; rerun tapas --setup {} to recover",
-            target.name()
-        )?;
+        stderr.write_all(b"tapas-owned hook entry was modified or removed; configuration left untouched; restore the exact owned entry or remove the modified hook and ownership record manually\n")?;
         return Ok(0);
     }
     if dry_run {
@@ -441,8 +452,9 @@ mod storage;
 #[cfg(test)]
 use hooks::nested_hook_exists;
 use hooks::{
-    contains_conflicting_integration, eligible, ensure_hook, event_command, hook_command,
-    hook_entry, hook_exists, parse_config, remove_hook, shell_escape, validate_hook,
+    codex_command, codex_read_only, contains_conflicting_integration, eligible, ensure_hook,
+    event_command, hook_command, hook_entry, hook_exists, parse_config, remove_hook, shell_escape,
+    validate_hook,
 };
 use ownership::{Ownership, read_ownership, write_ownership};
 use storage::{

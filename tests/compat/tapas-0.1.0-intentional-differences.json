@@ -3,16 +3,25 @@
   "differences": [
     {
       "case": "curl-verbose",
-      "reason": "Tapas keeps the response body on stdout and compact request metadata on stderr."
+      "reason": "Tapas keeps the response body on stdout and compact request metadata on stderr.",
+      "expected_combined_sha256": "70092d0057e3c9d86d5c9407bb6f5b66d95a70df6b21f42dd57e2dfbb840df4c",
+      "expected_stdout_sha256": "01b5542e0a6b4718d41b1cf76b88c9cf7f3e48e7e2300277a74aa6df291a0cd5",
+      "expected_stderr_sha256": "fa5f402e2cb48e5c128700138173ec4baeb97074b93247912b8ce812e8017f6c"
     },
     {
       "case": "curl-verbose-large",
-      "reason": "Tapas keeps the response body on stdout and compact request metadata on stderr."
+      "reason": "Tapas keeps the response body on stdout and compact request metadata on stderr.",
+      "expected_combined_sha256": "2a8c7a9bccc13aa7c5f1efa5780385be1d3048a70890bbdfa216c2668bd5ca62",
+      "expected_stdout_sha256": "2dcc4edc1e0038ac95832a8c517d34a5acafbcadb12d275b7c4617d1e17a783a",
+      "expected_stderr_sha256": "043dc1b27a87e73acc0c6fefa87f8e778199a9e9b39fbcc0a8cb61bb93daf28b"
     },
     {
       "case": "find-plain-many",
       "reason": "Tapas preserves the lexicographically final entry in each compacted directory group.",
-      "max_proxy_token_increase": 18
+      "max_proxy_token_increase": 18,
+      "expected_combined_sha256": "3c4e5685e920b7f8962e2d4d1e9a1273fde5ef163681288a3911098b65f055bd",
+      "expected_stdout_sha256": "3c4e5685e920b7f8962e2d4d1e9a1273fde5ef163681288a3911098b65f055bd",
+      "expected_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ]
 }

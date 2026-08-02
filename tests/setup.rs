@@ -420,10 +420,9 @@ fn codex_setup_honors_codex_home_and_rejects_modified_state() {
     );
     assert!(unsetup.status.success());
     assert!(unsetup.stdout.is_empty());
-    assert!(
-        unsetup
-            .stderr
-            .starts_with(b"tapas-owned hook entry was modified")
+    assert_eq!(
+        unsetup.stderr,
+        b"tapas-owned hook entry was modified or removed; configuration left untouched; restore the exact owned entry or remove the modified hook and ownership record manually\n"
     );
     assert_eq!(fs::read(&hooks).unwrap(), modified);
     assert!(home.path(".tapas/setup/codex.owned").exists());
@@ -590,12 +589,10 @@ fn setup_refuses_invalid_conflicting_or_user_modified_state() {
 
         assert!(output.status.success());
         assert!(output.stdout.is_empty());
-        assert!(
-            output
-                .stderr
-                .starts_with(b"tapas-owned hook entry was modified"),
-            "replacement {replacement:?}: {:?}",
-            output.stderr
+        assert_eq!(
+            output.stderr,
+            b"tapas-owned hook entry was modified or removed; configuration left untouched; restore the exact owned entry or remove the modified hook and ownership record manually\n",
+            "replacement {replacement:?}",
         );
         assert_eq!(fs::read(&settings).unwrap(), content);
         assert!(modified.path(".tapas/setup/claude.owned").exists());

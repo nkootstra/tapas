@@ -39,6 +39,75 @@ def intentional_difference_allowances(document: dict[str, Any]) -> dict[str, int
     return allowances
 
 
+def intentional_difference_hashes(document: dict[str, Any]) -> dict[str, str]:
+    hashes: dict[str, str] = {}
+    for entry in document.get("differences", []):
+        case = entry.get("case")
+        expected = entry.get("expected_combined_sha256")
+        if not isinstance(case, str) or not case:
+            raise ValueError("intentional difference case must be a non-empty string")
+        if case in hashes:
+            raise ValueError(f"duplicate intentional difference: {case}")
+        if (
+            not isinstance(expected, str)
+            or len(expected) != 64
+            or any(character not in "0123456789abcdef" for character in expected)
+        ):
+            raise ValueError(
+                f"intentional difference {case} has invalid expected_combined_sha256"
+            )
+        hashes[case] = expected
+    return hashes
+
+
+def intentional_difference_stream_hashes(
+    document: dict[str, Any],
+) -> dict[str, tuple[str, str]]:
+    hashes: dict[str, tuple[str, str]] = {}
+    for entry in document.get("differences", []):
+        case = entry.get("case")
+        stdout_hash = entry.get("expected_stdout_sha256")
+        stderr_hash = entry.get("expected_stderr_sha256")
+        if not isinstance(case, str) or not case:
+            raise ValueError("intentional difference case must be a non-empty string")
+        if case in hashes:
+            raise ValueError(f"duplicate intentional difference: {case}")
+        for stream, expected in (("stdout", stdout_hash), ("stderr", stderr_hash)):
+            if (
+                not isinstance(expected, str)
+                or len(expected) != 64
+                or any(character not in "0123456789abcdef" for character in expected)
+            ):
+                raise ValueError(
+                    f"intentional difference {case} has invalid expected_{stream}_sha256"
+                )
+        hashes[case] = (stdout_hash, stderr_hash)
+    return hashes
+
+
+def intentional_output_error(
+    case: str,
+    current: str,
+    expected: dict[str, str],
+) -> str | None:
+    pinned = expected.get(case)
+    if pinned is None or current == pinned:
+        return None
+    return f"{case}: output does not match pinned intentional output"
+
+
+def intentional_stream_error(
+    case: str,
+    stdout_hash: str,
+    stderr_hash: str,
+    expected: dict[str, tuple[str, str]],
+) -> str | None:
+    pinned = expected.get(case)
+    if pinned is None or (stdout_hash, stderr_hash) == pinned:
+        return None
+    return f"{case}: streams do not match pinned intentional output"
+
+
 def token_regression_error(
     case: str,
     current: int,
@@ -119,6 +188,8 @@ def case_metrics(
         "exit_result": proc.returncode,
         "stdout_bytes": len(proc.stdout),
         "stderr_bytes": len(proc.stderr),
+        "stdout_sha256": benchmark.digest(proc.stdout),
+        "stderr_sha256": benchmark.digest(proc.stderr),
         "combined_sha256": benchmark.digest(combined),
         "proxy_tokens": (
             None
@@ -178,6 +249,8 @@ def compare(
     encoder: Any,
     timeout: float,
     intentional_differences: dict[str, int],
+    intentional_output_hashes: dict[str, str],
+    intentional_stream_hashes: dict[str, tuple[str, str]],
 ) -> tuple[dict[str, Any], list[str]]:
     errors: list[str] = []
     if baseline.get("corpus_sha256") != benchmark.digest(corpus):
@@ -219,6 +292,19 @@ def compare(
             exact += 1
         elif case["name"] not in intentional_differences:
             errors.append(f"{case['name']}: combined output differs from the smll baseline")
+        output_error = intentional_output_error(
+            case["name"], metrics["combined_sha256"], intentional_output_hashes
+        )
+        if output_error is not None:
+            errors.append(output_error)
+        stream_error = intentional_stream_error(
+            case["name"],
+            metrics["stdout_sha256"],
+            metrics["stderr_sha256"],
+            intentional_stream_hashes,
+        )
+        if stream_error is not None:
+            errors.append(stream_error)
         if missing_facts:
             errors.append(f"{case['name']}: missing oracle-visible facts: {', '.join(missing_facts)}")
         if metrics["proxy_tokens"] is not None and oracle.get("proxy_tokens") is not None:
@@ -312,6 +398,8 @@ def main() -> int:
     difference_document = json.loads(args.intentional_differences.read_bytes())
     try:
         intentional_differences = intentional_difference_allowances(difference_document)
+        intentional_output_hashes = intentional_difference_hashes(difference_document)
+        intentional_stream_hashes = intentional_difference_stream_hashes(difference_document)
     except ValueError as error:
         print(f"benchmark intentional differences invalid: {error}", file=sys.stderr)
         return 1
@@ -333,6 +421,8 @@ def main() -> int:
         encoder,
         args.timeout,
         intentional_differences,
+        intentional_output_hashes,
+        intentional_stream_hashes,
     )
     rendered = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.output:

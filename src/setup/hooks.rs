@@ -112,6 +112,168 @@ pub(super) fn event_command(value: &Value) -> Option<&[u8]> {
 }
 
 pub(super) fn eligible(command: &[u8]) -> bool {
+    let Some(words) = shell_words(command) else {
+        return false;
+    };
+    let first = &words[0];
+    let basename = first
+        .iter()
+        .rposition(|byte| *byte == b'/')
+        .map_or(first.as_slice(), |slash| &first[slash + 1..]);
+    crate::catalog::AUTO_WRAP_COMMANDS
+        .iter()
+        .any(|candidate| candidate.as_bytes() == basename)
+}
+
+pub(super) fn codex_read_only(command: &[u8]) -> bool {
+    let Some(words) = shell_words(command) else {
+        return false;
+    };
+    codex_words_read_only(&words)
+}
+
+pub(super) struct CodexCommand {
+    pub environment: &'static [u8],
+    pub command: Vec<u8>,
+}
+
+pub(super) fn codex_command(command: &[u8], cwd: &[u8]) -> Option<CodexCommand> {
+    let mut words = shell_words(command)?;
+    if !codex_words_read_only(&words) {
+        return None;
+    }
+    let program = words[0].clone();
+    let resolved = resolve_trusted_program(&program, cwd)?;
+    words[0] = resolved.as_os_str().as_bytes().to_vec();
+    let environment = match program.as_slice() {
+        b"rg" => {
+            words.insert(1, b"--no-config".to_vec());
+            b"".as_slice()
+        }
+        b"git" => {
+            let subcommand =
+                usize::from(words.get(1).is_some_and(|word| word == b"--no-pager")) + 1;
+            if matches!(
+                words.get(subcommand).map(Vec::as_slice),
+                Some(b"diff" | b"log" | b"show")
+            ) {
+                words.insert(subcommand + 1, b"--no-ext-diff".to_vec());
+                words.insert(subcommand + 2, b"--no-textconv".to_vec());
+            }
+            b"GIT_OPTIONAL_LOCKS=0 GIT_CONFIG_COUNT=3 GIT_CONFIG_KEY_0=core.fsmonitor GIT_CONFIG_VALUE_0=false GIT_CONFIG_KEY_1=log.showSignature GIT_CONFIG_VALUE_1=false GIT_CONFIG_KEY_2=format.pretty GIT_CONFIG_VALUE_2=medium GIT_PAGER= "
+                .as_slice()
+        }
+        _ => b"".as_slice(),
+    };
+    Some(CodexCommand {
+        environment,
+        command: shell_join(&words),
+    })
+}
+
+fn codex_words_read_only(words: &[Vec<u8>]) -> bool {
+    let program = words[0].as_slice();
+    if program.contains(&b'/') {
+        return false;
+    }
+    let arguments = &words[1..];
+    match program {
+        b"cat" | b"du" | b"jq" | b"ls" | b"ps" | b"wc" => true,
+        b"tree" => !arguments.iter().any(|argument| {
+            argument.starts_with(b"-o")
+                || argument == b"--output"
+                || argument.starts_with(b"--output=")
+        }),
+        b"rg" => !arguments.iter().any(|argument| {
+            matches!(
+                argument.as_slice(),
+                b"--hostname-bin" | b"--pre" | b"--pre-glob" | b"--search-zip" | b"-z"
+            ) || argument.starts_with(b"--hostname-bin=")
+                || argument.starts_with(b"--pre=")
+                || argument.starts_with(b"--pre-glob=")
+        }),
+        b"find" => !arguments.iter().any(|argument| {
+            argument == b"-delete"
+                || argument.starts_with(b"-exec")
+                || argument.starts_with(b"-fls")
+                || argument.starts_with(b"-fprint")
+                || argument.starts_with(b"-ok")
+        }),
+        b"git" => git_read_only(arguments),
+        _ => false,
+    }
+}
+
+fn resolve_trusted_program(program: &[u8], cwd: &[u8]) -> Option<PathBuf> {
+    let cwd = fs::canonicalize(Path::new(OsStr::from_bytes(cwd))).ok()?;
+    let workspace = cwd
+        .ancestors()
+        .find(|ancestor| ancestor.join(".git").exists())
+        .unwrap_or(&cwd);
+    let path = std::env::var_os("PATH")?;
+    for directory in std::env::split_paths(&path) {
+        if !directory.is_absolute() {
+            continue;
+        }
+        let candidate = directory.join(OsStr::from_bytes(program));
+        let Ok(metadata) = fs::metadata(&candidate) else {
+            continue;
+        };
+        if !metadata.is_file() || metadata.permissions().mode() & 0o111 == 0 {
+            continue;
+        }
+        let resolved = fs::canonicalize(candidate).ok()?;
+        if resolved.starts_with(workspace) || path_is_writable_by_others(&resolved) {
+            continue;
+        }
+        return Some(resolved);
+    }
+    None
+}
+
+fn path_is_writable_by_others(path: &Path) -> bool {
+    path.ancestors()
+        .any(|ancestor| match fs::metadata(ancestor) {
+            Ok(metadata) => metadata.permissions().mode() & 0o022 != 0,
+            Err(_) => true,
+        })
+}
+
+fn shell_join(words: &[Vec<u8>]) -> Vec<u8> {
+    let mut command = Vec::new();
+    for (index, word) in words.iter().enumerate() {
+        if index != 0 {
+            command.push(b' ');
+        }
+        command.extend_from_slice(&shell_escape(OsStr::from_bytes(word)));
+    }
+    command
+}
+
+fn git_read_only(arguments: &[Vec<u8>]) -> bool {
+    let (subcommand, rest) = match arguments {
+        [option, subcommand, rest @ ..] if option == b"--no-pager" => (subcommand.as_slice(), rest),
+        [subcommand, rest @ ..] if !subcommand.starts_with(b"-") => (subcommand.as_slice(), rest),
+        _ => return false,
+    };
+    matches!(
+        subcommand,
+        b"blame" | b"diff" | b"log" | b"show" | b"status"
+    ) && !rest.iter().any(|argument| {
+        matches!(
+            argument.as_slice(),
+            b"--ext-diff" | b"--textconv" | b"--show-signature"
+        ) || argument.starts_with(b"--ext-diff=")
+            || argument.starts_with(b"--textconv=")
+            || argument == b"--pretty"
+            || argument.starts_with(b"--pretty=")
+            || argument.windows(2).any(|window| window == b"%G")
+            || argument == b"--output"
+            || argument.starts_with(b"--output=")
+    })
+}
+
+fn shell_words(command: &[u8]) -> Option<Vec<Vec<u8>>> {
     #[derive(Clone, Copy, Eq, PartialEq)]
     enum Quote {
         Unquoted,
@@ -119,105 +281,85 @@ pub(super) fn eligible(command: &[u8]) -> bool {
         Double,
     }
 
-    let mut token = [0_u8; 256];
-    let mut token_len = 0usize;
+    let mut words = Vec::new();
+    let mut word = Vec::new();
     let mut quote = Quote::Unquoted;
     let mut started = false;
-    let mut finished = false;
     let mut index = 0usize;
     while index < command.len() {
         let byte = command[index];
         if matches!(byte, b'\n' | b'\r') {
-            return false;
+            return None;
         }
         match quote {
             Quote::Single => {
                 if byte == b'\'' {
                     quote = Quote::Unquoted;
-                } else if !finished && !push_token(&mut token, &mut token_len, byte) {
-                    return false;
+                } else {
+                    push_word_byte(&words, &mut word, byte)?;
                 }
             }
             Quote::Double => {
                 if byte == b'"' {
                     quote = Quote::Unquoted;
                 } else if matches!(byte, b'`' | b'$') {
-                    return false;
+                    return None;
                 } else if byte == b'\\' {
                     index += 1;
-                    let Some(escaped) = command.get(index).copied() else {
-                        return false;
-                    };
-                    if matches!(escaped, b'\n' | b'\r')
-                        || !finished && !push_token(&mut token, &mut token_len, escaped)
-                    {
-                        return false;
+                    let escaped = command.get(index).copied()?;
+                    if matches!(escaped, b'\n' | b'\r') {
+                        return None;
                     }
-                } else if !finished && !push_token(&mut token, &mut token_len, byte) {
-                    return false;
+                    push_word_byte(&words, &mut word, escaped)?;
+                } else {
+                    push_word_byte(&words, &mut word, byte)?;
                 }
             }
             Quote::Unquoted => {
                 if byte.is_ascii_whitespace() {
                     if started {
-                        finished = true;
+                        words.push(std::mem::take(&mut word));
+                        started = false;
                     }
                 } else if b";|&<>`(){}*?[]~#".contains(&byte) || byte == b'$' {
-                    return false;
+                    return None;
                 } else if byte == b'\'' {
-                    if !finished {
-                        started = true;
-                    }
+                    started = true;
                     quote = Quote::Single;
                 } else if byte == b'"' {
-                    if !finished {
-                        started = true;
-                    }
+                    started = true;
                     quote = Quote::Double;
                 } else if byte == b'\\' {
                     index += 1;
-                    let Some(escaped) = command.get(index).copied() else {
-                        return false;
-                    };
+                    let escaped = command.get(index).copied()?;
                     if matches!(escaped, b'\n' | b'\r') {
-                        return false;
+                        return None;
                     }
-                    if !finished {
-                        started = true;
-                        if !push_token(&mut token, &mut token_len, escaped) {
-                            return false;
-                        }
-                    }
-                } else if !finished {
                     started = true;
-                    if !push_token(&mut token, &mut token_len, byte) {
-                        return false;
-                    }
+                    push_word_byte(&words, &mut word, escaped)?;
+                } else {
+                    started = true;
+                    push_word_byte(&words, &mut word, byte)?;
                 }
             }
         }
         index += 1;
     }
-    if quote != Quote::Unquoted || token_len == 0 {
-        return false;
+    if quote != Quote::Unquoted {
+        return None;
     }
-    let first = &token[..token_len];
-    let basename = first
-        .iter()
-        .rposition(|byte| *byte == b'/')
-        .map_or(first, |slash| &first[slash + 1..]);
-    crate::catalog::AUTO_WRAP_COMMANDS
-        .iter()
-        .any(|candidate| candidate.as_bytes() == basename)
+    if started {
+        words.push(word);
+    }
+    (!words.is_empty()).then_some(words)
 }
 
-fn push_token(token: &mut [u8; 256], length: &mut usize, byte: u8) -> bool {
-    if *length == token.len() {
-        return false;
+fn push_word_byte(words: &[Vec<u8>], word: &mut Vec<u8>, byte: u8) -> Option<()> {
+    if words.is_empty() && word.len() == 256 {
+        return None;
     }
-    token[*length] = byte;
-    *length += 1;
-    true
+    word.push(byte);
+    Some(())
 }
 
 pub(super) fn hook_command(executable: &OsStr, target: Target) -> Vec<u8> {
@@ -265,7 +407,9 @@ pub(super) fn contains_conflicting_integration(input: &[u8]) -> bool {
 use super::{Target, Value, json};
 use crate::filters::contains_ignore_ascii_case;
 use std::ffi::OsStr;
+use std::fs;
 use std::io::{self, Write};
 use std::os::unix::ffi::OsStrExt;
-use std::path::Path;
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
