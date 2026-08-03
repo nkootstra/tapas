@@ -181,6 +181,15 @@ pub fn classify_stream(argv: &[OsString]) -> StreamDecision {
             return StreamDecision::Inherit;
         }
     }
+    if command == b"bunx"
+        && argv
+            .iter()
+            .skip(1)
+            .map(bytes)
+            .any(|argument| is_any(argument, &[b"dev", b"serve", b"start", b"watch"]))
+    {
+        return StreamDecision::Inherit;
+    }
     if argv.len() >= 3
         && js_runner
         && is_any(bytes(&argv[1]), &[b"run", b"exec", b"task"])

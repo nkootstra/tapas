@@ -42,7 +42,9 @@ pub fn run(
     let invocation = classify(argv);
     let logical = invocation.logical_argv;
     let lossless = crate::environment::flag_on("TAPAS_LOSSLESS");
-    let stream = classify_stream(logical);
+    // Keep the outer runner visible for lifecycle decisions. A transparent
+    // runner can hide a development/watch command after argv unwrapping.
+    let stream = merge_stream_decisions(classify_stream(logical), classify_stream(argv));
     let stream_filtering = stream == StreamDecision::StreamFilter
         && crate::environment::flag_on("TAPAS_STREAM")
         && !unix::stdout_is_tty()
@@ -352,6 +354,16 @@ fn command_is(argv: &[OsString], expected: &[u8]) -> bool {
     argv.first()
         .and_then(|program| crate::catalog::command_basename(program))
         .is_some_and(|name| name.as_encoded_bytes() == expected)
+}
+
+fn merge_stream_decisions(logical: StreamDecision, outer: StreamDecision) -> StreamDecision {
+    match (logical, outer) {
+        (StreamDecision::StreamFilter, _) | (_, StreamDecision::StreamFilter) => {
+            StreamDecision::StreamFilter
+        }
+        (StreamDecision::Inherit, _) | (_, StreamDecision::Inherit) => StreamDecision::Inherit,
+        _ => StreamDecision::Capture,
+    }
 }
 
 fn should_content_redispatch(argv: &[OsString]) -> bool {
