@@ -87,9 +87,9 @@ jobs:
 
           Install the matching macOS or Linux build:
 
-          ```sh
+          \`\`\`sh
           curl -fsSL https://raw.githubusercontent.com/${REPOSITORY}/main/install-pr.sh | sh -s -- ${PR_NUMBER}
-          ```
+          \`\`\`
 
           The installed command is \`tapas-pr-${short_sha}\`. [View the prerelease and checksums](${release_url}).
           EOF

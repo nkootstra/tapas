@@ -32,6 +32,8 @@ class DistributionTests(unittest.TestCase):
         release = (ROOT / ".github/workflows/publish-release.yml").read_text(encoding="utf-8")
         cleanup = (ROOT / ".github/workflows/cleanup-pr-builds.yml").read_text(encoding="utf-8")
         self.assertIn("workflow_run", publisher)
+        self.assertIn(r"\`\`\`sh", publisher)
+        self.assertIn("install-pr.sh", publisher)
         self.assertIn("contents: write", publisher)
         self.assertIn("pull-requests: write", publisher)
         self.assertIn("contents: write", release)
