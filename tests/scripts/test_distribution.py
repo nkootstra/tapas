@@ -111,6 +111,8 @@ class DistributionTests(unittest.TestCase):
         self.assertIn("install-pr.sh", publisher)
         self.assertIn("--clean-dev-builds", publisher)
         self.assertIn("--dry-run", publisher)
+        self.assertIn("main_sha", publisher)
+        self.assertIn("pinned_installer_url", publisher)
         self.assertIn("contents: write", publisher)
         self.assertIn("pull-requests: write", publisher)
         self.assertIn("contents: write", release)

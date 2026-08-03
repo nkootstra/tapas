@@ -78,6 +78,10 @@ jobs:
         run: |
           set -euo pipefail
           short_sha="${SOURCE_SHA:0:8}"
+          main_sha="$(gh api "repos/${REPOSITORY}/commits/main" --jq '.sha')"
+          installer_url="https://github.com/${REPOSITORY}/raw/refs/heads/main/install.sh"
+          installer_pr_url="https://github.com/${REPOSITORY}/raw/refs/heads/main/install-pr.sh"
+          pinned_installer_url="https://github.com/${REPOSITORY}/raw/${main_sha}/install.sh"
           release_url="https://github.com/${REPOSITORY}/releases/tag/pr-${PR_NUMBER}-${SOURCE_SHA}"
           cat > comment.md <<EOF
           <!-- tapas-pr-build -->
@@ -88,7 +92,7 @@ jobs:
           Install the matching macOS or Linux build:
 
           \`\`\`sh
-          curl -fsSL https://github.com/${REPOSITORY}/raw/refs/heads/main/install-pr.sh | sh -s -- ${PR_NUMBER}
+          curl -fsSL ${installer_pr_url} | sh -s -- ${PR_NUMBER}
           \`\`\`
 
           The installed command is \`tapas-pr-${short_sha}\` and reports \`tapas ${TAPAS_VERSION}-dev.${short_sha}\`.
@@ -96,8 +100,14 @@ jobs:
           Clean local PR builds without affecting stable \`tapas\`:
 
           \`\`\`sh
-          curl -fsSL https://github.com/${REPOSITORY}/raw/refs/heads/main/install.sh | sh -s -- --clean-dev-builds --dry-run
-          curl -fsSL https://github.com/${REPOSITORY}/raw/refs/heads/main/install.sh | sh -s -- --clean-dev-builds
+          curl -fsSL ${installer_url} | sh -s -- --clean-dev-builds --dry-run
+          curl -fsSL ${installer_url} | sh -s -- --clean-dev-builds
+          \`\`\`
+
+          If the branch URL is still cached and prints the old usage text, use the commit-pinned installer:
+
+          \`\`\`sh
+          curl -fsSL ${pinned_installer_url} | sh -s -- --clean-dev-builds
           \`\`\`
 
           [View the prerelease and checksums](${release_url}).
