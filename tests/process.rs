@@ -405,14 +405,14 @@ fn transparent_runners_and_streaming_commands_are_classified_conservatively() {
         Some(PassthroughReason::AmbiguousRunner)
     );
 
-    let bunx: Vec<OsString> = ["bunx", "--no-install", "lumen", "usage"]
+    let bunx: Vec<OsString> = ["bunx", "--no-install", "sample-cli", "usage"]
         .into_iter()
         .map(OsString::from)
         .collect();
     assert_eq!(classify(&bunx).logical_argv, &bunx[2..]);
     assert_eq!(classify(&bunx).passthrough_reason, None);
 
-    let bunx_dev: Vec<OsString> = ["bunx", "--no-install", "lumen", "dev"]
+    let bunx_dev: Vec<OsString> = ["bunx", "--no-install", "sample-cli", "dev"]
         .into_iter()
         .map(OsString::from)
         .collect();
