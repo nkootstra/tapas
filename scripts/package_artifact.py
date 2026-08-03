@@ -16,6 +16,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--binary", type=pathlib.Path, required=True)
     parser.add_argument("--output", type=pathlib.Path, required=True)
     parser.add_argument("--version", required=True)
+    parser.add_argument("--version-label", required=True)
     parser.add_argument("--source-sha", required=True)
     parser.add_argument("--target", required=True)
     parser.add_argument("--abi", required=True)
@@ -50,6 +51,7 @@ def main() -> int:
         "schema_version": 1,
         "product": "tapas",
         "version": args.version,
+        "version_label": args.version_label,
         "source_sha": args.source_sha.lower(),
         "target": args.target,
         "abi": args.abi,

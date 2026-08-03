@@ -35,7 +35,10 @@ fn version_identifies_the_new_tapas_lineage() {
     let output = tapas(&["--version"]);
 
     assert!(output.status.success());
-    assert_eq!(output.stdout, b"tapas 0.1.0\n");
+    assert_eq!(
+        output.stdout,
+        format!("tapas {}\n", env!("TAPAS_BUILD_LABEL")).into_bytes()
+    );
     assert!(output.stderr.is_empty());
 }
 
@@ -88,7 +91,7 @@ fn filters_report_the_canonical_commands_and_runners() {
             "missing {command:?} in {filters:?}"
         );
     }
-    for runner in ["npx", "pnpm exec", "poetry run", "uv run", "uvx"] {
+    for runner in ["bunx", "npx", "pnpm exec", "poetry run", "uv run", "uvx"] {
         assert!(
             filters.contains(runner),
             "missing {runner:?} in {filters:?}"
