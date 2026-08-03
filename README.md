@@ -6,7 +6,7 @@ Tapas reduces the tokens consumed by command-line output before that output reac
 
 ## Results
 
-The pinned 94-case smll CLI corpus contains representative Git, test, build, package, listing, infrastructure, and log output. Using the vendored `o200k_base` tokenizer proxy, Tapas currently reduces that corpus from 509,798 to 159,506 tokens: 68.71% fewer tokens. Ninety-two combined outputs match the pinned smll baseline exactly. The two verbose-curl cases intentionally keep response bodies on stdout and compact request metadata on stderr; they preserve the pinned facts and token counts while correcting smll's stream routing.
+The pinned 94-case smll CLI corpus contains representative Git, test, build, package, listing, infrastructure, and log output. Using the vendored `o200k_base` tokenizer proxy, Tapas currently reduces that corpus from 509,798 to 159,524 tokens: 68.71% fewer tokens. Ninety-one combined outputs match the pinned smll baseline exactly; the remaining three cases are documented intentional differences, with an 18-token net increase versus the baseline. The two verbose-curl cases intentionally keep response bodies on stdout and compact request metadata on stderr; they preserve the pinned facts and token counts while correcting smll's stream routing.
 
 This is a deterministic regression benchmark, not a claim about every model, prompt, or billing tokenizer. Tapas keeps exit status and actionable facts as the primary compatibility gates.
 
