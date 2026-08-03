@@ -88,7 +88,7 @@ fn filters_report_the_canonical_commands_and_runners() {
             "missing {command:?} in {filters:?}"
         );
     }
-    for runner in ["npx", "pnpm exec", "poetry run", "uv run", "uvx"] {
+    for runner in ["bunx", "npx", "pnpm exec", "poetry run", "uv run", "uvx"] {
         assert!(
             filters.contains(runner),
             "missing {runner:?} in {filters:?}"

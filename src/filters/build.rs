@@ -34,6 +34,7 @@ pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
                     | b"uvx"
                     | b"poetry"
                     | b"npx"
+                    | b"bunx"
             )
         })
 }
@@ -54,8 +55,10 @@ pub fn dispatch_streams_argv(
 
     let command = command_basename(argv[0]);
     let arg1 = argv.get(1).copied().unwrap_or_default();
-    let runner_package_prelude = matches!(command, b"uv" | b"uvx" | b"poetry" | b"pnpm" | b"npx")
-        && (has_package_prelude(stdout) || has_package_prelude(stderr));
+    let runner_package_prelude = matches!(
+        command,
+        b"uv" | b"uvx" | b"poetry" | b"pnpm" | b"npx" | b"bunx"
+    ) && (has_package_prelude(stdout) || has_package_prelude(stderr));
     let recognized_failure = has_recognized_failure(stdout) || has_recognized_failure(stderr);
     if exit_code != 0 && !stderr.is_empty() && !recognized_failure {
         return Ok(StreamFilterOutput::passthrough(stdout, stderr));
