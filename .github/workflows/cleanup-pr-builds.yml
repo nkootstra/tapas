@@ -1,0 +1,64 @@
+name: Cleanup PR Builds
+
+on:
+  pull_request_target:
+    types: [closed]
+  schedule:
+    - cron: '17 3 * * 0'
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  REPOSITORY: ${{ github.repository }}
+
+jobs:
+  cleanup-merged:
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.merged == true
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Remove the merged PR release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          tag="pr-${PR_NUMBER}-${SOURCE_SHA}"
+          gh release delete "$tag" --repo "$REPOSITORY" --cleanup-tag --yes || true
+          comment_id="$(gh api --paginate "repos/${REPOSITORY}/issues/${PR_NUMBER}/comments?per_page=100" \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- tapas-pr-build -->"))) | .id' | head -n 1)"
+          if [ -n "$comment_id" ]; then
+            cat > cleanup-comment.md <<'EOF'
+            <!-- tapas-pr-build -->
+            ### Tapas PR build removed
+
+            This PR was merged; its temporary development build has been cleaned up.
+            EOF
+            gh api --method PATCH "repos/${REPOSITORY}/issues/comments/${comment_id}" \
+              -f body="$(cat cleanup-comment.md)" >/dev/null
+          fi
+
+  cleanup-expired:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Remove expired PR releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cutoff="$(date -u -d '30 days ago' +%s)"
+          gh api --paginate "repos/${REPOSITORY}/releases?per_page=100" \
+            --jq '.[] | select(.prerelease == true and (.tag_name | startswith("pr-"))) | [.tag_name, .created_at] | @tsv' |
+            while IFS="$(printf '\t')" read -r tag created; do
+              created_epoch="$(date -u -d "$created" +%s)"
+              if [ "$created_epoch" -lt "$cutoff" ]; then
+                gh release delete "$tag" --repo "$REPOSITORY" --cleanup-tag --yes
+              fi
+            done

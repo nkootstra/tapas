@@ -6,7 +6,7 @@ Tapas reduces the tokens consumed by command-line output before that output reac
 
 ## Results
 
-The pinned 94-case smll CLI corpus contains representative Git, test, build, package, listing, infrastructure, and log output. Using the vendored `o200k_base` tokenizer proxy, Tapas currently reduces that corpus from 509,798 to 159,506 tokens: 68.71% fewer tokens. Ninety-two combined outputs match the pinned smll baseline exactly. The two verbose-curl cases intentionally keep response bodies on stdout and compact request metadata on stderr; they preserve the pinned facts and token counts while correcting smll's stream routing.
+The pinned 94-case smll CLI corpus contains representative Git, test, build, package, listing, infrastructure, and log output. Using the vendored `o200k_base` tokenizer proxy, Tapas currently reduces that corpus from 509,798 to 159,524 tokens: 68.71% fewer tokens. Ninety-one combined outputs match the pinned smll baseline exactly; the remaining three cases are documented intentional differences, with an 18-token net increase versus the baseline. The two verbose-curl cases intentionally keep response bodies on stdout and compact request metadata on stderr; they preserve the pinned facts and token counts while correcting smll's stream routing.
 
 This is a deterministic regression benchmark, not a claim about every model, prompt, or billing tokenizer. Tapas keeps exit status and actionable facts as the primary compatibility gates.
 
@@ -101,6 +101,22 @@ CI produces checksummed release-profile artifacts for:
 - Linux arm64 musl (`aarch64-unknown-linux-musl`)
 
 Each Actions artifact contains `tapas`, `SHA256SUMS`, and `BUILD-METADATA.json` at its root.
+
+## Install releases and PR builds
+
+Stable releases are published for Apple Silicon macOS, Linux x86_64 musl, and Linux arm64 musl. Install the latest stable release with:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/nkootstra/tapas/main/install.sh | sh
+```
+
+To test a pull request before it is merged, install the exact build for its current head commit:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/nkootstra/tapas/main/install-pr.sh | sh -s -- 123
+```
+
+The installer verifies the release checksum and source commit, then places the development binary at `~/.local/bin/tapas-pr-<commit>`. PR builds are temporary and are removed when the pull request is merged or after the retention window. The PR workflow also posts the exact command and release link to the pull request.
 
 ## Verification
 
