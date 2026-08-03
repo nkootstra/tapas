@@ -107,6 +107,24 @@ pub fn classify(argv: &[OsString]) -> Invocation<'_> {
             ambiguous = true;
             argv
         })
+    } else if command == b"bunx" {
+        unwrap_direct(
+            argv,
+            1,
+            &[b"--package", b"--cwd"],
+            &[
+                b"--bun",
+                b"--no-install",
+                b"--silent",
+                b"--help",
+                b"--version",
+            ],
+            &[],
+        )
+        .unwrap_or_else(|| {
+            ambiguous = true;
+            argv
+        })
     } else {
         argv
     };
@@ -142,7 +160,10 @@ pub fn classify_stream(argv: &[OsString]) -> StreamDecision {
         command,
         &[b"jest", b"vitest", b"tsc", b"webpack", b"nodemon"],
     );
-    let js_runner = is_any(command, &[b"npm", b"pnpm", b"yarn", b"bun", b"deno"]);
+    let js_runner = is_any(
+        command,
+        &[b"npm", b"pnpm", b"yarn", b"bun", b"bunx", b"deno"],
+    );
     let dev_server = is_any(command, &[b"vite", b"next", b"nuxt", b"webpack"]);
     if has_any_arg(argv, &[b"--watch", b"--watchAll"]) && (watch_capable || js_runner || dev_server)
         || (has_arg(argv, b"-w") && watch_capable)
