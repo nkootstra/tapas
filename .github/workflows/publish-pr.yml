@@ -81,7 +81,9 @@ jobs:
           main_sha="$(gh api "repos/${REPOSITORY}/commits/main" --jq '.sha')"
           installer_url="https://github.com/${REPOSITORY}/raw/refs/heads/main/install.sh"
           installer_pr_url="https://github.com/${REPOSITORY}/raw/refs/heads/main/install-pr.sh"
+          windows_installer_url="https://github.com/${REPOSITORY}/raw/refs/heads/main/install.ps1"
           pinned_installer_url="https://github.com/${REPOSITORY}/raw/${main_sha}/install.sh"
+          pinned_windows_installer_url="https://github.com/${REPOSITORY}/raw/${main_sha}/install.ps1"
           release_url="https://github.com/${REPOSITORY}/releases/tag/pr-${PR_NUMBER}-${SOURCE_SHA}"
           cat > comment.md <<EOF
           <!-- tapas-pr-build -->
@@ -109,6 +111,16 @@ jobs:
           \`\`\`sh
           curl -fsSL ${pinned_installer_url} | sh -s -- --clean-dev-builds
           \`\`\`
+
+          On Windows PowerShell, clean local development builds with:
+
+          \`\`\`powershell
+          \$script = Invoke-RestMethod '${windows_installer_url}'
+          & ([scriptblock]::Create(\$script)) -CleanDevBuilds -DryRun
+          & ([scriptblock]::Create(\$script)) -CleanDevBuilds
+          \`\`\`
+
+          If the Windows script URL is cached, replace it with `${pinned_windows_installer_url}`.
 
           [View the prerelease and checksums](${release_url}).
           EOF
