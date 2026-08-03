@@ -125,6 +125,8 @@ curl -fsSL https://github.com/nkootstra/tapas/raw/refs/heads/main/install.sh | s
 curl -fsSL https://github.com/nkootstra/tapas/raw/refs/heads/main/install.sh | sh -s -- --clean-dev-builds
 ```
 
+If the branch URL is temporarily cached and prints the old usage text, use a commit-pinned copy of `install.sh` from the latest `main` commit.
+
 The PR workflow posts both the install and local cleanup commands to the pull request.
 
 ## Verification
