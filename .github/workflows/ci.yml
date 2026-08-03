@@ -245,5 +245,5 @@ jobs:
           name: tapas-${{ env.TAPAS_VERSION }}-${{ matrix.target }}
           path: dist/${{ matrix.target }}/*
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
           compression-level: 9

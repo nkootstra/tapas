@@ -1,0 +1,103 @@
+name: Publish PR Build
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions: {}
+
+env:
+  TAPAS_VERSION: 0.1.0
+  REPOSITORY: ${{ github.repository }}
+
+jobs:
+  publish:
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.pull_requests[0].number != null
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
+    timeout-minutes: 15
+    steps:
+      - name: Download the verified target artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p work
+          for target in aarch64-apple-darwin x86_64-unknown-linux-musl aarch64-unknown-linux-musl; do
+            gh run download "$RUN_ID" \
+              --repo "$REPOSITORY" \
+              --name "tapas-${TAPAS_VERSION}-${target}" \
+              --dir "work/${target}"
+            metadata="work/${target}/BUILD-METADATA.json"
+            actual="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source_sha"])' "$metadata")"
+            test "$actual" = "$SOURCE_SHA"
+          done
+
+      - name: Create public PR archives
+        env:
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="pr-${PR_NUMBER}-${SOURCE_SHA}"
+          default_branch="$(gh repo view "$REPOSITORY" --json defaultBranchRef --jq '.defaultBranchRef.name')"
+          mkdir -p release
+          for target in aarch64-apple-darwin x86_64-unknown-linux-musl aarch64-unknown-linux-musl; do
+            archive="release/tapas-${target}.tar.gz"
+            tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
+              -C "work/${target}" -czf "$archive" tapas BUILD-METADATA.json SHA256SUMS
+          done
+          (cd release && sha256sum tapas-*.tar.gz > SHA256SUMS)
+          printf '%s\n' "PR #${PR_NUMBER} build for ${SOURCE_SHA}" > release-notes.md
+          if gh release view "$tag" --repo "$REPOSITORY" >/dev/null 2>&1; then
+            gh release delete "$tag" --repo "$REPOSITORY" --cleanup-tag --yes
+          fi
+          gh release create "$tag" \
+            --repo "$REPOSITORY" \
+            --target "$default_branch" \
+            --title "PR #${PR_NUMBER} (${SOURCE_SHA})" \
+            --notes-file release-notes.md \
+            --prerelease \
+            release/*.tar.gz release/SHA256SUMS
+
+      - name: Create or update the PR install comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          short_sha="${SOURCE_SHA:0:8}"
+          release_url="https://github.com/${REPOSITORY}/releases/tag/pr-${PR_NUMBER}-${SOURCE_SHA}"
+          cat > comment.md <<EOF
+          <!-- tapas-pr-build -->
+          ### Tapas PR build ready
+
+          Commit: \`${SOURCE_SHA}\`
+
+          Install the matching macOS or Linux build:
+
+          ```sh
+          curl -fsSL https://raw.githubusercontent.com/${REPOSITORY}/main/install-pr.sh | sh -s -- ${PR_NUMBER}
+          ```
+
+          The installed command is \`tapas-pr-${short_sha}\`. [View the prerelease and checksums](${release_url}).
+          EOF
+          comment_id="$(gh api --paginate "repos/${REPOSITORY}/issues/${PR_NUMBER}/comments?per_page=100" \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- tapas-pr-build -->"))) | .id' | head -n 1)"
+          if [ -n "$comment_id" ]; then
+            gh api --method PATCH "repos/${REPOSITORY}/issues/comments/${comment_id}" \
+              -f body="$(cat comment.md)" >/dev/null
+          else
+            gh pr comment "$PR_NUMBER" --repo "$REPOSITORY" --body-file comment.md >/dev/null
+          fi

@@ -102,6 +102,22 @@ CI produces checksummed release-profile artifacts for:
 
 Each Actions artifact contains `tapas`, `SHA256SUMS`, and `BUILD-METADATA.json` at its root.
 
+## Install releases and PR builds
+
+Stable releases are published for Apple Silicon macOS, Linux x86_64 musl, and Linux arm64 musl. Install the latest stable release with:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/nkootstra/tapas/main/install.sh | sh
+```
+
+To test a pull request before it is merged, install the exact build for its current head commit:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/nkootstra/tapas/main/install-pr.sh | sh -s -- 123
+```
+
+The installer verifies the release checksum and source commit, then places the development binary at `~/.local/bin/tapas-pr-<commit>`. PR builds are temporary and are removed when the pull request is merged or after the retention window. The PR workflow also posts the exact command and release link to the pull request.
+
 ## Verification
 
 Run the standard gates:

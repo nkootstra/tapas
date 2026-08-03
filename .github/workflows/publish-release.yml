@@ -1,0 +1,70 @@
+name: Publish Release
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions: {}
+
+env:
+  TAPAS_VERSION: 0.1.0
+  REPOSITORY: ${{ github.repository }}
+
+jobs:
+  publish:
+    if: >-
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'v')
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    timeout-minutes: 15
+    steps:
+      - name: Download the verified target artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p work
+          for target in aarch64-apple-darwin x86_64-unknown-linux-musl aarch64-unknown-linux-musl; do
+            gh run download "$RUN_ID" \
+              --repo "$REPOSITORY" \
+              --name "tapas-${TAPAS_VERSION}-${target}" \
+              --dir "work/${target}"
+            metadata="work/${target}/BUILD-METADATA.json"
+            actual="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source_sha"])' "$metadata")"
+            test "$actual" = "$SOURCE_SHA"
+          done
+
+      - name: Create release archives
+        env:
+          TAG: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          case "$TAG" in v*) ;; *) echo "invalid release tag: $TAG" >&2; exit 1 ;; esac
+          test "$TAG" = "v${TAPAS_VERSION}"
+          mkdir -p release
+          for target in aarch64-apple-darwin x86_64-unknown-linux-musl aarch64-unknown-linux-musl; do
+            archive="release/tapas-${target}.tar.gz"
+            tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
+              -C "work/${target}" -czf "$archive" tapas BUILD-METADATA.json SHA256SUMS
+          done
+          (cd release && sha256sum tapas-*.tar.gz > SHA256SUMS)
+
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" \
+            --repo "$REPOSITORY" \
+            --verify-tag \
+            --title "$TAG" \
+            --generate-notes \
+            release/*.tar.gz release/SHA256SUMS
