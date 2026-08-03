@@ -107,13 +107,13 @@ Each Actions artifact contains `tapas`, `SHA256SUMS`, and `BUILD-METADATA.json` 
 Stable releases are published for Apple Silicon macOS, Linux x86_64 musl, and Linux arm64 musl. Install the latest stable release with:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/nkootstra/tapas/main/install.sh | sh
+curl -fsSL https://github.com/nkootstra/tapas/raw/refs/heads/main/install.sh | sh
 ```
 
 To test a pull request before it is merged, install the exact build for its current head commit:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/nkootstra/tapas/main/install-pr.sh | sh -s -- 123
+curl -fsSL https://github.com/nkootstra/tapas/raw/refs/heads/main/install-pr.sh | sh -s -- 123
 ```
 
 The installer verifies the release checksum and source commit, then places the development binary at `~/.local/bin/tapas-pr-<commit>`. A PR build reports a version such as `tapas 0.1.0-dev.332d7176` so it is distinguishable from a stable build. PR builds are temporary and are removed remotely when the pull request is merged or after the retention window.
@@ -121,8 +121,8 @@ The installer verifies the release checksum and source commit, then places the d
 Remove local PR builds without affecting the stable `tapas` executable:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/nkootstra/tapas/main/install.sh | sh -s -- --clean-pr --dry-run
-curl -fsSL https://raw.githubusercontent.com/nkootstra/tapas/main/install.sh | sh -s -- --clean-pr
+curl -fsSL https://github.com/nkootstra/tapas/raw/refs/heads/main/install.sh | sh -s -- --clean-dev-builds --dry-run
+curl -fsSL https://github.com/nkootstra/tapas/raw/refs/heads/main/install.sh | sh -s -- --clean-dev-builds
 ```
 
 The PR workflow posts both the install and local cleanup commands to the pull request.

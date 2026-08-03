@@ -43,7 +43,7 @@ class DistributionTests(unittest.TestCase):
 
             environment = {**os.environ, "TAPAS_INSTALL_DIR": str(install_dir)}
             dry_run = subprocess.run(
-                ["sh", str(script), "--clean-pr", "--dry-run"],
+                ["sh", str(script), "--clean-dev-builds", "--dry-run"],
                 env=environment,
                 check=False,
                 capture_output=True,
@@ -54,7 +54,7 @@ class DistributionTests(unittest.TestCase):
             self.assertTrue(dev_one.exists())
 
             cleaned = subprocess.run(
-                ["sh", str(script), "--clean-pr"],
+                ["sh", str(script), "--clean-dev-builds"],
                 env=environment,
                 check=False,
                 capture_output=True,
@@ -109,7 +109,7 @@ class DistributionTests(unittest.TestCase):
         self.assertIn("workflow_run", publisher)
         self.assertIn(r"\`\`\`sh", publisher)
         self.assertIn("install-pr.sh", publisher)
-        self.assertIn("--clean-pr", publisher)
+        self.assertIn("--clean-dev-builds", publisher)
         self.assertIn("--dry-run", publisher)
         self.assertIn("contents: write", publisher)
         self.assertIn("pull-requests: write", publisher)

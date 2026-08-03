@@ -10,7 +10,7 @@ CLEAN_PR=0
 DRY_RUN=0
 
 usage() {
-    echo "usage: install.sh [--pr NUMBER] [--version TAG] [--clean-pr [--dry-run]]" >&2
+    echo "usage: install.sh [--pr NUMBER] [--version TAG] [--clean-dev-builds [--dry-run]]" >&2
     exit 2
 }
 
@@ -26,7 +26,7 @@ while [ "$#" -gt 0 ]; do
             VERSION="$2"
             shift 2
             ;;
-        --clean-pr)
+        --clean-dev-builds|--clean-pr)
             CLEAN_PR=1
             shift
             ;;
