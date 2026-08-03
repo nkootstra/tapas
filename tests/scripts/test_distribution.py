@@ -30,6 +30,14 @@ class DistributionTests(unittest.TestCase):
         self.assertIn("source_sha", script)
         self.assertIn("SHA256SUMS", script)
 
+    def test_windows_cleanup_script_is_scoped_and_documented(self) -> None:
+        script = (ROOT / "install.ps1").read_text(encoding="utf-8")
+        self.assertIn("CleanDevBuilds", script)
+        self.assertIn("DryRun", script)
+        self.assertIn("tapas-pr-*", script)
+        self.assertIn("Remove-Item -LiteralPath", script)
+        self.assertNotIn("tapas.exe", script)
+
     def test_install_script_cleans_only_local_pr_builds(self) -> None:
         script = ROOT / "install.sh"
         with tempfile.TemporaryDirectory() as directory:
@@ -113,6 +121,9 @@ class DistributionTests(unittest.TestCase):
         self.assertIn("--dry-run", publisher)
         self.assertIn("main_sha", publisher)
         self.assertIn("pinned_installer_url", publisher)
+        self.assertIn("install.ps1", publisher)
+        self.assertIn("CleanDevBuilds", publisher)
+        self.assertIn("pinned_windows_installer_url", publisher)
         self.assertIn("contents: write", publisher)
         self.assertIn("pull-requests: write", publisher)
         self.assertIn("contents: write", release)

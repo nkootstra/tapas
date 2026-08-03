@@ -129,6 +129,16 @@ If the branch URL is temporarily cached and prints the old usage text, use a com
 
 The PR workflow posts both the install and local cleanup commands to the pull request.
 
+On Windows, run the PowerShell cleanup script as follows:
+
+```powershell
+$script = Invoke-RestMethod 'https://github.com/nkootstra/tapas/raw/refs/heads/main/install.ps1'
+& ([scriptblock]::Create($script)) -CleanDevBuilds -DryRun
+& ([scriptblock]::Create($script)) -CleanDevBuilds
+```
+
+Use `-InstallDir C:\path\to\bin` when development builds are stored outside the default directory. The script only removes `tapas-pr-*` files and leaves `tapas.exe` untouched.
+
 ## Verification
 
 Run the standard gates:
