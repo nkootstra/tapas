@@ -91,7 +91,16 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/${REPOSITORY}/main/install-pr.sh | sh -s -- ${PR_NUMBER}
           \`\`\`
 
-          The installed command is \`tapas-pr-${short_sha}\`. [View the prerelease and checksums](${release_url}).
+          The installed command is \`tapas-pr-${short_sha}\` and reports \`tapas ${TAPAS_VERSION}-dev.${short_sha}\`.
+
+          Clean local PR builds without affecting stable \`tapas\`:
+
+          \`\`\`sh
+          curl -fsSL https://raw.githubusercontent.com/${REPOSITORY}/main/install.sh | sh -s -- --clean-pr --dry-run
+          curl -fsSL https://raw.githubusercontent.com/${REPOSITORY}/main/install.sh | sh -s -- --clean-pr
+          \`\`\`
+
+          [View the prerelease and checksums](${release_url}).
           EOF
           comment_id="$(gh api --paginate "repos/${REPOSITORY}/issues/${PR_NUMBER}/comments?per_page=100" \
             --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- tapas-pr-build -->"))) | .id' | head -n 1)"

@@ -3,6 +3,7 @@ name = "tapas"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.97.1"
+build = "build.rs"
 
 [dependencies]
 libc = "=0.2.189"
