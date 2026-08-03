@@ -22,6 +22,7 @@ REQUIRED_CAPABILITY_TYPES = {
     "claude_eligibility", "wrapper_dispatch", "git_subcommand", "pipe_detector",
     "transparent_runner", "exact_output_bypass", "stream_watch_policy", "generic_fallback",
 }
+PRODUCT_RUNNERS = {"bunx"}
 
 
 def git(repo: pathlib.Path, *args: str) -> bytes:
@@ -104,11 +105,11 @@ def benchmark_commands(path: pathlib.Path) -> set[str]:
 def rust_catalog(inventory: dict[str, Any]) -> bytes:
     capabilities = inventory["capabilities"]
     projections = {
-        "AUTO_WRAP_COMMANDS": sorted(cap["command"] for cap in capabilities if cap["type"] == "claude_eligibility"),
-        "WRAPPER_COMMANDS": sorted({command for cap in capabilities if cap["type"] == "wrapper_dispatch" for command in cap["commands"]}),
+        "AUTO_WRAP_COMMANDS": sorted({cap["command"] for cap in capabilities if cap["type"] == "claude_eligibility"} | PRODUCT_RUNNERS),
+        "WRAPPER_COMMANDS": sorted({command for cap in capabilities if cap["type"] == "wrapper_dispatch" for command in cap["commands"]} | PRODUCT_RUNNERS),
         "GIT_SUBCOMMANDS": sorted(cap["subcommand"] for cap in capabilities if cap["type"] == "git_subcommand"),
         "PIPE_DETECTORS": [cap["detector"] for cap in sorted((cap for cap in capabilities if cap["type"] == "pipe_detector"), key=lambda cap: cap["order"])],
-        "TRANSPARENT_RUNNERS": sorted(cap["runner"] for cap in capabilities if cap["type"] == "transparent_runner"),
+        "TRANSPARENT_RUNNERS": sorted({cap["runner"] for cap in capabilities if cap["type"] == "transparent_runner"} | PRODUCT_RUNNERS),
         "EXACT_OUTPUT_BYPASSES": sorted(cap["policy"] for cap in capabilities if cap["type"] == "exact_output_bypass"),
         "STREAM_WATCH_POLICIES": sorted(cap["policy"] for cap in capabilities if cap["type"] == "stream_watch_policy"),
     }

@@ -166,6 +166,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes musl-tools
 
+      - name: Set the build version label
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            echo "TAPAS_BUILD_LABEL=${TAPAS_VERSION}-dev.${SOURCE_SHA:0:8}" >> "$GITHUB_ENV"
+          else
+            echo "TAPAS_BUILD_LABEL=${TAPAS_VERSION}" >> "$GITHUB_ENV"
+          fi
+
       - name: Test
         run: cargo test --locked
 
@@ -184,7 +194,7 @@ jobs:
       - name: Verify architecture and version natively
         run: |
           file "${BINARY}"
-          "${BINARY}" --version | grep --fixed-strings "tapas ${TAPAS_VERSION}"
+          "${BINARY}" --version | grep --fixed-strings "tapas ${TAPAS_BUILD_LABEL}"
         env:
           BINARY: target/${{ matrix.target }}/z/tapas
 
@@ -194,6 +204,7 @@ jobs:
             --binary "${BINARY}" \
             --output "${OUTPUT}" \
             --version "${TAPAS_VERSION}" \
+            --version-label "${TAPAS_BUILD_LABEL}" \
             --source-sha "${SOURCE_SHA}" \
             --target "${TARGET}" \
             --abi "${ABI}" \
