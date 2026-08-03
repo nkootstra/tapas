@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-SCRIPT_URL="https://raw.githubusercontent.com/nkootstra/tapas/main/install.sh"
+SCRIPT_URL="https://github.com/nkootstra/tapas/raw/refs/heads/main/install.sh"
 command -v curl >/dev/null 2>&1 || { echo "curl is required" >&2; exit 1; }
 case "${1:-}" in
     --help|-h)

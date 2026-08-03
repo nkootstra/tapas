@@ -88,7 +88,7 @@ jobs:
           Install the matching macOS or Linux build:
 
           \`\`\`sh
-          curl -fsSL https://raw.githubusercontent.com/${REPOSITORY}/main/install-pr.sh | sh -s -- ${PR_NUMBER}
+          curl -fsSL https://github.com/${REPOSITORY}/raw/refs/heads/main/install-pr.sh | sh -s -- ${PR_NUMBER}
           \`\`\`
 
           The installed command is \`tapas-pr-${short_sha}\` and reports \`tapas ${TAPAS_VERSION}-dev.${short_sha}\`.
@@ -96,8 +96,8 @@ jobs:
           Clean local PR builds without affecting stable \`tapas\`:
 
           \`\`\`sh
-          curl -fsSL https://raw.githubusercontent.com/${REPOSITORY}/main/install.sh | sh -s -- --clean-pr --dry-run
-          curl -fsSL https://raw.githubusercontent.com/${REPOSITORY}/main/install.sh | sh -s -- --clean-pr
+          curl -fsSL https://github.com/${REPOSITORY}/raw/refs/heads/main/install.sh | sh -s -- --clean-dev-builds --dry-run
+          curl -fsSL https://github.com/${REPOSITORY}/raw/refs/heads/main/install.sh | sh -s -- --clean-dev-builds
           \`\`\`
 
           [View the prerelease and checksums](${release_url}).
