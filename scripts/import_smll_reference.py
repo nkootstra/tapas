@@ -56,6 +56,9 @@ WRAPPER_FAMILIES: dict[str, tuple[str, ...]] = {
     "shell_redispatch": ("sh", "bash", "zsh"),
 }
 
+# Tapas extends the frozen compatibility catalog with Bun's package runner.
+# It is common for local CLI applications to be invoked as `bunx <package>`.
+PRODUCT_RUNNERS = ("bunx",)
 RUNNERS = ("uv run", "uvx", "poetry run", "pnpm exec", "npx")
 EXACT_BYPASSES = (
     "query",
@@ -438,8 +441,14 @@ def encoded_json(document: dict[str, Any]) -> bytes:
 
 def rust_catalog(inventory: dict[str, Any]) -> bytes:
     capabilities = inventory["capabilities"]
-    auto_wrap = sorted(cap["command"] for cap in capabilities if cap["type"] == "claude_eligibility")
-    wrapper = sorted({command for cap in capabilities if cap["type"] == "wrapper_dispatch" for command in cap["commands"]})
+    auto_wrap = sorted(
+        {cap["command"] for cap in capabilities if cap["type"] == "claude_eligibility"}
+        | set(PRODUCT_RUNNERS)
+    )
+    wrapper = sorted(
+        {command for cap in capabilities if cap["type"] == "wrapper_dispatch" for command in cap["commands"]}
+        | set(PRODUCT_RUNNERS)
+    )
     git_subcommands = sorted(cap["subcommand"] for cap in capabilities if cap["type"] == "git_subcommand")
     pipe_detectors = [
         cap["detector"]
@@ -448,7 +457,10 @@ def rust_catalog(inventory: dict[str, Any]) -> bytes:
             key=lambda cap: cap["order"],
         )
     ]
-    runners = sorted(cap["runner"] for cap in capabilities if cap["type"] == "transparent_runner")
+    runners = sorted(
+        {cap["runner"] for cap in capabilities if cap["type"] == "transparent_runner"}
+        | set(PRODUCT_RUNNERS)
+    )
     exact_bypasses = sorted(cap["policy"] for cap in capabilities if cap["type"] == "exact_output_bypass")
     stream_policies = sorted(cap["policy"] for cap in capabilities if cap["type"] == "stream_watch_policy")
 

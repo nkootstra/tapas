@@ -6,6 +6,7 @@ pub const AUTO_WRAP_COMMANDS: &[&str] = &[
     "biome",
     "brew",
     "bun",
+    "bunx",
     "cargo",
     "cat",
     "composer",
@@ -57,6 +58,7 @@ pub const WRAPPER_COMMANDS: &[&str] = &[
     "biome",
     "brew",
     "bun",
+    "bunx",
     "cargo",
     "cat",
     "composer",
@@ -166,6 +168,7 @@ pub const PIPE_DETECTORS: &[&str] = &[
     "GenericCompactPipe",
 ];
 pub const TRANSPARENT_RUNNERS: &[&str] = &[
+    "bunx",
     "npx",
     "pnpm exec",
     "poetry run",

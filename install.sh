@@ -6,9 +6,11 @@ INSTALL_DIR="${TAPAS_INSTALL_DIR:-${XDG_BIN_HOME:-$HOME/.local/bin}}"
 PR_NUMBER=""
 VERSION=""
 HEAD_SHA=""
+CLEAN_PR=0
+DRY_RUN=0
 
 usage() {
-    echo "usage: install.sh [--pr NUMBER] [--version TAG]" >&2
+    echo "usage: install.sh [--pr NUMBER] [--version TAG] [--clean-pr [--dry-run]]" >&2
     exit 2
 }
 
@@ -24,6 +26,14 @@ while [ "$#" -gt 0 ]; do
             VERSION="$2"
             shift 2
             ;;
+        --clean-pr)
+            CLEAN_PR=1
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=1
+            shift
+            ;;
         --help|-h)
             usage
             ;;
@@ -38,6 +48,27 @@ case "$PR_NUMBER" in
         [ -z "$PR_NUMBER" ] || { echo "PR number must be numeric" >&2; exit 2; }
         ;;
 esac
+
+if [ "$CLEAN_PR" -eq 1 ]; then
+    [ -z "$PR_NUMBER" ] && [ -z "$VERSION" ] || usage
+    found=0
+    for candidate in "$INSTALL_DIR"/tapas-pr-*; do
+        [ -f "$candidate" ] || continue
+        found=1
+        if [ "$DRY_RUN" -eq 1 ]; then
+            echo "would remove $candidate"
+        else
+            rm -f -- "$candidate"
+            echo "removed $candidate"
+        fi
+    done
+    if [ "$found" -eq 0 ]; then
+        echo "no local PR builds found in $INSTALL_DIR"
+    fi
+    exit 0
+fi
+
+[ "$DRY_RUN" -eq 0 ] || usage
 
 case "$(uname -s):$(uname -m)" in
     Darwin:arm64|Darwin:aarch64) TARGET="aarch64-apple-darwin" ;;
@@ -136,7 +167,16 @@ if sys.argv[3] and metadata.get("source_sha") != sys.argv[4]:
     raise SystemExit("PR build source SHA mismatch")
 PY
 
+BUILD_LABEL="$(python3 - "$METADATA" <<'PY'
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as handle:
+    metadata = json.load(handle)
+print(metadata.get("version_label", metadata["version"]))
+PY
+)"
+
 cp "$TMP_DIR/unpacked/tapas" "$INSTALL_DIR/$BINARY_NAME"
 chmod 755 "$INSTALL_DIR/$BINARY_NAME"
 echo "installed $VERSION_LABEL as $INSTALL_DIR/$BINARY_NAME"
+echo "version: $BUILD_LABEL"
 echo "run: $BINARY_NAME --version"

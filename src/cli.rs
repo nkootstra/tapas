@@ -61,7 +61,7 @@ pub fn run(
             Ok(0)
         }
         [arg] if arg == OsStr::new("--version") => {
-            writeln!(stdout, "tapas {}", env!("CARGO_PKG_VERSION"))?;
+            writeln!(stdout, "tapas {}", env!("TAPAS_BUILD_LABEL"))?;
             Ok(0)
         }
         [arg] if arg == OsStr::new("--help") || arg == OsStr::new("-h") => {
