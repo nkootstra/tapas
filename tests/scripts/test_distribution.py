@@ -130,6 +130,8 @@ class DistributionTests(unittest.TestCase):
         self.assertIn("pinned_windows_installer_url", publisher)
         self.assertIn(r"^v[0-9]+\.[0-9]+\.[0-9]+$", release)
         self.assertIn('test "$version" = "${TAG#v}"', release)
+        self.assertIn('cleanup_body="$(printf', cleanup)
+        self.assertNotIn("<<'EOF'", cleanup)
         self.assertIn("contents: write", publisher)
         self.assertIn("pull-requests: write", publisher)
         self.assertIn("contents: write", release)
