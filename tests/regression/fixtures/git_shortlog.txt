@@ -1,0 +1,3 @@
+    12  Niels Kootstra
+     5  Release Bot
+     2  Tapas Contributors

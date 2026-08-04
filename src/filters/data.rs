@@ -14,6 +14,7 @@ pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
                     | b"pup"
                     | b"acli"
                     | b"gh"
+                    | b"sqlite3"
                     | b"cat"
                     | b"docker"
                     | b"docker-compose"
@@ -82,6 +83,14 @@ pub fn dispatch_streams_argv(
         ));
     }
 
+    if command == b"sqlite3" && matches_sqlite_table(stdout) {
+        return Ok(StreamFilterOutput::new(
+            compact_sqlite_table(stdout),
+            stderr.to_vec(),
+            EvidenceClass::PotentiallyLossy,
+        ));
+    }
+
     if is_columnar_command(command) && matches_columnar(stdout) {
         return Ok(StreamFilterOutput::new(
             compact_columnar(stdout),
@@ -118,5 +127,6 @@ use exact::gh_wants_data_output;
 pub use exact::{sigil_rle, ws_rle};
 pub(crate) use json::compact_json;
 use table::{
-    compact_columnar, compact_pup_table, is_columnar_command, matches_columnar, matches_pup_table,
+    compact_columnar, compact_pup_table, compact_sqlite_table, is_columnar_command,
+    matches_columnar, matches_pup_table, matches_sqlite_table,
 };

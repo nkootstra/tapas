@@ -1,14 +1,14 @@
 # Tapas
 
-Tapas reduces the tokens consumed by command-line output before that output reaches a coding agent. It is the Rust successor to [smll](https://github.com/nkootstra/smll), with smll `v1.9.0` pinned as its behavioral oracle.
+Tapas reduces the tokens consumed by command-line output before that output reaches a coding agent. It is the maintained Rust successor to the archived [smll](https://github.com/nkootstra/smll) project, and it owns its command catalog and regression corpus directly.
 
-`0.1.0` is an internal compatibility release. It starts a fresh version line and intentionally has no `smll` executable alias, `SMLL_` environment aliases, or automatic `~/.smll` migration.
+`0.1.0` starts a fresh version line and intentionally has no `smll` executable alias, `SMLL_` environment aliases, or automatic `~/.smll` migration.
 
 ## Results
 
-The pinned 94-case smll CLI corpus contains representative Git, test, build, package, listing, infrastructure, and log output. Using the vendored `o200k_base` tokenizer proxy, Tapas currently reduces that corpus from 509,798 to 159,524 tokens: 68.71% fewer tokens. Ninety-one combined outputs match the pinned smll baseline exactly; the remaining three cases are documented intentional differences, with an 18-token net increase versus the baseline. The two verbose-curl cases intentionally keep response bodies on stdout and compact request metadata on stderr; they preserve the pinned facts and token counts while correcting smll's stream routing.
+Tapas is validated against a static regression corpus of representative Git, test, build, package, listing, infrastructure, and log output (`tests/regression/`). Every filter is required to keep exit status and actionable facts intact, and to leave the output readable for an agent; compaction that would drop a fact falls open to the raw output instead. Intentional divergences from the historical smll behavior are documented in `tests/regression/intentional-differences.json`.
 
-This is a deterministic regression benchmark, not a claim about every model, prompt, or billing tokenizer. Tapas keeps exit status and actionable facts as the primary compatibility gates.
+This is a deterministic regression guarantee, not a claim about every model, prompt, or billing tokenizer. Exit status and actionable facts are the primary compatibility gates.
 
 ## Usage
 
@@ -162,18 +162,27 @@ Run the standard gates:
 cargo fmt --all -- --check
 cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked
+python3 -m unittest discover --start-directory tests/scripts --pattern 'test_*.py'
+python3 scripts/audit_catalog.py
 ```
 
-Run the token benchmark:
+Run the regression parity harness against a built binary:
 
 ```sh
-python3 -m venv .benchmark-venv
-.benchmark-venv/bin/pip install -r scripts/requirements-benchmark.txt
-.benchmark-venv/bin/python scripts/historical_benchmark.py \
-  --tapas-bin target/debug/tapas
+cargo build --locked
+python3 scripts/parity.py --binary target/debug/tapas --tool tapas
 ```
 
-The source inventory, fixtures, benchmark cases, tokenizer asset, and smll output baseline are pinned and hash-audited. The broader source inventory—not the historical benchmark alone—defines `0.1.0` command coverage.
+Inspect command usage against the catalog:
+
+```sh
+python3 scripts/usage_report.py --format json --minimum 5
+```
+
+The usage report reads session history without modifying it and highlights
+commands or Git subcommands that are used but not covered by the catalog.
+
+The command catalog in `src/catalog.rs` is tapas-owned and audited for internal consistency: every auto-wrap command must be backed by a filter family, every git subcommand must have a dispatch arm, and every filter family must have regression tests. The regression corpus under `tests/regression/` is static test data, grown alongside new filters.
 
 ## Current scope
 

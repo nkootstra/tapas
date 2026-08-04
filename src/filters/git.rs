@@ -258,6 +258,51 @@ pub fn dispatch_argv(
             apply_stash(stdout, b""),
             EvidenceClass::FactComplete,
         )),
+        b"config" => {
+            let args = &argv[1..];
+            if (!has_arg(args, b"--list") && !has_arg(args, b"-l"))
+                || has_arg(args, b"--null")
+                || has_arg(args, b"-z")
+            {
+                Ok(passthrough(stdout))
+            } else {
+                Ok(FilterOutput::new(
+                    compact_trimmed_lines(stdout),
+                    EvidenceClass::FactComplete,
+                ))
+            }
+        }
+        // `git grep` emits one match per line; the output is already compact
+        // and actionable, so it is intentionally left byte-exact.
+        b"grep" => Ok(passthrough(stdout)),
+        b"remote" => match compact_remote(&argv[1..], stdout) {
+            Some(output) => Ok(FilterOutput::new(output, EvidenceClass::FactComplete)),
+            None => Ok(passthrough(stdout)),
+        },
+        b"shortlog" => Ok(FilterOutput::new(
+            compact_shortlog(stdout),
+            EvidenceClass::FactComplete,
+        )),
+        b"tag" => {
+            if has_format_or_pretty_arg(&argv[1..]) || has_arg(&argv[1..], b"--column") {
+                Ok(passthrough(stdout))
+            } else {
+                Ok(FilterOutput::new(
+                    compact_trimmed_lines(stdout),
+                    EvidenceClass::FactComplete,
+                ))
+            }
+        }
+        b"worktree" => {
+            if has_arg(&argv[1..], b"--porcelain") || has_arg(&argv[1..], b"-z") {
+                Ok(passthrough(stdout))
+            } else {
+                Ok(FilterOutput::new(
+                    compact_worktree(stdout),
+                    EvidenceClass::FactComplete,
+                ))
+            }
+        }
         _ => Ok(passthrough(stdout)),
     }
 }
@@ -342,7 +387,8 @@ use diff::apply_diff;
 use log::{apply_log_compact, apply_log_stat_compact, apply_show, matches_log, matches_show};
 use merge::{apply_merge, matches_merge};
 use refs::{
-    apply_branch, apply_reflog, has_arg, has_format_or_pretty_arg, matches_branch, matches_diff,
+    apply_branch, apply_reflog, compact_remote, compact_shortlog, compact_trimmed_lines,
+    compact_worktree, has_arg, has_format_or_pretty_arg, matches_branch, matches_diff,
     matches_reflog, passthrough,
 };
 use status::{apply_status, matches_status};

@@ -1,6 +1,6 @@
 use tapas::filters::{EvidenceClass, StreamFilterOutput, infra};
 
-const FIXTURES: &str = "compat/smll-v1.9.0/fixtures/tests/fixtures";
+const FIXTURES: &str = "regression/fixtures";
 
 fn fixture(name: &str) -> Vec<u8> {
     std::fs::read(format!(
@@ -153,6 +153,114 @@ fn gh_list_routes_match_the_pinned_oracle_shapes() {
         &output.stdout,
         b"failure release size gate Release main workflow_run"
     ));
+}
+
+#[test]
+fn gh_extended_list_and_json_routes_keep_actionable_facts() {
+    let search = fixture("gh_search_repos.txt");
+    let output =
+        infra::dispatch_streams_argv(&[b"gh", b"search", b"repos"], &search, b"", 0, false)
+            .unwrap();
+    assert!(contains(
+        &output.stdout,
+        b"cli/cli\tGitHub's official command-line tool"
+    ));
+    assert!(contains(
+        &output.stdout,
+        b"sharkdp/fd\tA simple, fast alternative to find"
+    ));
+    assert!(!contains(&output.stdout, b"                       "));
+
+    let empty_field = b"A  B  C\n1     3\n";
+    let output =
+        infra::dispatch_streams_argv(&[b"gh", b"search", b"repos"], empty_field, b"", 0, false)
+            .unwrap();
+    assert_eq!(output.stdout, b"A\tB\tC\n1\t\t3\n");
+
+    let embedded_spaces =
+        b"TITLE          NUMBER  STATE\nTitle with  internal spaces  #1      OPEN\n";
+    let output =
+        infra::dispatch_streams_argv(&[b"gh", b"issue", b"list"], embedded_spaces, b"", 0, false)
+            .unwrap();
+    assert_eq!(
+        output.stdout,
+        b"TITLE\tNUMBER\tSTATE\nTitle with  internal spaces\t#1\tOPEN\n"
+    );
+
+    let search_embedded = concat!(
+        "REPO         DESCRIPTION  STARS  LANGUAGE  UPDATED\n",
+        "repo         A description with a very long sequence of words and an embedded  gap at end  42  Rust  2026-08-01T00:00:00Z\n",
+    );
+    let output = infra::dispatch_streams_argv(
+        &[b"gh", b"search", b"repos"],
+        search_embedded.as_bytes(),
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(
+        output.stdout,
+        concat!(
+            "REPO\tDESCRIPTION\tSTARS\tLANGUAGE\tUPDATED\n",
+            "repo\tA description with a very long sequence of words and an embedded  gap at end\t42\tRust\t2026-08-01T00:00:00Z\n",
+        )
+        .as_bytes()
+    );
+
+    let releases = fixture("gh_release_list.txt");
+    let output =
+        infra::dispatch_streams_argv(&[b"gh", b"release", b"list"], &releases, b"", 0, false)
+            .unwrap();
+    assert!(contains(&output.stdout, b"Tapas 0.2.0\tLatest\tv0.2.0"));
+    assert!(contains(&output.stdout, b"v0.1.0-rc.1"));
+
+    let issues = fixture("gh_issue_list.txt");
+    let output =
+        infra::dispatch_streams_argv(&[b"gh", b"issue", b"list"], &issues, b"", 0, false).unwrap();
+    assert!(contains(
+        &output.stdout,
+        b"Preserve actionable output for gh search\t#42\tOPEN\tnkootstra"
+    ));
+    assert!(contains(&output.stdout, b"#41\tOPEN\tagent"));
+}
+
+#[test]
+fn gh_api_and_json_selection_compact_json_but_jq_stays_exact() {
+    let json = fixture("gh_api.json");
+    let expected =
+        b"{\"nameWithOwner\":\"nkootstra/tapas\",\"description\":\"Compact command output for coding agents\",\"isPrivate\":false,\"defaultBranchRef\":{\"name\":\"main\"},\"topics\":[\"agents\",\"cli\",\"rust\"]}\n";
+
+    for argv in [
+        &[b"gh".as_slice(), b"api", b"repos/nkootstra/tapas"][..],
+        &[
+            b"gh".as_slice(),
+            b"repo",
+            b"view",
+            b"--json",
+            b"nameWithOwner",
+        ][..],
+    ] {
+        let output = infra::dispatch_streams_argv(argv, &json, b"", 0, false).unwrap();
+        assert_eq!(output.stdout, expected);
+    }
+
+    let jq_output = b"nkootstra/tapas\n";
+    let output = infra::dispatch_streams_argv(
+        &[
+            b"gh",
+            b"api",
+            b"repos/nkootstra/tapas",
+            b"--jq",
+            b".nameWithOwner",
+        ],
+        jq_output,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(output.stdout, jq_output);
 }
 
 #[test]
