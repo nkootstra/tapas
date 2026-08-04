@@ -5,10 +5,34 @@ import os
 import pathlib
 import subprocess
 import tempfile
+import textwrap
 import unittest
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+
+def workflow_run_blocks(workflow: str) -> list[str]:
+    lines = workflow.splitlines()
+    blocks = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if line.strip() != "run: |":
+            index += 1
+            continue
+        key_indent = len(line) - len(line.lstrip())
+        index += 1
+        block = []
+        while index < len(lines):
+            candidate = lines[index]
+            indent = len(candidate) - len(candidate.lstrip())
+            if candidate.strip() and indent <= key_indent:
+                break
+            block.append(candidate)
+            index += 1
+        blocks.append(textwrap.dedent("\n".join(block)).strip())
+    return blocks
 
 
 class DistributionTests(unittest.TestCase):
@@ -130,6 +154,17 @@ class DistributionTests(unittest.TestCase):
         self.assertIn("pinned_windows_installer_url", publisher)
         self.assertIn(r"^v[0-9]+\.[0-9]+\.[0-9]+$", release)
         self.assertIn('test "$version" = "${TAG#v}"', release)
+        blocks = workflow_run_blocks(cleanup)
+        self.assertEqual(len(blocks), 2)
+        for block in blocks:
+            result = subprocess.run(
+                ["bash", "-n"],
+                input=block,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("contents: write", publisher)
         self.assertIn("pull-requests: write", publisher)
         self.assertIn("contents: write", release)
