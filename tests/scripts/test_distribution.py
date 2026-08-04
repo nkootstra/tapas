@@ -32,15 +32,11 @@ class DistributionTests(unittest.TestCase):
 
     def test_windows_cleanup_script_is_scoped_and_documented(self) -> None:
         script = (ROOT / "install.ps1").read_text(encoding="utf-8")
-        self.assertIn("Invoke-RestMethod", script)
-        self.assertIn("Get-FileHash", script)
-        self.assertIn("-Version", script)
         self.assertIn("CleanDevBuilds", script)
         self.assertIn("DryRun", script)
         self.assertIn("tapas-pr-*", script)
         self.assertIn("Remove-Item -LiteralPath", script)
-        self.assertIn("tapas.exe", script)
-        self.assertIn("Expand-Archive", script)
+        self.assertNotIn("Expand-Archive", script)
 
     def test_install_script_cleans_only_local_pr_builds(self) -> None:
         script = ROOT / "install.sh"
@@ -132,8 +128,6 @@ class DistributionTests(unittest.TestCase):
         self.assertIn("install.ps1", publisher)
         self.assertIn("CleanDevBuilds", publisher)
         self.assertIn("pinned_windows_installer_url", publisher)
-        self.assertIn("x86_64-pc-windows-msvc", release)
-        self.assertIn("tapas-${target}.zip", release)
         self.assertIn(r"^v[0-9]+\.[0-9]+\.[0-9]+$", release)
         self.assertIn('test "$version" = "${TAG#v}"', release)
         self.assertIn("contents: write", publisher)
