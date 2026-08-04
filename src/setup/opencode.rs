@@ -77,6 +77,16 @@ fn setup_opencode(
 
     let plugin_dir = location.config_path.parent().expect("plugin path parent");
     let mut predecessors = opencode_predecessors(plugin_dir)?;
+    let smll_directory = plugin_dir.join("smll-proxy");
+    let smll_artifact_digests = ["index.ts", "package.json"]
+        .map(|name| {
+            predecessors
+                .iter()
+                .find(|item| item.recognized && item.path == smll_directory.join(name))
+                .map(|item| smll_digest(&item.content))
+        })
+        .into_iter()
+        .collect::<Option<Vec<_>>>();
     if let Some(home) = std::env::var_os("HOME") {
         let path = PathBuf::from(home).join(".smll/setup/opencode.owned");
         match fs::symlink_metadata(&path) {
@@ -91,7 +101,9 @@ fn setup_opencode(
             Ok(_) => {
                 let content = read_optional(&path, MAX_CONFIG_BYTES)?.unwrap_or_default();
                 predecessors.push(Predecessor {
-                    recognized: contains_ignore_ascii_case(&content, b"opencode"),
+                    recognized: smll_artifact_digests.as_deref().is_some_and(|digests| {
+                        smll_opencode_ownership_recognized(&content, &digests[0], &digests[1])
+                    }),
                     mode: existing_mode(&path, 0o600),
                     path,
                     content,
@@ -205,7 +217,6 @@ fn setup_opencode(
     let original_mode = existing_mode(&location.config_path, 0o600);
     let config_mode = existing_mode(&config_path, 0o600);
     let ownership_before = read_optional(&location.ownership_path, MAX_CONFIG_BYTES)?;
-    let smll_directory = plugin_dir.join("smll-proxy");
     let removes_smll_directory = predecessors
         .iter()
         .any(|item| item.path.parent() == Some(smll_directory.as_path()));
@@ -455,6 +466,111 @@ fn predecessor_content_recognized(content: &[u8], kind: PredecessorKind) -> bool
     }
 }
 
+fn smll_opencode_ownership_recognized(
+    content: &[u8],
+    index_digest: &[u8; 16],
+    package_digest: &[u8; 16],
+) -> bool {
+    let Some(rest) = content.strip_prefix(b"smll-setup-v1\n") else {
+        return false;
+    };
+    let Some(newline) = rest.iter().position(|byte| *byte == b'\n') else {
+        return false;
+    };
+    let envelope_digest = &rest[..newline];
+    let payload = &rest[newline + 1..];
+    payload.len() == 33
+        && payload[16] == b'\n'
+        && envelope_digest == smll_digest(payload)
+        && payload[..16] == index_digest[..]
+        && payload[17..] == package_digest[..]
+}
+
+fn smll_digest(input: &[u8]) -> [u8; 16] {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut value = wyhash(input);
+    let mut output = [0_u8; 16];
+    for byte in output.iter_mut().rev() {
+        *byte = HEX[(value & 0x0f) as usize];
+        value >>= 4;
+    }
+    output
+}
+
+fn wyhash(input: &[u8]) -> u64 {
+    const SECRET: [u64; 4] = [
+        0xa076_1d64_78bd_642f,
+        0xe703_7ed1_a0b4_28db,
+        0x8ebc_6af0_9c88_c6e3,
+        0x5899_65cc_7537_4cc3,
+    ];
+    let initial = wyhash_mix(SECRET[0], SECRET[1]);
+    let mut state = [initial; 3];
+    let (mut a, mut b);
+
+    if input.len() <= 16 {
+        if input.len() >= 4 {
+            let end = input.len() - 4;
+            let quarter = (input.len() >> 3) << 2;
+            a = (read_le(input, 0, 4) << 32) | read_le(input, quarter, 4);
+            b = (read_le(input, end, 4) << 32) | read_le(input, end - quarter, 4);
+        } else if input.is_empty() {
+            a = 0;
+            b = 0;
+        } else {
+            a = (u64::from(input[0]) << 16)
+                | (u64::from(input[input.len() >> 1]) << 8)
+                | u64::from(input[input.len() - 1]);
+            b = 0;
+        }
+    } else {
+        let mut offset = 0;
+        if input.len() >= 48 {
+            while offset + 48 < input.len() {
+                for index in 0..3 {
+                    let start = offset + index * 16;
+                    state[index] = wyhash_mix(
+                        read_le(input, start, 8) ^ SECRET[index + 1],
+                        read_le(input, start + 8, 8) ^ state[index],
+                    );
+                }
+                offset += 48;
+            }
+            state[0] ^= state[1] ^ state[2];
+        }
+        while offset + 16 < input.len() {
+            state[0] = wyhash_mix(
+                read_le(input, offset, 8) ^ SECRET[1],
+                read_le(input, offset + 8, 8) ^ state[0],
+            );
+            offset += 16;
+        }
+        a = read_le(input, input.len() - 16, 8);
+        b = read_le(input, input.len() - 8, 8);
+    }
+
+    a ^= SECRET[1];
+    b ^= state[0];
+    let product = u128::from(a) * u128::from(b);
+    a = product as u64;
+    b = (product >> 64) as u64;
+    wyhash_mix(a ^ SECRET[0] ^ input.len() as u64, b ^ SECRET[1])
+}
+
+fn read_le(input: &[u8], start: usize, len: usize) -> u64 {
+    input[start..start + len]
+        .iter()
+        .enumerate()
+        .fold(0, |value, (index, byte)| {
+            value | (u64::from(*byte) << (index * 8))
+        })
+}
+
+fn wyhash_mix(left: u64, right: u64) -> u64 {
+    let product = u128::from(left) * u128::from(right);
+    product as u64 ^ (product >> 64) as u64
+}
+
 fn opencode_config_without_predecessors(input: &[u8], plugin_dir: &Path) -> Result<Vec<u8>, ()> {
     let smll_directory = plugin_dir.join("smll-proxy");
     let values = vec![
@@ -528,7 +644,9 @@ export const Tapas = async () => ({
     if (input.tool !== "bash" || typeof output.args?.command !== "string") return;
     try {
       const result = Bun.spawnSync([tapas, "--hook-eval", "opencode"], {
-        stdin: JSON.stringify({ tool_input: { command: output.args.command } }),
+        stdin: new TextEncoder().encode(
+          JSON.stringify({ tool_input: { command: output.args.command } }),
+        ),
         stdout: "pipe",
         stderr: "ignore",
         timeout: 1000,

@@ -1,0 +1,89 @@
+name: Harness version canary
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: harness-version-canary
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  latest-harness:
+    name: Latest harness canary (${{ matrix.harness }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        harness:
+          - claude
+          - codex
+          - opencode
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/harness-e2e/package-lock.json
+
+      - name: Install Bun for the OpenCode plugin contract
+        if: matrix.harness == 'opencode'
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+        with:
+          bun-version: 1.4.0
+
+      - name: Build Tapas
+        run: cargo build --locked
+
+      - name: Install the pinned test infrastructure
+        working-directory: tests/harness-e2e
+        run: npm ci
+
+      - name: Replace the selected harness with its latest release
+        env:
+          HARNESS: ${{ matrix.harness }}
+        working-directory: tests/harness-e2e
+        run: |
+          case "$HARNESS" in
+            claude) package='@anthropic-ai/claude-code@latest' ;;
+            codex) package='@openai/codex@latest' ;;
+            opencode) package='opencode-ai@latest' ;;
+          esac
+          npm install --no-save --package-lock=false "$package"
+
+      - name: Exercise the generated OpenCode plugin directly
+        if: matrix.harness == 'opencode'
+        env:
+          TAPAS_REQUIRE_BUN: 1
+        run: cargo test --locked --test setup opencode_setup_is_idempotent_and_unsetup_removes_only_tapas
+
+      - name: Run the real harness contract
+        env:
+          TAPAS_HARNESS: ${{ matrix.harness }}
+          TAPAS_HARNESS_ARTIFACTS: ${{ runner.temp }}/tapas-harness-artifacts
+        working-directory: tests/harness-e2e
+        run: npm test
+
+      - name: Upload canary diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tapas-${{ matrix.harness }}-latest-canary
+          path: ${{ runner.temp }}/tapas-harness-artifacts/${{ matrix.harness }}
+          if-no-files-found: warn
+          retention-days: 14
+          compression-level: 9

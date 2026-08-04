@@ -425,6 +425,13 @@ fn opencode_force_removes_smll_registration_losslessly() {
         b"{\"name\":\"smll-proxy\",\"main\":\"index.ts\"}\n",
     )
     .unwrap();
+    let smll_ownership = home.path(".smll/setup/opencode.owned");
+    fs::create_dir_all(smll_ownership.parent().unwrap()).unwrap();
+    fs::write(
+        &smll_ownership,
+        b"smll-setup-v1\nee10f25e7743059b\n265e0e6e87cc138a\n90fcd6f4857a96d7",
+    )
+    .unwrap();
     let registered = proxy.as_os_str().as_encoded_bytes();
     let mut config =
         b"{\n  \"theme\" : \"dark\",\n  \"plugin\" : [\n    \"keep-me\",\n    \"".to_vec();
@@ -456,7 +463,51 @@ fn opencode_force_removes_smll_registration_losslessly() {
             .any(|part| part == registered)
     );
     assert!(!proxy.exists());
+    assert!(!smll_ownership.exists());
     assert!(root.join("plugins/tapas.js").exists());
+}
+
+#[test]
+fn opencode_force_preserves_jsonc_and_external_predecessor_conflicts() {
+    let home = TestHome::new();
+    let xdg = home.path("xdg");
+    let root = xdg.join("opencode");
+    fs::create_dir_all(&root).unwrap();
+    let jsonc = root.join("opencode.jsonc");
+    let jsonc_before = b"{ // user comments\n  \"plugin\": [\"smll-proxy\"]\n}\n";
+    fs::write(&jsonc, jsonc_before).unwrap();
+
+    let blocked = tapas_with_env(
+        &home,
+        &["--setup", "opencode", "--force"],
+        b"",
+        &[("XDG_CONFIG_HOME", xdg.as_path())],
+    );
+    assert_eq!(blocked.status.code(), Some(1));
+    assert_eq!(fs::read(&jsonc).unwrap(), jsonc_before);
+    assert!(!root.join("plugins/tapas.js").exists());
+    assert!(!home.path(".tapas/setup/opencode.owned").exists());
+
+    fs::remove_file(&jsonc).unwrap();
+    let custom = home.path("custom-opencode");
+    let external = custom.join("plugins/rtk.ts");
+    fs::create_dir_all(external.parent().unwrap()).unwrap();
+    let external_before = b"// rtk rewrite\nexport const RtkOpenCodePlugin = async () => ({ \"tool.execute.before\": async () => {} })\n";
+    fs::write(&external, external_before).unwrap();
+
+    let blocked = tapas_with_env(
+        &home,
+        &["--setup", "opencode", "--force"],
+        b"",
+        &[
+            ("XDG_CONFIG_HOME", xdg.as_path()),
+            ("OPENCODE_CONFIG_DIR", custom.as_path()),
+        ],
+    );
+    assert_eq!(blocked.status.code(), Some(1));
+    assert_eq!(fs::read(&external).unwrap(), external_before);
+    assert!(!root.join("plugins/tapas.js").exists());
+    assert!(!home.path(".tapas/setup/opencode.owned").exists());
 }
 
 #[test]
@@ -1068,6 +1119,10 @@ fn ownership_digest(input: &[u8]) -> [u8; 16] {
 
 fn assert_opencode_plugin_behavior(plugin: &std::path::Path) {
     if Command::new("bun").arg("--version").output().is_err() {
+        assert!(
+            std::env::var_os("TAPAS_REQUIRE_BUN").is_none(),
+            "Bun is required for the OpenCode plugin runtime contract"
+        );
         return;
     }
     let url = format!("file://{}", plugin.display());
@@ -1077,7 +1132,7 @@ const hook = (await plugin.Tapas())["tool.execute.before"];
 let calls = 0;
 Bun.spawnSync = (_argv, options) => {
   calls += 1;
-  if (!options.stdin.includes('"command":"git status"')) throw new Error("bad stdin");
+  if (!new TextDecoder().decode(options.stdin).includes('"command":"git status"')) throw new Error("bad stdin");
   return { exitCode: 0, stdout: { toString: () => "'/tmp/tapas' git status\n" } };
 };
 const other = { args: { command: "git status", workdir: "/work", timeout: 123 } };

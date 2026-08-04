@@ -180,6 +180,17 @@ cargo build --locked
 python3 scripts/parity.py --binary target/debug/tapas --tool tapas
 ```
 
+Run the pinned real-harness contracts with Node.js 22 or newer. These tests use
+aimock locally and do not require provider credentials:
+
+```sh
+cargo build --locked
+npm --prefix tests/harness-e2e ci
+for harness in claude codex opencode; do
+  TAPAS_HARNESS="$harness" npm --prefix tests/harness-e2e test
+done
+```
+
 Inspect command usage against the catalog:
 
 ```sh
