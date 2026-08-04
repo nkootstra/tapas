@@ -95,6 +95,7 @@ fn row_starts(line: &[u8], header_starts: &[usize]) -> Vec<usize> {
             cursor,
             nominal,
             header_starts.get(field_index + 1).copied(),
+            header_starts.len() - field_index,
         )
         .unwrap_or(nominal);
         starts.push(start);
@@ -108,9 +109,16 @@ fn nearest_column_boundary(
     cursor: usize,
     nominal: usize,
     next_nominal: Option<usize>,
+    boundaries_remaining: usize,
 ) -> Option<usize> {
     let mut index = cursor.min(line.len());
-    let mut best = None;
+    let mut before = None;
+    let mut aligned = None;
+    let mut within = None;
+    let mut within_count = 0;
+    let mut crossing = None;
+    let mut overflow = Vec::new();
+    let mut after = None;
     while index < line.len() {
         if line[index].is_ascii_whitespace() {
             let start = index;
@@ -118,28 +126,50 @@ fn nearest_column_boundary(
                 index += 1;
             }
             if index - start >= 2 && index < line.len() {
-                let distance = if index <= nominal {
-                    nominal - index
-                } else if start >= nominal {
-                    start.saturating_sub(nominal)
+                if next_nominal.is_some_and(|next| start <= nominal && index >= next) {
+                    return Some(nominal.max(cursor));
+                }
+                if start < nominal && index >= nominal {
+                    aligned.get_or_insert(index);
+                } else if index <= nominal {
+                    before = Some(index);
+                } else if let Some(next) = next_nominal {
+                    if index <= next {
+                        within = Some(index);
+                        within_count += 1;
+                    } else if start >= next {
+                        overflow.push(index);
+                    } else {
+                        crossing.get_or_insert(index);
+                    }
                 } else {
-                    0
-                };
-                let candidate = if start < nominal && next_nominal.is_some_and(|next| index >= next)
-                {
-                    nominal
-                } else {
-                    index
-                };
-                if best.is_none_or(|(best_distance, _)| distance < best_distance) {
-                    best = Some((distance, candidate));
+                    after.get_or_insert(index);
                 }
             }
         } else {
             index += 1;
         }
     }
-    best.map(|(_, candidate)| candidate)
+    if aligned.is_some() {
+        return aligned;
+    }
+    if next_nominal.is_some() {
+        if crossing.is_some() {
+            return before.or(crossing);
+        }
+        let candidate_count = within_count + overflow.len();
+        if candidate_count > boundaries_remaining {
+            let skipped = candidate_count - boundaries_remaining;
+            if skipped >= within_count {
+                return overflow
+                    .get(skipped - within_count)
+                    .copied()
+                    .or_else(|| overflow.last().copied());
+            }
+        }
+        return within.or_else(|| overflow.first().copied()).or(before);
+    }
+    after.or(before)
 }
 
 fn column_starts(header: &[u8]) -> Vec<usize> {

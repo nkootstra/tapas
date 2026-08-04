@@ -18,15 +18,36 @@ class UsageReportTests(unittest.TestCase):
     def test_normalization_removes_wrappers_and_reads_shell_scripts(self) -> None:
         self.assertEqual(
             usage_report.normalize_invocation("BUILD=1 smll --raw -- git status"),
-            ("git", ["status"]),
+            [("git", ["status"])],
         )
         self.assertEqual(
             usage_report.normalize_invocation("bash -lc 'cargo test --locked'"),
-            ("cargo", ["test", "--locked"]),
+            [("cargo", ["test", "--locked"])],
         )
         self.assertEqual(
             usage_report.normalize_invocation("cd project && git diff"),
-            ("git", ["diff"]),
+            [("git", ["diff"])],
+        )
+
+    def test_normalization_reads_compound_commands_without_splitting_quoted_text(self) -> None:
+        self.assertEqual(
+            usage_report.normalize_invocation("git status && cargo test"),
+            [("git", ["status"]), ("cargo", ["test"])],
+        )
+        self.assertEqual(
+            usage_report.normalize_invocation("git status&&cargo test"),
+            [("git", ["status"]), ("cargo", ["test"])],
+        )
+        self.assertEqual(
+            usage_report.normalize_invocation("git log --format='status && test' && cargo test"),
+            [
+                ("git", ["log", "--format=status && test"]),
+                ("cargo", ["test"]),
+            ],
+        )
+        self.assertEqual(
+            usage_report.normalize_invocation("bash -lc 'git status && cargo test'"),
+            [("git", ["status"]), ("cargo", ["test"])],
         )
 
     def test_collectors_read_opencode_and_jsonl_tool_calls(self) -> None:
@@ -87,14 +108,21 @@ class UsageReportTests(unittest.TestCase):
         rows = usage_report.normalize_rows(
             [
                 ("opencode", "git status"),
+                ("opencode", "git status && cargo test"),
                 ("opencode", "git remote -v"),
                 ("codex", "mystery-tool --help"),
             ]
         )
         report = usage_report.build_report(rows, catalog)
 
-        self.assertEqual(report["total_invocations"], 3)
+        self.assertEqual(report["total_invocations"], 5)
+        command_counts = {record["command"]: record["count"] for record in report["commands"]}
+        self.assertEqual(command_counts["cargo"], 1)
         self.assertEqual(report["unlisted_commands"][0]["command"], "mystery-tool")
+        git_counts = {
+            record["subcommand"]: record["count"] for record in report["git_subcommands"]
+        }
+        self.assertEqual(git_counts["status"], 2)
         self.assertEqual(report["unlisted_git_subcommands"][0]["subcommand"], "remote")
         self.assertEqual(report["commands"][0]["coverage"], "auto-wrap")
 

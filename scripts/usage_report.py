@@ -24,7 +24,6 @@ DEFAULT_OPENCODE_DB = pathlib.Path.home() / ".local/share/opencode/opencode.db"
 DEFAULT_CODEX_ROOT = pathlib.Path.home() / ".codex/sessions"
 DEFAULT_CLAUDE_ROOT = pathlib.Path.home() / ".claude/projects"
 COMMAND_KEYS = {"command", "cmd", "shell_command", "command_line"}
-OPERATORS = {"&&", "||", ";", "|", "&"}
 SHELLS = {"bash", "sh", "zsh", "fish"}
 SHELL_BUILTINS = {"cd", "export", "popd", "pushd", "set", "source", "unset"}
 SHELL_KEYWORDS = {
@@ -74,27 +73,84 @@ def _is_assignment(word: str) -> bool:
     return bool(re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", word))
 
 
-def normalize_invocation(command: str) -> tuple[str, list[str]] | None:
-    """Return the effective executable and argv after common wrappers."""
+def _split_shell_commands(command: str) -> list[str] | None:
+    """Split shell command chains without splitting quoted command text."""
 
-    try:
-        words = shlex.split(command, posix=True)
-    except ValueError:
-        return None
-    if not words:
-        return None
-
+    segments: list[str] = []
+    start = 0
+    quote: str | None = None
+    escaped = False
     index = 0
+    while index < len(command):
+        character = command[index]
+        if escaped:
+            escaped = False
+            index += 1
+            continue
+        if quote == "'":
+            if character == "'":
+                quote = None
+            index += 1
+            continue
+        if quote is not None:
+            if character == "\\":
+                escaped = True
+            elif character == quote:
+                quote = None
+            index += 1
+            continue
+        if character == "\\":
+            escaped = True
+            index += 1
+            continue
+        if character in {"'", '"'}:
+            quote = character
+            index += 1
+            continue
+
+        operator = next(
+            (
+                candidate
+                for candidate in ("&&", "||", "|&", ";", "|", "&", "\n")
+                if command.startswith(candidate, index)
+            ),
+            None,
+        )
+        if operator is not None:
+            # `&` in a redirection such as `2>&1` or `&>file` is not a
+            # command separator.
+            if operator == "&" and (
+                command[index - 1 : index] in {"<", ">"}
+                or command[index + 1 : index + 2] == ">"
+            ):
+                index += 1
+                continue
+            segments.append(command[start:index])
+            index += len(operator)
+            start = index
+            continue
+        index += 1
+
+    if quote is not None or escaped:
+        return None
+    segments.append(command[start:])
+    return segments
+
+
+def _normalize_words(words: list[str]) -> list[tuple[str, list[str]]] | None:
+    if not words:
+        return []
+    index = 0
+    normalized: list[tuple[str, list[str]]] = []
     while index < len(words):
         word = words[index]
-        if _is_assignment(word) or word in OPERATORS:
+        if _is_assignment(word):
             index += 1
             continue
         name = basename(word)
         if name in SHELL_BUILTINS:
             index += 1
-            while index < len(words) and words[index] not in OPERATORS:
-                index += 1
+            index = len(words)
             continue
         if name == "env":
             index += 1
@@ -111,7 +167,8 @@ def normalize_invocation(command: str) -> tuple[str, list[str]] | None:
             )
             if shell_argument is None or shell_argument >= len(words):
                 return None
-            return normalize_invocation(words[shell_argument])
+            nested = normalize_invocation(words[shell_argument])
+            return None if nested is None else [*normalized, *nested]
         if name in SHELL_KEYWORDS:
             return None
         if name in WRAPPERS:
@@ -124,8 +181,29 @@ def normalize_invocation(command: str) -> tuple[str, list[str]] | None:
             continue
         if name.startswith("#"):
             return None
-        return name, words[index + 1 :]
-    return None
+        normalized.append((name, words[index + 1 :]))
+        return normalized
+    return normalized
+
+
+def normalize_invocation(command: str) -> list[tuple[str, list[str]]] | None:
+    """Return effective executables and argv after common wrappers."""
+
+    segments = _split_shell_commands(command)
+    if segments is None:
+        return None
+
+    normalized: list[tuple[str, list[str]]] = []
+    for segment in segments:
+        try:
+            words = shlex.split(segment, posix=True)
+        except ValueError:
+            return None
+        segment_invocations = _normalize_words(words)
+        if segment_invocations is None:
+            return None
+        normalized.extend(segment_invocations)
+    return normalized or None
 
 
 def _embedded_commands(value: str) -> Iterator[str]:
@@ -212,17 +290,17 @@ def collect_jsonl(root: pathlib.Path, source: str) -> list[tuple[str, str]]:
 def normalize_rows(rows: Iterable[tuple[str, str]]) -> list[dict[str, Any]]:
     normalized: list[dict[str, Any]] = []
     for source, raw in rows:
-        invocation = normalize_invocation(raw)
-        if invocation is None:
+        invocations = normalize_invocation(raw)
+        if invocations is None:
             continue
-        command, arguments = invocation
-        normalized.append(
+        normalized.extend(
             {
                 "source": source,
                 "command": command,
                 "arguments": arguments,
                 "raw": raw,
             }
+            for command, arguments in invocations
         )
     return normalized
 

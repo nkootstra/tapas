@@ -177,6 +177,37 @@ fn gh_extended_list_and_json_routes_keep_actionable_facts() {
             .unwrap();
     assert_eq!(output.stdout, b"A\tB\tC\n1\t\t3\n");
 
+    let embedded_spaces =
+        b"TITLE          NUMBER  STATE\nTitle with  internal spaces  #1      OPEN\n";
+    let output =
+        infra::dispatch_streams_argv(&[b"gh", b"issue", b"list"], embedded_spaces, b"", 0, false)
+            .unwrap();
+    assert_eq!(
+        output.stdout,
+        b"TITLE\tNUMBER\tSTATE\nTitle with  internal spaces\t#1\tOPEN\n"
+    );
+
+    let search_embedded = concat!(
+        "REPO         DESCRIPTION  STARS  LANGUAGE  UPDATED\n",
+        "repo         A description with a very long sequence of words and an embedded  gap at end  42  Rust  2026-08-01T00:00:00Z\n",
+    );
+    let output = infra::dispatch_streams_argv(
+        &[b"gh", b"search", b"repos"],
+        search_embedded.as_bytes(),
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(
+        output.stdout,
+        concat!(
+            "REPO\tDESCRIPTION\tSTARS\tLANGUAGE\tUPDATED\n",
+            "repo\tA description with a very long sequence of words and an embedded  gap at end\t42\tRust\t2026-08-01T00:00:00Z\n",
+        )
+        .as_bytes()
+    );
+
     let releases = fixture("gh_release_list.txt");
     let output =
         infra::dispatch_streams_argv(&[b"gh", b"release", b"list"], &releases, b"", 0, false)
