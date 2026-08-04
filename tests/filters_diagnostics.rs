@@ -1,6 +1,6 @@
 use tapas::filters::{EvidenceClass, StreamFilterOutput, diagnostics};
 
-const FIXTURES: &str = "compat/smll-v1.9.0/fixtures/tests/fixtures";
+const FIXTURES: &str = "regression/fixtures";
 
 fn fixture(name: &str) -> Vec<u8> {
     std::fs::read(format!(
@@ -12,7 +12,7 @@ fn fixture(name: &str) -> Vec<u8> {
 
 fn benchmark_fixture(name: &str) -> Vec<u8> {
     std::fs::read(format!(
-        "{}/tests/compat/smll-v1.9.0/fixtures/benchmarks/smll-vs-rtk/fixtures/{name}",
+        "{}/tests/regression/fixtures/{name}",
         env!("CARGO_MANIFEST_DIR")
     ))
     .unwrap()

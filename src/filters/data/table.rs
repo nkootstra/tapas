@@ -70,6 +70,119 @@ pub(super) fn matches_columnar(input: &[u8]) -> bool {
     input.windows(2).any(|window| window == b"  ")
 }
 
+pub(super) fn matches_sqlite_table(input: &[u8]) -> bool {
+    sqlite_columns(input).is_some_and(|(separator, header, rows)| {
+        header.len() > 1
+            && rows.len() > 1
+            && input
+                .split(|byte| *byte == b'\n')
+                .enumerate()
+                .skip(separator + 1)
+                .any(|(_, line)| !line.trim_ascii().is_empty())
+    })
+}
+
+pub(super) fn compact_sqlite_table(input: &[u8]) -> Vec<u8> {
+    let Some((separator, header_starts, row_starts)) = sqlite_columns(input) else {
+        return input.to_vec();
+    };
+    let mut output = Vec::with_capacity(input.len());
+    for (line_index, raw) in input.split(|byte| *byte == b'\n').enumerate() {
+        if raw.trim_ascii().is_empty() || line_index == separator {
+            continue;
+        }
+        let starts = if line_index < separator {
+            &header_starts
+        } else {
+            &row_starts
+        };
+        for (index, start) in starts.iter().enumerate() {
+            if index > 0 {
+                output.push(b'\t');
+            }
+            let start = (*start).min(raw.len());
+            let end = starts
+                .get(index + 1)
+                .copied()
+                .unwrap_or(raw.len())
+                .min(raw.len())
+                .max(start);
+            output.extend_from_slice(raw[start..end].trim_ascii());
+        }
+        output.push(b'\n');
+    }
+    output
+}
+
+fn sqlite_columns(input: &[u8]) -> Option<(usize, Vec<usize>, Vec<usize>)> {
+    let mut nonempty_lines = 0;
+    let mut header = None;
+    for (index, raw) in input.split(|byte| *byte == b'\n').enumerate() {
+        let line = raw.trim_ascii();
+        if line.is_empty() {
+            continue;
+        }
+        if nonempty_lines == 0 {
+            header = Some(raw);
+        } else if nonempty_lines == 1 && is_sqlite_separator(line) {
+            return Some((
+                index,
+                sqlite_header_starts(header?),
+                sqlite_column_starts(raw),
+            ));
+        }
+        nonempty_lines += 1;
+    }
+    None
+}
+
+fn sqlite_header_starts(line: &[u8]) -> Vec<usize> {
+    let first = line
+        .iter()
+        .position(|byte| !byte.is_ascii_whitespace())
+        .unwrap_or(line.len());
+    if first == line.len() {
+        return Vec::new();
+    }
+    let mut starts = vec![first];
+    let mut index = first;
+    while index + 1 < line.len() {
+        if line[index].is_ascii_whitespace() && line[index + 1].is_ascii_whitespace() {
+            let mut next = index + 2;
+            while next < line.len() && line[next].is_ascii_whitespace() {
+                next += 1;
+            }
+            if next < line.len() {
+                starts.push(next);
+                index = next;
+                continue;
+            }
+        }
+        index += 1;
+    }
+    starts
+}
+
+fn sqlite_column_starts(line: &[u8]) -> Vec<usize> {
+    let mut starts = Vec::new();
+    let mut start = None;
+    for (index, byte) in line.iter().enumerate() {
+        if *byte == b'-' {
+            start.get_or_insert(index);
+        } else if let Some(begin) = start.take() {
+            starts.push(begin);
+        }
+    }
+    if let Some(begin) = start {
+        starts.push(begin);
+    }
+    starts
+}
+
+fn is_sqlite_separator(line: &[u8]) -> bool {
+    line.contains(&b'-') && line.iter().all(|byte| matches!(byte, b'-' | b' ' | b'\t'))
+}
+
 pub(super) fn compact_columnar(input: &[u8]) -> Vec<u8> {
     let mut output = Vec::with_capacity(input.len());
     let mut previous: Vec<&[u8]> = Vec::new();

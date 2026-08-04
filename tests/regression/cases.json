@@ -1101,7 +1101,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/acli_confluence_page_view.txt"
+          "fixture": "fixtures/acli_confluence_page_view.txt"
         }
       },
       "covers": [
@@ -1164,7 +1164,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/acli_jira_workitem_search.txt"
+          "fixture": "fixtures/acli_jira_workitem_search.txt"
         }
       },
       "covers": [],
@@ -1400,7 +1400,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/bun_install.txt"
+          "fixture": "fixtures/bun_install.txt"
         }
       },
       "covers": [
@@ -1462,7 +1462,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/bun_pm_ls.txt"
+          "fixture": "fixtures/bun_pm_ls.txt"
         }
       },
       "covers": [],
@@ -1518,7 +1518,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/cargo_build.txt"
+          "fixture": "fixtures/cargo_build.txt"
         }
       },
       "covers": [
@@ -1578,7 +1578,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/cargo_test_failing.txt"
+          "fixture": "fixtures/cargo_test_failing.txt"
         }
       },
       "covers": [],
@@ -1695,7 +1695,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/composer_require.txt"
+          "fixture": "fixtures/composer_require.txt"
         }
       },
       "covers": [
@@ -1752,10 +1752,10 @@
       "child": {
         "exit_code": 0,
         "stderr": {
-          "fixture": "fixtures/tests/fixtures/curl_v_example.stderr.txt"
+          "fixture": "fixtures/curl_v_example.stderr.txt"
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/curl_v_example.stdout.txt"
+          "fixture": "fixtures/curl_v_example.stdout.txt"
         }
       },
       "covers": [
@@ -1874,7 +1874,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/docker_logs.txt"
+          "fixture": "fixtures/docker_logs.txt"
         }
       },
       "covers": [
@@ -1933,7 +1933,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/docker_ps.txt"
+          "fixture": "fixtures/docker_ps.txt"
         }
       },
       "covers": [],
@@ -1989,7 +1989,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/dotnet_build_failed.txt"
+          "fixture": "fixtures/dotnet_build_failed.txt"
         }
       },
       "covers": [
@@ -2159,7 +2159,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/dotnet_test_failed.txt"
+          "fixture": "fixtures/dotnet_test_failed.txt"
         }
       },
       "covers": [],
@@ -2216,7 +2216,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/du_sh.txt"
+          "fixture": "fixtures/du_sh.txt"
         }
       },
       "covers": [
@@ -2392,7 +2392,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/find_ls.txt"
+          "fixture": "fixtures/find_ls.txt"
         }
       },
       "covers": [
@@ -2452,7 +2452,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/gh_pr_list.txt"
+          "fixture": "fixtures/gh_pr_list.txt"
         }
       },
       "covers": [
@@ -2513,7 +2513,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/gh_run_list.txt"
+          "fixture": "fixtures/gh_run_list.txt"
         }
       },
       "covers": [],
@@ -2567,10 +2567,10 @@
       "child": {
         "exit_code": 128,
         "stderr": {
-          "fixture": "fixtures/tests/fixtures/git_add_error.stderr.txt"
+          "fixture": "fixtures/git_add_error.stderr.txt"
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/git_add_error.stdout.txt"
+          "fixture": "fixtures/git_add_error.stdout.txt"
         }
       },
       "covers": [
@@ -2654,7 +2654,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/git_blame_simple.txt"
+          "fixture": "fixtures/git_blame_simple.txt"
         }
       },
       "covers": [
@@ -2712,7 +2712,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/git_branch_list.txt"
+          "fixture": "fixtures/git_branch_list.txt"
         }
       },
       "covers": [
@@ -2768,10 +2768,10 @@
       "child": {
         "exit_code": 0,
         "stderr": {
-          "fixture": "fixtures/tests/fixtures/git_checkout_switch.stderr.txt"
+          "fixture": "fixtures/git_checkout_switch.stderr.txt"
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/git_checkout_switch.stdout.txt"
+          "fixture": "fixtures/git_checkout_switch.stdout.txt"
         }
       },
       "covers": [
@@ -2829,7 +2829,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/git_commit_simple.txt"
+          "fixture": "fixtures/git_commit_simple.txt"
         }
       },
       "covers": [
@@ -2887,7 +2887,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/git_diff_simple.txt"
+          "fixture": "fixtures/git_diff_simple.txt"
         }
       },
       "covers": [
@@ -2942,10 +2942,10 @@
       "child": {
         "exit_code": 0,
         "stderr": {
-          "fixture": "fixtures/tests/fixtures/git_fetch_simple.stderr.txt"
+          "fixture": "fixtures/git_fetch_simple.stderr.txt"
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/git_fetch_simple.stdout.txt"
+          "fixture": "fixtures/git_fetch_simple.stdout.txt"
         }
       },
       "covers": [
@@ -3063,7 +3063,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/git_log_linear.txt"
+          "fixture": "fixtures/git_log_linear.txt"
         }
       },
       "covers": [
@@ -3119,10 +3119,10 @@
       "child": {
         "exit_code": 1,
         "stderr": {
-          "fixture": "fixtures/tests/fixtures/git_merge_conflict.stderr.txt"
+          "fixture": "fixtures/git_merge_conflict.stderr.txt"
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/git_merge_conflict.stdout.txt"
+          "fixture": "fixtures/git_merge_conflict.stdout.txt"
         }
       },
       "covers": [
@@ -3177,10 +3177,10 @@
       "child": {
         "exit_code": 0,
         "stderr": {
-          "fixture": "fixtures/tests/fixtures/git_pull_ff.stderr.txt"
+          "fixture": "fixtures/git_pull_ff.stderr.txt"
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/git_pull_ff.stdout.txt"
+          "fixture": "fixtures/git_pull_ff.stdout.txt"
         }
       },
       "covers": [
@@ -3235,10 +3235,10 @@
       "child": {
         "exit_code": 0,
         "stderr": {
-          "fixture": "fixtures/tests/fixtures/git_push_simple.stderr.txt"
+          "fixture": "fixtures/git_push_simple.stderr.txt"
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/git_push_simple.stdout.txt"
+          "fixture": "fixtures/git_push_simple.stdout.txt"
         }
       },
       "covers": [
@@ -3297,7 +3297,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/git_rebase_simple.txt"
+          "fixture": "fixtures/git_rebase_simple.txt"
         }
       },
       "covers": [
@@ -3355,7 +3355,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/git_reflog.txt"
+          "fixture": "fixtures/git_reflog.txt"
         }
       },
       "covers": [
@@ -3413,7 +3413,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/git_show_body.txt"
+          "fixture": "fixtures/git_show_body.txt"
         }
       },
       "covers": [
@@ -3472,7 +3472,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/git_stash_list.txt"
+          "fixture": "fixtures/git_stash_list.txt"
         }
       },
       "covers": [
@@ -3530,7 +3530,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/git_status_dirty.txt"
+          "fixture": "fixtures/git_status_dirty.txt"
         }
       },
       "covers": [
@@ -3591,7 +3591,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/go_build.txt"
+          "fixture": "fixtures/go_build.txt"
         }
       },
       "covers": [
@@ -3652,7 +3652,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/go_test_v.txt"
+          "fixture": "fixtures/go_test_v.txt"
         }
       },
       "covers": [],
@@ -3708,7 +3708,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/gradle_build_failed.txt"
+          "fixture": "fixtures/gradle_build_failed.txt"
         }
       },
       "covers": [
@@ -3767,7 +3767,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/gradle_test_failed.txt"
+          "fixture": "fixtures/gradle_test_failed.txt"
         }
       },
       "covers": [
@@ -3883,7 +3883,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/jest_failing.txt"
+          "fixture": "fixtures/jest_failing.txt"
         }
       },
       "covers": [
@@ -4002,7 +4002,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/kubectl_pods.txt"
+          "fixture": "fixtures/kubectl_pods.txt"
         }
       },
       "covers": [
@@ -4062,7 +4062,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/docker_logs.txt"
+          "fixture": "fixtures/docker_logs.txt"
         }
       },
       "covers": [],
@@ -4118,7 +4118,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/ls_la.txt"
+          "fixture": "fixtures/ls_la.txt"
         }
       },
       "covers": [
@@ -4178,7 +4178,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/ls_R.txt"
+          "fixture": "fixtures/ls_R.txt"
         }
       },
       "covers": [],
@@ -4292,7 +4292,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/make_build.txt"
+          "fixture": "fixtures/make_build.txt"
         }
       },
       "covers": [
@@ -4351,7 +4351,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/mvn_build_failed.txt"
+          "fixture": "fixtures/mvn_build_failed.txt"
         }
       },
       "covers": [
@@ -4410,7 +4410,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/mvn_build_failed.txt"
+          "fixture": "fixtures/mvn_build_failed.txt"
         }
       },
       "covers": [
@@ -4527,7 +4527,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/next_build.txt"
+          "fixture": "fixtures/next_build.txt"
         }
       },
       "covers": [
@@ -4587,7 +4587,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/vite_build.txt"
+          "fixture": "fixtures/vite_build.txt"
         }
       },
       "covers": [
@@ -4647,7 +4647,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/npm_install.txt"
+          "fixture": "fixtures/npm_install.txt"
         }
       },
       "covers": [],
@@ -4705,7 +4705,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/large/generic_pip_install.txt"
+          "fixture": "fixtures/large/generic_pip_install.txt"
         }
       },
       "covers": [
@@ -4821,7 +4821,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/pnpm_install.txt"
+          "fixture": "fixtures/pnpm_install.txt"
         }
       },
       "covers": [
@@ -4883,7 +4883,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/pre_commit_failed.txt"
+          "fixture": "fixtures/pre_commit_failed.txt"
         }
       },
       "covers": [
@@ -5001,7 +5001,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/ps_aux.txt"
+          "fixture": "fixtures/ps_aux.txt"
         }
       },
       "covers": [
@@ -5120,7 +5120,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/pytest_failing.txt"
+          "fixture": "fixtures/pytest_failing.txt"
         }
       },
       "covers": [
@@ -5179,7 +5179,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/rg_files.txt"
+          "fixture": "fixtures/rg_files.txt"
         }
       },
       "covers": [
@@ -5472,7 +5472,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/terraform_plan.txt"
+          "fixture": "fixtures/terraform_plan.txt"
         }
       },
       "covers": [
@@ -5531,7 +5531,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/terraform_plan.txt"
+          "fixture": "fixtures/terraform_plan.txt"
         }
       },
       "covers": [
@@ -5590,7 +5590,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/tree_src.txt"
+          "fixture": "fixtures/tree_src.txt"
         }
       },
       "covers": [
@@ -5649,7 +5649,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/tsc_errors.txt"
+          "fixture": "fixtures/tsc_errors.txt"
         }
       },
       "covers": [
@@ -5711,7 +5711,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/benchmarks/smll-vs-rtk/fixtures/uv_pip_install.txt"
+          "fixture": "fixtures/uv_pip_install.txt"
         }
       },
       "covers": [
@@ -5827,7 +5827,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/jest_failing.txt"
+          "fixture": "fixtures/jest_failing.txt"
         }
       },
       "covers": [
@@ -6003,7 +6003,7 @@
           "base64": ""
         },
         "stdout": {
-          "fixture": "fixtures/tests/fixtures/yarn_install.txt"
+          "fixture": "fixtures/yarn_install.txt"
         }
       },
       "covers": [

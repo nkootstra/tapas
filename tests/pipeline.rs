@@ -156,59 +156,51 @@ fn signal_classifier_gates_are_supersets_for_known_needles() {
 fn signal_classifier_accepts_the_frozen_positive_fixtures() {
     let fixtures = [
         (
-            include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/cargo_test_failing.txt")
-                .as_slice(),
+            include_bytes!("regression/fixtures/cargo_test_failing.txt").as_slice(),
             Signals::cargo_test as fn(Signals) -> bool,
         ),
         (
-            include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/jest_failing.txt")
-                .as_slice(),
+            include_bytes!("regression/fixtures/jest_failing.txt").as_slice(),
             Signals::jest,
         ),
         (
-            include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/mocha_failing.txt")
-                .as_slice(),
+            include_bytes!("regression/fixtures/mocha_failing.txt").as_slice(),
             Signals::js_test,
         ),
         (
-            include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/node_test_failing.txt")
-                .as_slice(),
+            include_bytes!("regression/fixtures/node_test_failing.txt").as_slice(),
             Signals::js_test,
         ),
         (
-            include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/tsc_errors.txt").as_slice(),
+            include_bytes!("regression/fixtures/tsc_errors.txt").as_slice(),
             Signals::tsc,
         ),
         (
-            include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/go_test_v.txt").as_slice(),
+            include_bytes!("regression/fixtures/go_test_v.txt").as_slice(),
             Signals::go_test,
         ),
         (
-            include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/pytest_failing.txt")
-                .as_slice(),
+            include_bytes!("regression/fixtures/pytest_failing.txt").as_slice(),
             Signals::pytest,
         ),
         (
-            include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/npm_install.txt").as_slice(),
+            include_bytes!("regression/fixtures/npm_install.txt").as_slice(),
             Signals::npm_install,
         ),
         (
-            include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/pnpm_install.txt")
-                .as_slice(),
+            include_bytes!("regression/fixtures/pnpm_install.txt").as_slice(),
             Signals::npm_install,
         ),
         (
-            include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/bun_install.txt").as_slice(),
+            include_bytes!("regression/fixtures/bun_install.txt").as_slice(),
             Signals::npm_install,
         ),
         (
-            include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/yarn_install.txt")
-                .as_slice(),
+            include_bytes!("regression/fixtures/yarn_install.txt").as_slice(),
             Signals::npm_install,
         ),
         (
-            include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/composer_require.txt")
-                .as_slice(),
+            include_bytes!("regression/fixtures/composer_require.txt").as_slice(),
             Signals::npm_install,
         ),
     ];
@@ -220,20 +212,20 @@ fn signal_classifier_accepts_the_frozen_positive_fixtures() {
 
 #[test]
 fn pipe_chain_matches_container_package_and_curl_oracles() {
-    let kubectl = include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/kubectl_pods.txt");
+    let kubectl = include_bytes!("regression/fixtures/kubectl_pods.txt");
     let kubectl_output = pipeline::filter_bytes(kubectl);
     assert!(kubectl_output.starts_with(b"k9r "));
 
-    let docker = include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/docker_ps.txt");
+    let docker = include_bytes!("regression/fixtures/docker_ps.txt");
     assert_eq!(
         pipeline::filter_bytes(docker),
         b"d4up helios-assistant helios-convex-dashboard helios-convex-backend helios-mysql\n"
     );
 
-    let images = include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/docker_images.txt");
+    let images = include_bytes!("regression/fixtures/docker_images.txt");
     assert_eq!(pipeline::filter_bytes(images), images);
 
-    let npm = include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/npm_install.txt");
+    let npm = include_bytes!("regression/fixtures/npm_install.txt");
     assert_eq!(
         pipeline::filter_bytes(npm),
         concat!(
@@ -244,8 +236,7 @@ fn pipe_chain_matches_container_package_and_curl_oracles() {
         .as_bytes()
     );
 
-    let curl =
-        include_bytes!("compat/smll-v1.9.0/fixtures/tests/fixtures/curl_v_example.stderr.txt");
+    let curl = include_bytes!("regression/fixtures/curl_v_example.stderr.txt");
     assert_eq!(
         pipeline::filter_bytes(curl),
         concat!(
