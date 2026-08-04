@@ -4,13 +4,14 @@ pub(super) fn read_optional(path: &Path, limit: u64) -> io::Result<Option<Vec<u8
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(error),
     };
-    if file.metadata()?.len() > limit {
+    let length = file.metadata()?.len();
+    if length > limit {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             "file exceeds size limit",
         ));
     }
-    let mut content = Vec::new();
+    let mut content = Vec::with_capacity(length.min(limit) as usize);
     file.take(limit + 1).read_to_end(&mut content)?;
     if content.len() as u64 > limit {
         return Err(io::Error::new(
@@ -21,18 +22,67 @@ pub(super) fn read_optional(path: &Path, limit: u64) -> io::Result<Option<Vec<u8
     Ok(Some(content))
 }
 
-pub(super) fn write_backup(path: &Path, existing: Option<&[u8]>) -> io::Result<()> {
-    let Some(existing) = existing else {
-        return Ok(());
-    };
-    write_atomic(&backup_path(path), existing, existing_mode(path, 0o600))
+pub(super) fn reject_symlink(path: &Path, stderr: &mut dyn Write) -> io::Result<bool> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => {
+            stderr.write_all(b"tapas agent setup: symbolic-link configuration is not supported; configuration left untouched\n")?;
+            Ok(true)
+        }
+        Ok(metadata) if !metadata.is_file() => {
+            stderr.write_all(b"tapas agent setup: managed paths must be regular files; configuration left untouched\n")?;
+            Ok(true)
+        }
+        Ok(_) => Ok(false),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error),
+    }
 }
 
-pub(super) fn remove_backup(path: &Path) -> io::Result<()> {
-    match fs::remove_file(backup_path(path)) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
-        Err(error) => Err(error),
+pub(super) fn write_unique_backup(
+    path: &Path,
+    existing: Option<&[u8]>,
+) -> io::Result<Option<PathBuf>> {
+    let Some(existing) = existing else {
+        return Ok(None);
+    };
+    let base = backup_path(path);
+    let mut sequence = 0_u32;
+    loop {
+        let candidate = if sequence == 0 {
+            base.clone()
+        } else {
+            let mut name = base
+                .file_name()
+                .unwrap_or(OsStr::new("settings.json.bak.tapas"))
+                .to_os_string();
+            name.push(format!(".{sequence}"));
+            base.with_file_name(name)
+        };
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&candidate)
+        {
+            Ok(mut file) => {
+                let result = (|| {
+                    file.write_all(existing)?;
+                    file.sync_all()?;
+                    if let Some(parent) = candidate.parent() {
+                        File::open(parent)?.sync_all()?;
+                    }
+                    Ok(())
+                })();
+                if let Err(error) = result {
+                    drop(file);
+                    let _ = fs::remove_file(&candidate);
+                    return Err(error);
+                }
+                return Ok(Some(candidate));
+            }
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => sequence += 1,
+            Err(error) => return Err(error),
+        }
     }
 }
 
@@ -82,7 +132,8 @@ pub(super) fn write_atomic(path: &Path, content: &[u8], mode: u32) -> io::Result
         file.write_all(content)?;
         file.sync_all()?;
         fs::set_permissions(&temp, Permissions::from_mode(mode))?;
-        fs::rename(&temp, path)
+        fs::rename(&temp, path)?;
+        File::open(parent)?.sync_all()
     })();
     if result.is_err() {
         let _ = fs::remove_file(&temp);

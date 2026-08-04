@@ -3,9 +3,19 @@ pub(super) fn parse_config(
     config_name: &str,
     stderr: &mut dyn Write,
 ) -> io::Result<Value> {
-    let input = existing
-        .filter(|bytes| !bytes.iter().all(u8::is_ascii_whitespace))
-        .unwrap_or(b"{}");
+    let input = existing.unwrap_or(b"{}");
+    if existing.is_some()
+        && (input.is_empty()
+            || input.iter().all(u8::is_ascii_whitespace)
+            || input.starts_with(&[0xef, 0xbb, 0xbf])
+            || std::str::from_utf8(input).is_err())
+    {
+        writeln!(stderr, "{config_name}: invalid JSON")?;
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("invalid {config_name}"),
+        ));
+    }
     match json::parse(input) {
         Ok(value @ Value::Object(_)) => Ok(value),
         _ => {
@@ -18,6 +28,7 @@ pub(super) fn parse_config(
     }
 }
 
+#[cfg(test)]
 pub(super) fn ensure_hook(root: &mut Value, hook_command: &[u8]) -> Result<bool, ()> {
     if root.get(b"hooks").is_none() {
         root.insert(b"hooks", Value::object()).map_err(|_| ())?;
@@ -84,6 +95,7 @@ pub(super) fn nested_hook_exists(entries: &[Value], hook_command: &[u8]) -> bool
     })
 }
 
+#[cfg(test)]
 pub(super) fn remove_hook(root: &mut Value, owned_entry: &Value) -> Result<bool, ()> {
     let Some(hooks) = root.get_mut(b"hooks") else {
         return Ok(false);
@@ -392,20 +404,66 @@ pub(super) fn validate_hook(executable: &Path, target: Target) -> io::Result<boo
 }
 
 pub(super) fn contains_conflicting_integration(input: &[u8]) -> bool {
-    [
-        b"run-toolkit".as_slice(),
-        b"run toolkit",
-        b"\"rtk\"",
-        b" rtk",
-        b"/rtk",
-        b"rtk-",
-        b"-rtk",
-    ]
-    .iter()
-    .any(|needle| contains_ignore_ascii_case(input, needle))
+    match json::parse(input) {
+        Ok(value) => json_integration_conflict(&value),
+        Err(_) => toml_hook_conflict(input),
+    }
+}
+
+fn json_integration_conflict(value: &Value) -> bool {
+    let Value::Object(fields) = value else {
+        return false;
+    };
+    fields.iter().any(|(key, value)| {
+        if matches!(key.as_slice(), b"command" | b"plugin" | b"plugins") {
+            return integration_value_conflict(value);
+        }
+        matches!(key.as_slice(), b"hooks" | b"PreToolUse") && json_integration_conflict(value)
+            || matches!(value, Value::Array(items) if items.iter().any(json_integration_conflict))
+    })
+}
+
+fn integration_value_conflict(value: &Value) -> bool {
+    match value {
+        Value::String(text) => predecessor_command(text),
+        Value::Array(items) => items.iter().any(integration_value_conflict),
+        Value::Object(_) => json_integration_conflict(value),
+        _ => false,
+    }
+}
+
+fn predecessor_command(input: &[u8]) -> bool {
+    [b"run-toolkit".as_slice(), b"smll", b"rtk"]
+        .iter()
+        .any(|name| {
+            input
+                .split(|byte| byte.is_ascii_whitespace() || b"/'\"=,:[]()".contains(byte))
+                .any(|word| word.eq_ignore_ascii_case(name))
+        })
+}
+
+fn toml_hook_conflict(input: &[u8]) -> bool {
+    let Ok(text) = std::str::from_utf8(input) else {
+        return false;
+    };
+    let mut hooks = false;
+    for line in text.lines() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            hooks = line.trim_matches(|character| matches!(character, '[' | ']' | ' ')) == "hooks";
+            continue;
+        }
+        if hooks
+            && line.split_once('=').is_some_and(|(key, value)| {
+                key.trim() == "command" && predecessor_command(value.as_bytes())
+            })
+        {
+            return true;
+        }
+    }
+    false
 }
 use super::{Target, Value, json};
-use crate::filters::contains_ignore_ascii_case;
 use std::ffi::OsStr;
 use std::fs;
 use std::io::{self, Write};

@@ -12,10 +12,10 @@ use json::Value;
 
 const MAX_HOOK_INPUT: u64 = 64 * 1024;
 const MAX_CONFIG_BYTES: u64 = 8 * 1024 * 1024;
-const OWNERSHIP_HEADER: &[u8] = b"tapas-setup-v2\n";
+const OWNERSHIP_HEADER: &[u8] = b"tapas-setup-v3\n";
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub enum Action {
     Setup,
     Unsetup,
@@ -25,6 +25,7 @@ pub enum Action {
 pub enum Target {
     Claude,
     Codex,
+    OpenCode,
 }
 
 struct SetupLocation {
@@ -42,6 +43,7 @@ impl Target {
         match value {
             b"claude" => Some(Self::Claude),
             b"codex" => Some(Self::Codex),
+            b"opencode" => Some(Self::OpenCode),
             _ => None,
         }
     }
@@ -50,6 +52,7 @@ impl Target {
         match self {
             Self::Claude => "claude",
             Self::Codex => "codex",
+            Self::OpenCode => "opencode",
         }
     }
 
@@ -59,6 +62,7 @@ impl Target {
             Self::Codex => codex_home
                 .map_or_else(|| home.join(".codex"), Path::to_path_buf)
                 .join(self.config_name()),
+            Self::OpenCode => unreachable!("OpenCode uses its plugin path"),
         }
     }
 
@@ -66,6 +70,7 @@ impl Target {
         match self {
             Self::Claude => "settings.json",
             Self::Codex => "hooks.json",
+            Self::OpenCode => "tapas.js",
         }
     }
 
@@ -74,11 +79,11 @@ impl Target {
     }
 
     fn accepts_command(self, command: &[u8]) -> bool {
-        eligible(command) && (self == Self::Claude || codex_read_only(command))
+        eligible(command) && (self != Self::Codex || codex_read_only(command))
     }
 
     fn accepts_hook_event(self, value: &Value) -> bool {
-        self == Self::Claude
+        self != Self::Codex
             || matches!(
                 (value.get(b"hook_event_name"), value.get(b"tool_name")),
                 (Some(Value::String(event)), Some(Value::String(tool)))
@@ -121,6 +126,15 @@ pub fn hook_eval_for_target(
         return Ok(0);
     };
     let (environment, command) = match target {
+        Target::OpenCode if target.accepts_command(command) => {
+            let executable = std::env::current_exe()?;
+            let mut updated = shell_escape(executable.as_os_str());
+            updated.push(b' ');
+            updated.extend_from_slice(command);
+            stdout.write_all(&updated)?;
+            stdout.write_all(b"\n")?;
+            return Ok(0);
+        }
         Target::Claude if target.accepts_command(command) => (b"".as_slice(), command.to_vec()),
         Target::Codex => {
             let Some(Value::String(cwd)) = value.get(b"cwd") else {
@@ -131,7 +145,7 @@ pub fn hook_eval_for_target(
             };
             (command.environment, command.command)
         }
-        Target::Claude => return Ok(0),
+        Target::Claude | Target::OpenCode => return Ok(0),
     };
 
     let mut updated_input = value
@@ -184,6 +198,21 @@ pub fn configure_for_target(
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> io::Result<i32> {
+    configure_for_target_with_force(action, target, dry_run, false, stdout, stderr)
+}
+
+pub fn configure_for_target_with_force(
+    action: Action,
+    target: Target,
+    dry_run: bool,
+    force: bool,
+    stdout: &mut dyn Write,
+    stderr: &mut dyn Write,
+) -> io::Result<i32> {
+    if force && (action != Action::Setup || target != Target::OpenCode) {
+        stderr.write_all(b"tapas agent setup: --force is supported only for OpenCode setup\n")?;
+        return Ok(2);
+    }
     let Some(home) = std::env::var_os("HOME") else {
         stderr.write_all(b"tapas agent setup: HOME is not set\n")?;
         return Ok(1);
@@ -197,12 +226,38 @@ pub fn configure_for_target(
         None
     };
     let home = Path::new(&home);
+    let ownership_path = home.join(format!(".tapas/setup/{}.owned", target.name()));
+    let resolved_path = if target == Target::OpenCode {
+        std::env::var_os("XDG_CONFIG_HOME")
+            .filter(|value| !value.is_empty())
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| home.join(".config"))
+            .join("opencode/plugins/tapas.js")
+    } else {
+        target.config_path(home, codex_home.as_deref())
+    };
+    let config_path = if action == Action::Unsetup {
+        match read_ownership(&ownership_path)? {
+            Ownership::Valid(value) => recorded_path(&value).unwrap_or(resolved_path),
+            Ownership::Missing | Ownership::Modified => resolved_path,
+        }
+    } else {
+        resolved_path
+    };
     let location = SetupLocation {
-        config_path: target.config_path(home, codex_home.as_deref()),
-        ownership_path: home.join(format!(".tapas/setup/{}.owned", target.name())),
+        config_path,
+        ownership_path,
         target,
     };
-    configure_at(&location, &executable, action, dry_run, stdout, stderr)
+    configure_at(
+        &location,
+        &executable,
+        action,
+        dry_run,
+        force,
+        stdout,
+        stderr,
+    )
 }
 
 fn configure_at(
@@ -210,9 +265,13 @@ fn configure_at(
     executable: &Path,
     action: Action,
     dry_run: bool,
+    force: bool,
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> io::Result<i32> {
+    if location.target == Target::OpenCode {
+        return configure_opencode(location, executable, action, dry_run, force, stdout, stderr);
+    }
     match action {
         Action::Setup => {
             let hook_command = hook_command(executable.as_os_str(), location.target);
@@ -235,7 +294,7 @@ fn setup(
         ownership_path,
         target,
     } = location;
-    if reject_symlink(config_path, stderr)? {
+    if reject_symlink(config_path, stderr)? || reject_symlink(ownership_path, stderr)? {
         return Ok(1);
     }
     if !validate_hook(executable, *target)? {
@@ -245,6 +304,26 @@ fn setup(
     let existing = read_optional(config_path, MAX_CONFIG_BYTES)?;
     let inline_config = if *target == Target::Codex {
         read_optional(&config_path.with_file_name("config.toml"), MAX_CONFIG_BYTES)?
+    } else {
+        None
+    };
+    let project_conflict = if *target == Target::Claude {
+        let cwd = std::env::current_dir()?;
+        let candidates = [
+            cwd.join(".claude/settings.json"),
+            cwd.join(".claude/settings.local.json"),
+        ];
+        let mut conflict = None;
+        for path in candidates {
+            if read_optional(&path, MAX_CONFIG_BYTES)?
+                .as_deref()
+                .is_some_and(contains_conflicting_integration)
+            {
+                conflict = Some(path);
+                break;
+            }
+        }
+        conflict
     } else {
         None
     };
@@ -258,6 +337,8 @@ fn setup(
         .is_some_and(contains_conflicting_integration)
     {
         Some("config.toml")
+    } else if project_conflict.is_some() {
+        Some("active project settings")
     } else {
         None
     };
@@ -270,75 +351,161 @@ fn setup(
         )?;
         return Ok(1);
     }
-    let mut root = match parse_config(existing.as_deref(), target.config_name(), stderr) {
+    let root = match parse_config(existing.as_deref(), target.config_name(), stderr) {
         Ok(root) => root,
         Err(error) if error.kind() == io::ErrorKind::InvalidData => return Ok(1),
         Err(error) => return Err(error),
     };
     let ownership = read_ownership(ownership_path)?;
-    let owned_entry = match ownership {
+    let owned_value = match ownership {
         Ownership::Modified => {
             stderr.write_all(
                 b"tapas setup ownership record was modified; configuration left untouched\n",
             )?;
             return Ok(1);
         }
-        Ownership::Valid(ref entry) => Some(entry),
+        Ownership::Valid(entry) => Some(entry),
         Ownership::Missing => None,
     };
-
+    let owned_record = owned_value
+        .as_ref()
+        .and_then(|value| hook_ownership(value, *target));
+    if owned_record.is_none()
+        && owned_value.as_ref().is_some_and(
+            |value| matches!(value.get(b"kind"), Some(Value::String(kind)) if kind == b"hook"),
+        )
+    {
+        stderr.write_all(
+            b"tapas hook ownership target or metadata was modified; configuration left untouched\n",
+        )?;
+        return Ok(1);
+    }
     let expected_entry = hook_entry(hook_command);
+    if owned_record
+        .as_ref()
+        .is_some_and(|record| record.path != *config_path)
+    {
+        return relocate_hook_setup(
+            location,
+            owned_record.as_ref().unwrap(),
+            &expected_entry,
+            existing.as_deref(),
+            dry_run,
+            stdout,
+            stderr,
+        );
+    }
+    let owned_entry = owned_value.as_ref().map(|value| {
+        owned_record
+            .as_ref()
+            .map_or_else(|| value.clone(), |record| record.entry.clone())
+    });
+    let legacy_before = if owned_record.is_none() {
+        match (owned_entry.as_ref(), existing.as_deref()) {
+            (Some(owned), Some(input)) => {
+                match lossless::remove_hook(input, owned) {
+                    Ok(lossless::RemoveResult::Removed(bytes)) => Some(bytes),
+                    Ok(lossless::RemoveResult::Missing | lossless::RemoveResult::Duplicate)
+                    | Err(()) => {
+                        stderr.write_all(b"legacy Tapas hook ownership is ambiguous; configuration left untouched\n")?;
+                        return Ok(1);
+                    }
+                }
+            }
+            (Some(_), None) => {
+                stderr.write_all(
+                    b"legacy Tapas hook ownership has no configuration; no files were changed\n",
+                )?;
+                return Ok(1);
+            }
+            (None, _) => None,
+        }
+    } else {
+        None
+    };
+
+    if owned_entry.is_none()
+        && existing.as_deref().is_some_and(|input| {
+            lossless::tapas_hook_count(input, *target).unwrap_or(usize::MAX) > 0
+        })
+    {
+        stderr.write_all(
+            b"a Tapas-looking hook exists without valid ownership; configuration left untouched\n",
+        )?;
+        return Ok(1);
+    }
     warn_on_replacement(
         *target,
-        owned_entry.as_ref().map(|owned| *owned),
+        owned_entry.as_ref(),
         &expected_entry,
         executable,
         stderr,
     )?;
-    let removed_owned = match owned_entry {
-        Some(owned) if owned == &expected_entry => match hook_exists(&root, owned) {
-            Ok(true) => false,
-            Ok(false) => {
+    let base = match owned_entry.as_ref() {
+        Some(owned) if owned != &expected_entry => match legacy_before.clone() {
+            Some(bytes) => Some(bytes),
+            None => match existing.as_deref() {
+                Some(input) => match lossless::remove_hook(input, owned) {
+                    Ok(lossless::RemoveResult::Removed(bytes)) => Some(bytes),
+                    Ok(lossless::RemoveResult::Missing | lossless::RemoveResult::Duplicate)
+                    | Err(()) => {
+                        stderr.write_all(b"tapas-owned hook entry was modified, removed, or duplicated; configuration left untouched\n")?;
+                        return Ok(1);
+                    }
+                },
+                None => {
+                    stderr.write_all(b"tapas-owned hook entry was modified or removed; configuration left untouched\n")?;
+                    return Ok(1);
+                }
+            },
+        },
+        Some(owned) => {
+            if !matches!(hook_exists(&root, owned), Ok(true)) {
                 stderr.write_all(b"tapas-owned hook entry was modified or removed; configuration left untouched\n")?;
                 return Ok(1);
             }
-            Err(()) => {
-                writeln!(stderr, "{}: invalid JSON", target.config_name())?;
-                return Ok(1);
-            }
-        },
-        Some(owned) => match remove_hook(&mut root, owned) {
-            Ok(true) => true,
-            Ok(false) => {
-                stderr.write_all(b"tapas-owned hook entry was modified or removed; configuration left untouched\n")?;
-                return Ok(1);
-            }
-            Err(()) => {
-                writeln!(stderr, "{}: invalid JSON", target.config_name())?;
-                return Ok(1);
-            }
-        },
-        None => false,
+            existing.clone()
+        }
+        None => existing.clone(),
     };
-    let already_installed = match ensure_hook(&mut root, hook_command) {
-        Ok(installed) => installed,
+    let (rendered, already_installed) = match lossless::add_hook(base.as_deref(), &expected_entry) {
+        Ok(result) => result,
         Err(()) => {
-            writeln!(stderr, "{}: invalid JSON", target.config_name())?;
+            writeln!(
+                stderr,
+                "{}: invalid or ambiguous JSON hook configuration",
+                target.config_name()
+            )?;
             return Ok(1);
         }
     };
-    let changed = removed_owned || !already_installed;
+    let changed = existing.as_deref() != Some(rendered.as_slice());
+    let mut backup_path = owned_record
+        .as_ref()
+        .and_then(|record| record.backup_path.clone());
+    let mut created_backup = false;
+    if !dry_run && owned_record.is_none() {
+        backup_path = write_unique_backup(
+            config_path,
+            legacy_before.as_deref().or(existing.as_deref()),
+        )?;
+        created_backup = backup_path.is_some();
+    }
     if changed {
         if dry_run {
             writeln!(stdout, "[dry-run] would update {}", config_path.display())?;
         } else {
-            write_backup(config_path, existing.as_deref())?;
-            let mut rendered = json::serialize(&root);
-            rendered.push(b'\n');
-            write_atomic(config_path, &rendered, existing_mode(config_path, 0o600))?;
+            if let Err(error) =
+                write_atomic(config_path, &rendered, existing_mode(config_path, 0o600))
+            {
+                if created_backup && let Some(path) = &backup_path {
+                    let _ = fs::remove_file(path);
+                }
+                return Err(error);
+            }
             writeln!(stdout, "updated {}", config_path.display())?;
         }
-    } else {
+    } else if already_installed {
         stdout.write_all(b"already installed\n")?;
     }
 
@@ -346,13 +513,157 @@ fn setup(
         stdout.write_all(b"[dry-run] would record tapas hook ownership\n")?;
         return Ok(0);
     }
-    if let Err(error) = write_ownership(ownership_path, &expected_entry) {
+    if !changed && owned_record.is_some() {
+        stdout.write_all(b"ok\n")?;
+        return Ok(0);
+    }
+    if let Err(error) = write_hook_ownership(
+        ownership_path,
+        *target,
+        config_path,
+        &expected_entry,
+        &rendered,
+        owned_record
+            .as_ref()
+            .map_or(existing.is_some(), |record| record.before_existed),
+        backup_path.as_deref(),
+    ) {
         if changed {
             restore_optional(config_path, existing.as_deref())?;
-            remove_backup(config_path)?;
+        }
+        if created_backup && let Some(path) = backup_path {
+            let _ = fs::remove_file(path);
         }
         return Err(error);
     }
+    stdout.write_all(b"ok\n")?;
+    Ok(0)
+}
+
+fn relocate_hook_setup(
+    location: &SetupLocation,
+    owned: &HookOwnership,
+    expected_entry: &Value,
+    destination_before: Option<&[u8]>,
+    dry_run: bool,
+    stdout: &mut dyn Write,
+    stderr: &mut dyn Write,
+) -> io::Result<i32> {
+    if reject_symlink(&owned.path, stderr)? {
+        return Ok(1);
+    }
+    let Some(old_before) = read_optional(&owned.path, MAX_CONFIG_BYTES)? else {
+        stderr.write_all(
+            b"the recorded Tapas hook location is missing; relocation was not attempted\n",
+        )?;
+        return Ok(1);
+    };
+    if destination_before.is_some_and(|input| {
+        lossless::tapas_hook_count(input, location.target).unwrap_or(usize::MAX) > 0
+    }) {
+        stderr.write_all(b"the relocation destination already has a Tapas-looking hook without ownership; no files were changed\n")?;
+        return Ok(1);
+    }
+    let (old_after, remove_old) = if content_digest(&old_before) == owned.after_digest {
+        if owned.before_existed {
+            let Some(backup) = owned.backup_path.as_deref() else {
+                stderr.write_all(b"the recorded Tapas hook is missing its restoration backup; relocation was not attempted\n")?;
+                return Ok(1);
+            };
+            let Some(original) = read_optional(backup, MAX_CONFIG_BYTES)? else {
+                stderr.write_all(b"the recorded Tapas restoration backup is missing; relocation was not attempted\n")?;
+                return Ok(1);
+            };
+            (original, false)
+        } else {
+            (Vec::new(), true)
+        }
+    } else {
+        match lossless::remove_hook(&old_before, &owned.entry) {
+            Ok(lossless::RemoveResult::Removed(bytes)) => (bytes, false),
+            Ok(lossless::RemoveResult::Missing | lossless::RemoveResult::Duplicate) | Err(()) => {
+                stderr.write_all(b"the recorded Tapas hook was modified or duplicated; relocation was not attempted\n")?;
+                return Ok(1);
+            }
+        }
+    };
+    let (destination_after, _) = match lossless::add_hook(destination_before, expected_entry) {
+        Ok(result) => result,
+        Err(()) => {
+            stderr.write_all(
+                b"the relocation destination has an invalid or ambiguous hook configuration\n",
+            )?;
+            return Ok(1);
+        }
+    };
+    if dry_run {
+        writeln!(
+            stdout,
+            "[dry-run] would remove the Tapas hook from {}",
+            owned.path.display()
+        )?;
+        writeln!(
+            stdout,
+            "[dry-run] would install the Tapas hook in {}",
+            location.config_path.display()
+        )?;
+        stdout.write_all(b"[dry-run] would update tapas hook ownership\n")?;
+        return Ok(0);
+    }
+    let old_mode = existing_mode(&owned.path, 0o600);
+    let destination_mode = existing_mode(&location.config_path, 0o600);
+    let destination_backup = write_unique_backup(&location.config_path, destination_before)?;
+    let ownership_before = read_optional(&location.ownership_path, MAX_CONFIG_BYTES)?;
+    let result = (|| {
+        if remove_old {
+            fs::remove_file(&owned.path)?;
+        } else {
+            write_atomic(&owned.path, &old_after, old_mode)?;
+        }
+        write_atomic(&location.config_path, &destination_after, destination_mode)?;
+        write_hook_ownership(
+            &location.ownership_path,
+            location.target,
+            &location.config_path,
+            expected_entry,
+            &destination_after,
+            destination_before.is_some(),
+            destination_backup.as_deref(),
+        )
+    })();
+    if let Err(error) = result {
+        let mut rollback_failures = Vec::new();
+        if let Err(rollback) =
+            restore_optional(&location.ownership_path, ownership_before.as_deref())
+        {
+            rollback_failures.push(format!("{}: {rollback}", location.ownership_path.display()));
+        }
+        if let Err(rollback) = write_atomic(&owned.path, &old_before, old_mode) {
+            rollback_failures.push(format!("{}: {rollback}", owned.path.display()));
+        }
+        if let Err(rollback) = restore_optional(&location.config_path, destination_before) {
+            rollback_failures.push(format!("{}: {rollback}", location.config_path.display()));
+        }
+        if rollback_failures.is_empty() {
+            if let Some(path) = destination_backup {
+                let _ = fs::remove_file(path);
+            }
+            return Err(error);
+        }
+        return Err(io::Error::new(
+            error.kind(),
+            format!(
+                "hook relocation failed ({error}); rollback also failed: {}. Recovery backup was retained.",
+                rollback_failures.join("; ")
+            ),
+        ));
+    }
+    writeln!(
+        stdout,
+        "relocated Tapas hook from {} to {}",
+        owned.path.display(),
+        location.config_path.display()
+    )?;
     stdout.write_all(b"ok\n")?;
     Ok(0)
 }
@@ -403,50 +714,99 @@ fn unsetup_with_remove(
         ownership_path,
         target,
     } = location;
-    if reject_symlink(config_path, stderr)? {
+    if reject_symlink(config_path, stderr)? || reject_symlink(ownership_path, stderr)? {
         return Ok(1);
     }
-    let owned_entry = match read_ownership(ownership_path)? {
+    let owned_value = match read_ownership(ownership_path)? {
         Ownership::Missing => {
-            stderr.write_all(b"tapas hook ownership record not found; no hook was removed\n")?;
+            let existing = read_optional(config_path, MAX_CONFIG_BYTES)?;
+            if existing.as_deref().is_some_and(|input| {
+                lossless::tapas_hook_count(input, *target).unwrap_or(usize::MAX) > 0
+            }) {
+                stderr.write_all(
+                    b"a Tapas-looking hook exists without valid ownership; no hook was removed\n",
+                )?;
+                return Ok(1);
+            }
+            stdout.write_all(b"not installed\n")?;
             return Ok(0);
         }
         Ownership::Modified => {
             stderr.write_all(b"tapas hook ownership record was modified; no hook was removed\n")?;
-            return Ok(0);
-        }
-        Ownership::Valid(command) => command,
-    };
-    let Some(existing) = read_optional(config_path, MAX_CONFIG_BYTES)? else {
-        stdout.write_all(b"not found\n")?;
-        return Ok(0);
-    };
-    let mut root = match parse_config(Some(&existing), target.config_name(), stderr) {
-        Ok(root) => root,
-        Err(error) if error.kind() == io::ErrorKind::InvalidData => return Ok(1),
-        Err(error) => return Err(error),
-    };
-    let removed = match remove_hook(&mut root, &owned_entry) {
-        Ok(removed) => removed,
-        Err(()) => {
-            writeln!(stderr, "{}: invalid JSON", target.config_name())?;
             return Ok(1);
         }
+        Ownership::Valid(value) => value,
     };
-    if !removed {
-        stderr.write_all(b"tapas-owned hook entry was modified or removed; configuration left untouched; restore the exact owned entry or remove the modified hook and ownership record manually\n")?;
-        return Ok(0);
+    let owned_record = hook_ownership(&owned_value, *target);
+    if owned_record.is_none()
+        && matches!(owned_value.get(b"kind"), Some(Value::String(kind)) if kind == b"hook")
+    {
+        stderr.write_all(
+            b"tapas hook ownership target or metadata was modified; no hook was removed\n",
+        )?;
+        return Ok(1);
     }
+    let owned_entry = owned_record
+        .as_ref()
+        .map_or_else(|| owned_value.clone(), |record| record.entry.clone());
+    let Some(existing) = read_optional(config_path, MAX_CONFIG_BYTES)? else {
+        stderr.write_all(b"tapas-owned hook configuration is missing; no hook was removed\n")?;
+        return Ok(1);
+    };
+    let (rendered, remove_config) = if let Some(record) = &owned_record {
+        if content_digest(&existing) == record.after_digest {
+            if record.before_existed {
+                let Some(backup) = record.backup_path.as_deref() else {
+                    stderr.write_all(b"tapas ownership is missing its restoration backup; configuration left untouched\n")?;
+                    return Ok(1);
+                };
+                let Some(original) = read_optional(backup, MAX_CONFIG_BYTES)? else {
+                    stderr.write_all(
+                        b"tapas restoration backup is missing; configuration left untouched\n",
+                    )?;
+                    return Ok(1);
+                };
+                (original, false)
+            } else {
+                (Vec::new(), true)
+            }
+        } else {
+            match lossless::remove_hook(&existing, &owned_entry) {
+                Ok(lossless::RemoveResult::Removed(bytes)) => (bytes, false),
+                Ok(lossless::RemoveResult::Missing | lossless::RemoveResult::Duplicate)
+                | Err(()) => {
+                    stderr.write_all(b"tapas-owned hook entry was modified or removed; configuration left untouched; restore the exact owned entry or remove the modified hook and ownership record manually\n")?;
+                    return Ok(1);
+                }
+            }
+        }
+    } else {
+        match lossless::remove_hook(&existing, &owned_entry) {
+            Ok(lossless::RemoveResult::Removed(bytes)) => (bytes, false),
+            Ok(lossless::RemoveResult::Missing | lossless::RemoveResult::Duplicate) | Err(()) => {
+                stderr.write_all(b"tapas-owned hook entry was modified or removed; configuration left untouched; restore the exact owned entry or remove the modified hook and ownership record manually\n")?;
+                return Ok(1);
+            }
+        }
+    };
     if dry_run {
         writeln!(stdout, "[dry-run] would update {}", config_path.display())?;
         return Ok(0);
     }
 
     let original_mode = existing_mode(config_path, 0o600);
-    write_backup(config_path, Some(&existing))?;
-    let mut rendered = json::serialize(&root);
-    rendered.push(b'\n');
-    write_atomic(config_path, &rendered, original_mode)?;
+    let unsetup_backup = write_unique_backup(config_path, Some(&existing))?;
+    let config_result = if remove_config {
+        fs::remove_file(config_path)
+    } else {
+        write_atomic(config_path, &rendered, original_mode)
+    };
+    if let Err(error) = config_result {
+        if let Some(path) = &unsetup_backup {
+            let _ = fs::remove_file(path);
+        }
+        return Err(error);
+    }
     if let Err(remove_error) = remove_ownership(ownership_path) {
         if let Err(rollback_error) = write_atomic(config_path, &existing, original_mode) {
             return Err(io::Error::new(
@@ -456,6 +816,9 @@ fn unsetup_with_remove(
                 ),
             ));
         }
+        if let Some(path) = &unsetup_backup {
+            let _ = fs::remove_file(path);
+        }
         return Err(remove_error);
     }
     writeln!(stdout, "updated {}", config_path.display())?;
@@ -463,32 +826,28 @@ fn unsetup_with_remove(
     Ok(0)
 }
 
-fn reject_symlink(path: &Path, stderr: &mut dyn Write) -> io::Result<bool> {
-    match fs::symlink_metadata(path) {
-        Ok(metadata) if metadata.file_type().is_symlink() => {
-            stderr.write_all(b"tapas agent setup: symbolic-link configuration is not supported; configuration left untouched\n")?;
-            Ok(true)
-        }
-        Ok(_) => Ok(false),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
-        Err(error) => Err(error),
-    }
-}
-
 mod hooks;
+mod lossless;
+mod opencode;
 mod ownership;
 mod storage;
 
-#[cfg(test)]
-use hooks::nested_hook_exists;
 use hooks::{
-    codex_command, codex_read_only, contains_conflicting_integration, eligible, ensure_hook,
-    event_command, hook_command, hook_entry, hook_exists, parse_config, remove_hook, shell_escape,
-    validate_hook,
+    codex_command, codex_read_only, contains_conflicting_integration, eligible, event_command,
+    hook_command, hook_entry, hook_exists, parse_config, shell_escape, validate_hook,
 };
-use ownership::{Ownership, read_ownership, write_ownership};
+#[cfg(test)]
+use hooks::{ensure_hook, nested_hook_exists, remove_hook};
+use opencode::configure_opencode;
+#[cfg(test)]
+use ownership::write_ownership;
+use ownership::{
+    HookOwnership, Ownership, content_digest, hook_ownership, read_ownership, recorded_path,
+    write_hook_ownership,
+};
 use storage::{
-    existing_mode, read_optional, remove_backup, restore_optional, write_atomic, write_backup,
+    existing_mode, read_optional, reject_symlink, restore_optional, write_atomic,
+    write_unique_backup,
 };
 
 #[cfg(test)]
