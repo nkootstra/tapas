@@ -1,0 +1,7 @@
+{
+  "nameWithOwner": "nkootstra/tapas",
+  "description": "Compact command output for coding agents",
+  "isPrivate": false,
+  "defaultBranchRef": { "name": "main" },
+  "topics": ["agents", "cli", "rust"]
+}

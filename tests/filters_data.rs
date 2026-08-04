@@ -1,6 +1,6 @@
 use tapas::filters::{EvidenceClass, StreamFilterOutput, data};
 
-const FIXTURES: &str = "compat/smll-v1.9.0/fixtures/tests/fixtures";
+const FIXTURES: &str = "regression/fixtures";
 type StreamsCase<'a> = (&'a [&'a [u8]], &'a [u8], &'a [u8]);
 type ExitCase<'a> = (&'a [&'a [u8]], &'a [u8], i32);
 
@@ -143,6 +143,41 @@ fn columnar_elides_fields_and_rows_for_known_text_commands() {
 }
 
 #[test]
+fn sqlite3_column_output_drops_alignment_and_separator_rows() {
+    let input = fixture("sqlite3_table.txt");
+    let output = data::dispatch_streams_argv(
+        &[b"sqlite3", b"database.sqlite", b"select * from service"],
+        &input,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(
+        output,
+        StreamFilterOutput::new(
+            b"id\tname\tenabled\tnotes\n1\tapi\t1\tpublic HTTP service\n2\tworker\t0\tbackground worker\n3\tscheduler\t1\truns every 15 minutes\n".to_vec(),
+            Vec::new(),
+            EvidenceClass::PotentiallyLossy,
+        )
+    );
+}
+
+#[test]
+fn sqlite3_preserves_empty_and_all_dash_cells() {
+    let input = b"A  B  C\n---  ---  ---\n---  ---  ---\n1         3\n";
+    let output = data::dispatch_streams_argv(
+        &[b"sqlite3", b"database.sqlite", b"select a, b, c"],
+        input,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(output.stdout, b"A\tB\tC\n---\t---\t---\n1\t\t3\n");
+}
+
+#[test]
 fn pup_table_fixture_matches_the_pinned_tsv_oracle() {
     let input = fixture("pup_skills_table.txt");
     let expected = expected_pup_table(&input);
@@ -170,6 +205,8 @@ fn machine_exact_and_failed_structured_commands_are_byte_exact() {
         ),
         (&[b"pup", b"skills", b"list"], json, 3),
         (&[b"acli", b"jira", b"workitem", b"search"], json, 1),
+        (&[b"sqlite3", b"-csv", b"database.sqlite"], table, 0),
+        (&[b"sqlite3", b"-json", b"database.sqlite"], json, 0),
     ];
 
     for (argv, stdout, exit_code) in cases {

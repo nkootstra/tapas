@@ -1,6 +1,6 @@
 use tapas::filters::{EvidenceClass, StreamFilterOutput, build};
 
-const FIXTURES: &str = "compat/smll-v1.9.0/fixtures";
+const FIXTURES: &str = "regression/fixtures";
 type BuildCase<'a> = (&'a [&'a [u8]], Vec<u8>, i32, &'a [u8]);
 
 fn fixture(path: &str) -> Vec<u8> {
@@ -13,7 +13,7 @@ fn fixture(path: &str) -> Vec<u8> {
 
 #[test]
 fn cargo_build_fixture_matches_the_pinned_wrapper_oracle() {
-    let input = fixture("tests/fixtures/cargo_build.txt");
+    let input = fixture("cargo_build.txt");
     let expected = concat!(
         "warning: unused variable: `tmp`\n",
         " --> src/lib.rs:42:9\n",
@@ -41,7 +41,7 @@ fn make_ninja_go_and_zig_builds_match_the_pinned_wrapper_oracles() {
     let cases: &[BuildCase<'_>] = &[
         (
             &[b"make"],
-            fixture("tests/fixtures/make_build.txt"),
+            fixture("make_build.txt"),
             0,
             concat!(
                 "src/baz.c:18:12: warning: unused variable 'tmp' [-Wunused-variable]\n",
@@ -53,7 +53,7 @@ fn make_ninja_go_and_zig_builds_match_the_pinned_wrapper_oracles() {
         ),
         (
             &[b"ninja"],
-            fixture("tests/fixtures/ninja_build.txt"),
+            fixture("ninja_build.txt"),
             0,
             concat!(
                 "main.c:1:22: warning: unused variable 'unused' [-Wunused-variable]\n",
@@ -66,7 +66,7 @@ fn make_ninja_go_and_zig_builds_match_the_pinned_wrapper_oracles() {
         ),
         (
             &[b"go", b"build", b"./..."],
-            fixture("tests/fixtures/go_build.txt"),
+            fixture("go_build.txt"),
             1,
             concat!(
                 "internal/auth/token.go:42:9: declared and not used: claims\n",
@@ -101,7 +101,7 @@ fn make_ninja_go_and_zig_builds_match_the_pinned_wrapper_oracles() {
 
 #[test]
 fn npm_build_fixture_matches_the_pinned_bundler_oracle() {
-    let input = fixture("tests/fixtures/vite_build.txt");
+    let input = fixture("vite_build.txt");
     let expected = concat!(
         "vite v5.4.2 building for production...\n",
         "✓ 1248 modules transformed.\n",
@@ -133,7 +133,7 @@ fn npm_build_fixture_matches_the_pinned_bundler_oracle() {
 
 #[test]
 fn next_webpack_and_turbo_outputs_match_the_pinned_oracles() {
-    let next = fixture("tests/fixtures/next_build.txt");
+    let next = fixture("next_build.txt");
     let next_expected = concat!(
         "  ▲ Next.js 14.2.5\n",
         "  - Environments: .env.local, .env\n",
@@ -179,7 +179,7 @@ fn next_webpack_and_turbo_outputs_match_the_pinned_oracles() {
         ),
     );
 
-    let webpack = fixture("tests/fixtures/webpack_build.txt");
+    let webpack = fixture("webpack_build.txt");
     let webpack_expected = concat!(
         "webpack 5.107.2 compiled successfully in 124 ms\n",
         "\n",
@@ -195,7 +195,7 @@ fn next_webpack_and_turbo_outputs_match_the_pinned_oracles() {
         ),
     );
 
-    let turbo = fixture("benchmarks/smll-vs-rtk/fixtures/turbo_error.txt");
+    let turbo = fixture("turbo_error.txt");
     assert_eq!(
         build::dispatch_streams_argv(&[b"turbo", b"build"], &turbo, b"", 1, false).unwrap(),
         StreamFilterOutput::new(
@@ -211,7 +211,7 @@ fn dotnet_build_test_format_and_restore_match_the_pinned_oracles() {
     let cases: &[BuildCase<'_>] = &[
         (
             &[b"dotnet", b"build"],
-            fixture("benchmarks/smll-vs-rtk/fixtures/dotnet_build_failed.txt"),
+            fixture("dotnet_build_failed.txt"),
             1,
             concat!(
                 "src/Program.cs(10,5): error CS1002: ; expected [/home/user/MyApp/MyApp.csproj]\n",
@@ -223,7 +223,7 @@ fn dotnet_build_test_format_and_restore_match_the_pinned_oracles() {
         ),
         (
             &[b"dotnet", b"test"],
-            fixture("benchmarks/smll-vs-rtk/fixtures/dotnet_test_failed.txt"),
+            fixture("dotnet_test_failed.txt"),
             1,
             concat!(
                 "[xUnit.net 00:00:00.11]     MyApp.Tests.CalculatorTests.Subtract [FAIL]\n",
@@ -274,7 +274,7 @@ fn gradle_and_maven_wrappers_match_the_pinned_failure_oracles() {
     let gradle_cases: &[(&[&[u8]], &str, &str)] = &[
         (
             &[b"gradle", b"build"],
-            "benchmarks/smll-vs-rtk/fixtures/gradle_build_failed.txt",
+            "gradle_build_failed.txt",
             concat!(
                 "> Task :app:compileDebugKotlin FAILED\n",
                 "FAILURE: Build failed with an exception.\n",
@@ -288,7 +288,7 @@ fn gradle_and_maven_wrappers_match_the_pinned_failure_oracles() {
         ),
         (
             &[b"gradlew", b"test"],
-            "benchmarks/smll-vs-rtk/fixtures/gradle_test_failed.txt",
+            "gradle_test_failed.txt",
             concat!(
                 "com.example.myapp.CalculatorTest > testSubtraction FAILED\n",
                 "java.lang.AssertionError: expected:<3> but was:<-1>\n",
@@ -317,7 +317,7 @@ fn gradle_and_maven_wrappers_match_the_pinned_failure_oracles() {
         );
     }
 
-    let maven = fixture("benchmarks/smll-vs-rtk/fixtures/mvn_build_failed.txt");
+    let maven = fixture("mvn_build_failed.txt");
     let maven_expected = concat!(
         "[ERROR] /src/main/java/Main.java:[10,5] cannot find symbol\n",
         "symbol: method foo()\n",
@@ -377,7 +377,7 @@ fn apple_build_and_uv_package_fallbacks_match_the_pinned_smokes() {
         ),
     );
 
-    let uv = fixture("benchmarks/smll-vs-rtk/fixtures/uv_pip_install.txt");
+    let uv = fixture("uv_pip_install.txt");
     let uv_expected = concat!(
         "Installed 5 packages in 23ms\n",
         " + certifi==2023.11.17\n",
@@ -452,7 +452,7 @@ fn exact_modes_and_content_gates_preserve_both_streams() {
         ),
     );
 
-    let vite = fixture("tests/fixtures/vite_build.txt");
+    let vite = fixture("vite_build.txt");
     for argv in [
         &[b"npm".as_slice(), b"run", b"lint"][..],
         &[b"npm".as_slice(), b"run", b"build"][..],
@@ -574,7 +574,7 @@ fn large_build_fixtures_match_the_pinned_wrapper_oracles() {
     assert_eq!(
         build::dispatch_streams_argv(
             &[b"cargo", b"build"],
-            &fixture("tests/fixtures/large/cargo_build.txt"),
+            &fixture("large/cargo_build.txt"),
             b"",
             0,
             false,
@@ -595,7 +595,7 @@ fn large_build_fixtures_match_the_pinned_wrapper_oracles() {
     assert_eq!(
         build::dispatch_streams_argv(
             &[b"go", b"build", b"./..."],
-            &fixture("tests/fixtures/large/go_build.txt"),
+            &fixture("large/go_build.txt"),
             b"",
             1,
             false,
@@ -618,14 +618,8 @@ fn large_build_fixtures_match_the_pinned_wrapper_oracles() {
         "Compiled 501 (make)\n",
     );
     assert_eq!(
-        build::dispatch_streams_argv(
-            &[b"make"],
-            &fixture("tests/fixtures/large/make_build.txt"),
-            b"",
-            0,
-            false,
-        )
-        .unwrap(),
+        build::dispatch_streams_argv(&[b"make"], &fixture("large/make_build.txt"), b"", 0, false,)
+            .unwrap(),
         StreamFilterOutput::new(
             make_expected.as_bytes().to_vec(),
             Vec::new(),

@@ -1,6 +1,6 @@
 use tapas::filters::{EvidenceClass, FilterOutput, listing};
 
-const FIXTURES: &str = "compat/smll-v1.9.0/fixtures/tests/fixtures";
+const FIXTURES: &str = "regression/fixtures";
 
 fn fixture(name: &str) -> Vec<u8> {
     std::fs::read(format!(

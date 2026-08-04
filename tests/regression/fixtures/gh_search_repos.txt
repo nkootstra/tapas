@@ -1,0 +1,4 @@
+REPO                       DESCRIPTION                                        STARS  LANGUAGE  UPDATED
+cli/cli                    GitHub's official command-line tool                38000  Go        2026-08-01T10:00:00Z
+junegunn/fzf               A command-line fuzzy finder                        69000  Go        2026-07-30T08:15:00Z
+sharkdp/fd                 A simple, fast alternative to find                 34000  Rust      2026-07-28T12:30:00Z
