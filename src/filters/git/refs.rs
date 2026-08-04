@@ -14,6 +14,117 @@ pub(super) fn has_format_or_pretty_arg(argv: &[&[u8]]) -> bool {
     })
 }
 
+pub(super) fn compact_trimmed_lines(input: &[u8]) -> Vec<u8> {
+    let mut output = Vec::with_capacity(input.len());
+    for line in input.split(|byte| *byte == b'\n') {
+        let line = line.trim_ascii();
+        if !line.is_empty() {
+            output.extend_from_slice(line);
+            output.push(b'\n');
+        }
+    }
+    output
+}
+
+pub(super) fn compact_remote(argv: &[&[u8]], input: &[u8]) -> Option<Vec<u8>> {
+    let args = argv;
+    if args.len() > 1 && !has_arg(args, b"-v") && !has_arg(args, b"--verbose") {
+        return None;
+    }
+    if args.len() <= 1 {
+        return Some(compact_trimmed_lines(input));
+    }
+
+    let mut output = Vec::with_capacity(input.len());
+    for line in input.split(|byte| *byte == b'\n') {
+        if line.trim_ascii().is_empty() {
+            continue;
+        }
+        let fields = line
+            .split(|byte| byte.is_ascii_whitespace())
+            .filter(|field| !field.is_empty())
+            .collect::<Vec<_>>();
+        if fields.len() < 3 {
+            return None;
+        }
+        for (index, field) in fields.iter().enumerate() {
+            if index > 0 {
+                output.push(b' ');
+            }
+            output.extend_from_slice(field);
+        }
+        output.push(b'\n');
+    }
+    Some(output)
+}
+
+pub(super) fn compact_shortlog(input: &[u8]) -> Vec<u8> {
+    let mut output = Vec::with_capacity(input.len());
+    for line in input.split(|byte| *byte == b'\n') {
+        let line = line.trim_ascii();
+        if line.is_empty() {
+            continue;
+        }
+        let Some(count_end) = line.iter().position(|byte| !byte.is_ascii_digit()) else {
+            output.extend_from_slice(line);
+            output.push(b'\n');
+            continue;
+        };
+        let count = &line[..count_end];
+        let rest = line[count_end..].trim_ascii_start();
+        if !count.is_empty() && !rest.is_empty() {
+            output.extend_from_slice(count);
+            output.push(b' ');
+            output.extend_from_slice(rest);
+        } else {
+            output.extend_from_slice(line);
+        }
+        output.push(b'\n');
+    }
+    output
+}
+
+pub(super) fn compact_worktree(input: &[u8]) -> Vec<u8> {
+    let mut output = Vec::with_capacity(input.len());
+    for line in input.split(|byte| *byte == b'\n') {
+        let line = line.trim_ascii();
+        if line.is_empty() {
+            continue;
+        }
+        let mut sha = None;
+        let mut cursor = 0;
+        for token in line.split(|byte| byte.is_ascii_whitespace()) {
+            let start = line[cursor..]
+                .iter()
+                .position(|byte| !byte.is_ascii_whitespace())
+                .map_or(line.len(), |offset| cursor + offset);
+            let end = start.saturating_add(token.len());
+            if token.len() >= 7 && token.iter().all(u8::is_ascii_hexdigit) {
+                let rest = line[end..].trim_ascii_start();
+                if rest.is_empty() || rest.starts_with(b"[") {
+                    sha = Some((start, end));
+                    break;
+                }
+            }
+            cursor = end;
+        }
+        if let Some((start, end)) = sha {
+            output.extend_from_slice(line[..start].trim_ascii_end());
+            output.push(b' ');
+            output.extend_from_slice(&line[start..end]);
+            let rest = line[end..].trim_ascii_start();
+            if !rest.is_empty() {
+                output.push(b' ');
+                output.extend_from_slice(rest);
+            }
+        } else {
+            output.extend_from_slice(line);
+        }
+        output.push(b'\n');
+    }
+    output
+}
+
 pub(super) fn matches_diff(input: &[u8]) -> bool {
     find_diff_start(input).is_some()
 }

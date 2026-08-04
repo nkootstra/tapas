@@ -1,6 +1,12 @@
 pub(super) fn compact_gh(argv: &[&[u8]], stdout: &[u8]) -> Vec<u8> {
     let arg1 = argv.get(1).copied().unwrap_or_default();
     let arg2 = argv.get(2).copied().unwrap_or_default();
+    // `--jq`/`--template` already pass through via the invocation policy. A
+    // plain `--json` selection is still JSON, so collapse its whitespace while
+    // keeping every fact. `gh api` returns JSON by default.
+    if has_json_selection(argv) || arg1 == b"api" {
+        return compact_json(stdout).unwrap_or_else(|| stdout.to_vec());
+    }
     if arg1 == b"pr" && arg2 == b"view" {
         return compact_gh_pr_view(stdout);
     }
@@ -23,7 +29,144 @@ pub(super) fn compact_gh(argv: &[&[u8]], stdout: &[u8]) -> Vec<u8> {
     if arg1 == b"run" && arg2 == b"list" {
         return collapse_table(stdout);
     }
+    // Tabular listings keep every row; only alignment padding is collapsed.
+    if arg1 == b"search"
+        || (arg1 == b"release" && arg2 == b"list")
+        || (arg1 == b"issue" && arg2 == b"list")
+    {
+        return compact_gh_table(stdout).unwrap_or_else(|| stdout.to_vec());
+    }
     stdout.to_vec()
+}
+
+fn has_json_selection(argv: &[&[u8]]) -> bool {
+    argv.iter()
+        .any(|argument| *argument == b"--json" || argument.starts_with(b"--json="))
+}
+
+fn compact_gh_table(input: &[u8]) -> Option<Vec<u8>> {
+    let lines = input
+        .split(|byte| *byte == b'\n')
+        .filter(|line| !line.trim_ascii().is_empty())
+        .collect::<Vec<_>>();
+    let header = lines.first()?.trim_ascii_end();
+    let starts = column_starts(header);
+    if starts.len() < 2 {
+        return None;
+    }
+
+    let mut output = Vec::with_capacity(input.len());
+    for (index, raw) in lines.iter().enumerate() {
+        let line = raw.trim_ascii_end();
+        if index > 0 && (line.starts_with(b"Showing ") || line.starts_with(b"No ")) {
+            output.extend_from_slice(&collapse_table(line));
+            continue;
+        }
+        let row_starts = if index == 0 {
+            starts.clone()
+        } else {
+            row_starts(line, &starts)
+        };
+        for (field_index, start) in row_starts.iter().enumerate() {
+            if field_index > 0 {
+                output.push(b'\t');
+            }
+            let end = row_starts
+                .get(field_index + 1)
+                .copied()
+                .unwrap_or(line.len())
+                .min(line.len());
+            if *start < end {
+                output.extend_from_slice(line[*start..end].trim_ascii());
+            }
+        }
+        output.push(b'\n');
+    }
+    Some(output)
+}
+
+fn row_starts(line: &[u8], header_starts: &[usize]) -> Vec<usize> {
+    let mut starts = vec![header_starts.first().copied().unwrap_or(0)];
+    let mut cursor = starts[0];
+    for field_index in 1..header_starts.len() {
+        let nominal = header_starts[field_index];
+        let start = nearest_column_boundary(
+            line,
+            cursor,
+            nominal,
+            header_starts.get(field_index + 1).copied(),
+        )
+        .unwrap_or(nominal);
+        starts.push(start);
+        cursor = start;
+    }
+    starts
+}
+
+fn nearest_column_boundary(
+    line: &[u8],
+    cursor: usize,
+    nominal: usize,
+    next_nominal: Option<usize>,
+) -> Option<usize> {
+    let mut index = cursor.min(line.len());
+    let mut best = None;
+    while index < line.len() {
+        if line[index].is_ascii_whitespace() {
+            let start = index;
+            while index < line.len() && line[index].is_ascii_whitespace() {
+                index += 1;
+            }
+            if index - start >= 2 && index < line.len() {
+                let distance = if index <= nominal {
+                    nominal - index
+                } else if start >= nominal {
+                    start.saturating_sub(nominal)
+                } else {
+                    0
+                };
+                let candidate = if start < nominal && next_nominal.is_some_and(|next| index >= next)
+                {
+                    nominal
+                } else {
+                    index
+                };
+                if best.is_none_or(|(best_distance, _)| distance < best_distance) {
+                    best = Some((distance, candidate));
+                }
+            }
+        } else {
+            index += 1;
+        }
+    }
+    best.map(|(_, candidate)| candidate)
+}
+
+fn column_starts(header: &[u8]) -> Vec<usize> {
+    let first = header
+        .iter()
+        .position(|byte| !byte.is_ascii_whitespace())
+        .unwrap_or(header.len());
+    if first == header.len() {
+        return Vec::new();
+    }
+    let mut starts = vec![first];
+    let mut index = first;
+    while index + 1 < header.len() {
+        if header[index].is_ascii_whitespace() && header[index + 1].is_ascii_whitespace() {
+            let mut next = index + 2;
+            while next < header.len() && header[next].is_ascii_whitespace() {
+                next += 1;
+            }
+            if next < header.len() {
+                starts.push(next);
+                index = next;
+                continue;
+            }
+        }
+        index += 1;
+    }
+    starts
 }
 
 fn compact_gh_pr_view(stdout: &[u8]) -> Vec<u8> {
@@ -298,3 +441,4 @@ fn gh_footer(line: &[u8]) -> bool {
 }
 use super::table::collapse_table;
 use super::{append_line, find_subslice};
+use crate::filters::data::compact_json;

@@ -1,6 +1,6 @@
 use tapas::filters::{EvidenceClass, StreamFilterOutput, git};
 
-const FIXTURES: &str = "compat/smll-v1.9.0/fixtures/tests/fixtures";
+const FIXTURES: &str = "regression/fixtures";
 
 fn fixture(name: &str) -> Vec<u8> {
     std::fs::read(format!(
@@ -289,6 +289,98 @@ fn argv_branch_dispatch_matches_the_pinned_oracle() {
             b" feature-x\n feature-y\n* main\n".to_vec(),
             EvidenceClass::FactComplete,
         )
+    );
+}
+
+#[test]
+fn argv_release_and_audit_commands_keep_their_actionable_rows() {
+    let tags = fixture("git_tag_list.txt");
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"tag", b"--list"], &tags, b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            b"v0.1.0\nv0.1.0-rc.1\nv0.2.0\nv0.3.0\n".to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+
+    let worktrees = fixture("git_worktree_list.txt");
+    let worktree_output =
+        git::dispatch_argv(&[b"git", b"worktree", b"list"], &worktrees, b"", 0, false).unwrap();
+    assert!(
+        worktree_output
+            .bytes
+            .starts_with(b"/repo/tapas 1e94d59c6b5f8a1e2b3c4d5e6f708192a3b4c5d6 [main]\n")
+    );
+    assert!(
+        worktree_output
+            .bytes
+            .windows(b"[review/catalog]".len())
+            .any(|window| window == b"[review/catalog]")
+    );
+
+    let shortlog = fixture("git_shortlog.txt");
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"shortlog", b"-sne"], &shortlog, b"", 0, false)
+            .unwrap()
+            .bytes,
+        b"12 Niels Kootstra\n5 Release Bot\n2 Tapas Contributors\n"
+    );
+
+    let remotes = fixture("git_remote_verbose.txt");
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"remote", b"-v"], &remotes, b"", 0, false)
+            .unwrap()
+            .bytes,
+        b"origin git@github.com:nkootstra/tapas.git (fetch)\norigin git@github.com:nkootstra/tapas.git (push)\nupstream https://github.com/example/tapas.git (fetch)\n"
+    );
+
+    let config = fixture("git_config_list.txt");
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"config", b"--list"], &config, b"", 0, false)
+            .unwrap()
+            .bytes,
+        b"user.name=Niels Kootstra\nuser.email=niels@example.com\ngpg.format=ssh\ntag.gpgSign=true\n"
+    );
+}
+
+#[test]
+fn git_machine_formats_remain_byte_exact() {
+    let tags = fixture("git_tag_list.txt");
+    assert_eq!(
+        git::dispatch_argv(
+            &[b"git", b"tag", b"--format=%(refname)"],
+            &tags,
+            b"",
+            0,
+            false
+        )
+        .unwrap(),
+        tapas::filters::FilterOutput::new(tags, EvidenceClass::ByteExact)
+    );
+
+    let worktrees = fixture("git_worktree_list.txt");
+    assert_eq!(
+        git::dispatch_argv(
+            &[b"git", b"worktree", b"list", b"--porcelain"],
+            &worktrees,
+            b"",
+            0,
+            false
+        )
+        .unwrap(),
+        tapas::filters::FilterOutput::new(worktrees, EvidenceClass::ByteExact)
+    );
+
+    assert_eq!(
+        git::dispatch_argv(
+            &[b"git", b"config", b"--get", b"foo.empty"],
+            b"\n",
+            b"",
+            0,
+            false,
+        )
+        .unwrap(),
+        tapas::filters::FilterOutput::new(b"\n".to_vec(), EvidenceClass::ByteExact)
     );
 }
 

@@ -17,8 +17,8 @@ from dataclasses import dataclass
 from typing import Any
 
 
-DEFAULT_CASES = pathlib.Path("tests/compat/smll-v1.9.0/cases.json")
-DEFAULT_CONTRACT = pathlib.Path("tests/compat/smll-v1.9.0")
+DEFAULT_CASES = pathlib.Path("tests/regression/cases.json")
+DEFAULT_CONTRACT = pathlib.Path("tests/regression")
 
 
 @dataclass
@@ -36,6 +36,30 @@ def bytes_value(value: dict[str, str], contract: pathlib.Path) -> bytes:
     if "fixture" in value:
         return (contract / value["fixture"]).read_bytes()
     raise ValueError("byte value must contain base64 or fixture")
+
+
+def fixture_paths(value: Any) -> list[str]:
+    paths: list[str] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key == "fixture" and isinstance(item, str):
+                paths.append(item)
+            paths.extend(fixture_paths(item))
+    elif isinstance(value, list):
+        for item in value:
+            paths.extend(fixture_paths(item))
+    return paths
+
+
+def missing_fixtures(cases: list[dict[str, Any]], contract: pathlib.Path) -> list[str]:
+    return sorted(
+        {
+            path
+            for case in cases
+            for path in fixture_paths(case)
+            if not (contract / path).is_file()
+        }
+    )
 
 
 def fake_tool(bin_dir: pathlib.Path, command: str, child: dict[str, Any], contract: pathlib.Path) -> None:
@@ -168,6 +192,12 @@ def main() -> int:
             print(f"unknown cases: {', '.join(missing)}", file=sys.stderr)
             return 2
         cases = [case for case in cases if case["id"] in requested]
+    missing = missing_fixtures(cases, args.contract)
+    if missing:
+        print("missing regression fixtures:", file=sys.stderr)
+        for path in missing:
+            print(f"- {path}", file=sys.stderr)
+        return 2
     binary = args.binary.resolve()
     if not binary.is_file():
         print(f"binary not found: {binary}", file=sys.stderr)

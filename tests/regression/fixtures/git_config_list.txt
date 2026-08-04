@@ -1,0 +1,4 @@
+user.name=Niels Kootstra
+user.email=niels@example.com
+gpg.format=ssh
+tag.gpgSign=true

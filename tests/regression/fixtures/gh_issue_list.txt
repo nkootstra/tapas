@@ -1,0 +1,4 @@
+TITLE                                      NUMBER  STATE  AUTHOR  UPDATED
+Preserve actionable output for gh search   #42      OPEN   nkootstra  about 2 hours ago
+Support sqlite3 table output               #41      OPEN   agent      about 1 day ago
+Document release verification              #40      CLOSED nkootstra  about 3 days ago

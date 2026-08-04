@@ -244,6 +244,32 @@ pub(crate) fn requests_machine_output(argv: &[&[u8]]) -> bool {
                     || long_option(argument, b"--reporter")
             })
         }
+        // `gh --jq` and `gh --template` emit caller-shaped output that must
+        // stay byte-exact; plain `--json` is compacted by the gh filter.
+        b"gh" => {
+            has_any(arguments, &[b"--jq", b"--template"])
+                || has_option(arguments, b"--jq", b"", true)
+                || has_option(arguments, b"--template", b"", true)
+        }
+        b"sqlite3" => {
+            has_any(
+                arguments,
+                &[
+                    b"-csv",
+                    b"-html",
+                    b"-json",
+                    b"-line",
+                    b"-list",
+                    b"-markdown",
+                    b"-noheader",
+                    b"-nullvalue",
+                    b"-quote",
+                    b"-separator",
+                    b"-tabs",
+                ],
+            ) || has_option(arguments, b"-separator", b"", true)
+                || has_option(arguments, b"-nullvalue", b"", true)
+        }
         _ => false,
     }
 }

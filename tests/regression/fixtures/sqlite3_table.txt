@@ -1,0 +1,5 @@
+id  name              enabled  notes
+--  ----------------  -------  ----------------------
+1   api               1        public HTTP service
+2   worker            0        background worker
+3   scheduler         1        runs every 15 minutes
