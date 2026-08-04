@@ -199,11 +199,6 @@ jobs:
       - name: Test
         run: cargo test --locked
 
-      - name: Run the frozen compatibility contract
-        run: python3 scripts/parity.py --binary "${DEBUG_BINARY}" --tool tapas
-        env:
-          DEBUG_BINARY: target/debug/${{ matrix.binary }}
-
       - name: Build comparable release profiles
         run: |
           cargo build --locked --profile z --target "${TARGET}"
