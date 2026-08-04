@@ -2,7 +2,7 @@
 
 Tapas reduces the tokens consumed by command-line output before that output reaches a coding agent. It is the maintained Rust successor to the archived [smll](https://github.com/nkootstra/smll) project, and it owns its command catalog and regression corpus directly.
 
-`0.1.0` starts a fresh version line and intentionally has no `smll` executable alias, `SMLL_` environment aliases, or automatic `~/.smll` migration.
+`0.2.0` continues the Tapas version line and intentionally has no `smll` executable alias, `SMLL_` environment aliases, or automatic `~/.smll` migration.
 
 ## Results
 
@@ -131,7 +131,7 @@ To test a pull request before it is merged, install the exact build for its curr
 curl -fsSL https://github.com/nkootstra/tapas/raw/refs/heads/main/install-pr.sh | sh -s -- 123
 ```
 
-The installer verifies the release checksum and source commit, then places the development binary at `~/.local/bin/tapas-pr-<commit>`. A PR build reports a version such as `tapas 0.1.0-dev.332d7176` so it is distinguishable from a stable build. PR builds are temporary and are removed remotely when the pull request is merged or after the retention window.
+The installer verifies the release checksum and source commit, then places the development binary at `~/.local/bin/tapas-pr-<commit>`. A PR build reports a version such as `tapas 0.2.0-dev.332d7176` so it is distinguishable from a stable build. PR builds are temporary and are removed remotely when the pull request is merged or after the retention window.
 
 Remove local PR builds without affecting the stable `tapas` executable:
 
@@ -186,7 +186,7 @@ The command catalog in `src/catalog.rs` is tapas-owned and audited for internal 
 
 ## Current scope
 
-`0.1.0` covers command, pipe, process, streaming, and user-level hook behavior for Claude and Codex. Stats, history, discovery, failure tee storage, and other agent integrations are intentionally deferred to later Tapas versions.
+`0.2.0` covers command, pipe, process, streaming, and user-level hook behavior for Claude and Codex. Stats, history, discovery, failure tee storage, and other agent integrations are intentionally deferred to later Tapas versions.
 
 ## License
 

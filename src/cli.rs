@@ -143,7 +143,7 @@ pub fn run(
                 .iter()
                 .any(|deferred| flag == OsStr::new(deferred)) =>
         {
-            stderr.write_all(b"usage: tapas does not expose deferred state modes in 0.1.0\n")?;
+            stderr.write_all(b"usage: tapas does not expose deferred state modes in 0.2.0\n")?;
             Ok(2)
         }
         [flag, ..] if is_setup_flag(flag) => {
