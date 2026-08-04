@@ -151,10 +151,6 @@ jobs:
             target: aarch64-unknown-linux-musl
             abi: musl
             binary: tapas
-          - os: windows-2022
-            target: x86_64-pc-windows-msvc
-            abi: msvc
-            binary: tapas.exe
 
     steps:
       - name: Check out the tested commit
@@ -219,7 +215,7 @@ jobs:
 
       - name: Verify architecture and version natively
         run: |
-          if [ "$RUNNER_OS" != "Windows" ]; then file "${BINARY}"; fi
+          file "${BINARY}"
           "${BINARY}" --version | grep --fixed-strings "tapas ${TAPAS_BUILD_LABEL}"
         env:
           BINARY: target/${{ matrix.target }}/z/${{ matrix.binary }}
@@ -255,7 +251,6 @@ jobs:
 
       - name: Measure the packaged release artifact and evaluate its budget
         id: release_metrics
-        if: runner.os != 'Windows'
         continue-on-error: true
         run: |
           python3 scripts/release_metrics.py \
@@ -285,7 +280,7 @@ jobs:
           compression-level: 9
 
       - name: Enforce the release measurement gate
-        if: runner.os != 'Windows' && steps.release_metrics.outcome == 'failure'
+        if: steps.release_metrics.outcome == 'failure'
         run: exit 1
 
       - name: Upload the release-profile artifact
@@ -296,17 +291,3 @@ jobs:
           if-no-files-found: error
           retention-days: 30
           compression-level: 9
-
-      - name: Validate the PowerShell development cleanup
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $directory = Join-Path $env:RUNNER_TEMP 'tapas-installer-test'
-          New-Item -ItemType Directory -Path $directory -Force | Out-Null
-          New-Item -ItemType File -Path (Join-Path $directory 'tapas.exe') -Force | Out-Null
-          New-Item -ItemType File -Path (Join-Path $directory 'tapas-pr-test.exe') -Force | Out-Null
-          & "$env:GITHUB_WORKSPACE/install.ps1" -CleanDevBuilds -DryRun -InstallDir $directory
-          if (-not (Test-Path (Join-Path $directory 'tapas-pr-test.exe'))) { throw 'dry-run removed a development build' }
-          & "$env:GITHUB_WORKSPACE/install.ps1" -CleanDevBuilds -InstallDir $directory
-          if (Test-Path (Join-Path $directory 'tapas-pr-test.exe')) { throw 'development build was not removed' }
-          if (-not (Test-Path (Join-Path $directory 'tapas.exe'))) { throw 'stable binary was removed' }

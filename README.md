@@ -99,26 +99,20 @@ CI produces checksummed release-profile artifacts for:
 - Apple Silicon macOS (`aarch64-apple-darwin`)
 - Linux x86_64 musl (`x86_64-unknown-linux-musl`)
 - Linux arm64 musl (`aarch64-unknown-linux-musl`)
-- Windows x86_64 MSVC (`x86_64-pc-windows-msvc`)
 
 Each Actions artifact contains the platform binary, `SHA256SUMS`, and `BUILD-METADATA.json` at its root.
 
 ## Install releases and PR builds
 
-Stable releases are published for Apple Silicon macOS, Linux x86_64 musl, Linux arm64 musl, and Windows x86_64. Install the latest stable release on Unix with:
+Stable releases are published for Apple Silicon macOS, Linux x86_64 musl, and Linux arm64 musl. Install the latest stable release on Unix with:
 
 ```sh
 curl -fsSL https://github.com/nkootstra/tapas/raw/refs/heads/main/install.sh | sh
 ```
 
-On Windows PowerShell, install the latest stable release with:
+Windows stable binaries are not published yet because the current runtime uses Unix-specific process and filesystem APIs. The PowerShell script currently supports development-build cleanup only.
 
-```powershell
-$script = Invoke-RestMethod 'https://github.com/nkootstra/tapas/raw/refs/heads/main/install.ps1'
-& ([scriptblock]::Create($script))
-```
-
-Use `-Version 0.2.0` to install a specific tagged release or `-InstallDir C:\path\to\bin` to choose the destination directory.
+Use `--version 0.2.0` to install a specific tagged Unix release.
 
 Stable releases are tag-driven. Update `Cargo.toml`, merge the version change, then create and push a matching tag:
 
