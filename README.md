@@ -81,6 +81,8 @@ CODEX_HOME=/path/to/codex-home tapas --unsetup codex
 
 Setup preserves unrelated settings and handlers, writes atomically, keeps a backup beside the client configuration file, and records private ownership under `~/.tapas/setup`. Unsetup removes only the exact hook recorded by Tapas.
 
+Running `--setup codex` from a development build points Codex at that exact executable. If it replaces a different Tapas-owned hook, Tapas prints a warning naming the active development version and executable path.
+
 The Claude integration writes `~/.claude/settings.json` and provides rewrite guidance without granting command permission. The Codex integration writes `${CODEX_HOME:-$HOME/.codex}/hooks.json`; after setup, open `/hooks` to review and trust the exact hook that was added. Review other matching hooks from every active user, project, profile, and plugin layer at the same time. Codex requires an allow decision when a hook supplies updated input, so Tapas limits Codex rewrites to unqualified, local read-only command forms resolved through absolute executable search paths outside the session workspace. The executable and all its path ancestors must not be group- or world-writable; unsafe candidates are skipped in favor of a later trusted candidate. Tapas disables supported tools' configuration-driven helper execution before running them. Mutating flags, commands that run project code, network tools, shell operators, substitutions, multiline commands, unsupported commands, and already wrapped commands are left untouched.
 
 ## Build
@@ -160,7 +162,6 @@ Run the standard gates:
 cargo fmt --all -- --check
 cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked
-python3 scripts/parity.py --binary target/debug/tapas --tool tapas
 ```
 
 Run the token benchmark:
