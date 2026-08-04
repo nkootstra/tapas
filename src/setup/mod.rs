@@ -288,6 +288,13 @@ fn setup(
     };
 
     let expected_entry = hook_entry(hook_command);
+    warn_on_replacement(
+        *target,
+        owned_entry.as_ref().map(|owned| *owned),
+        &expected_entry,
+        executable,
+        stderr,
+    )?;
     let removed_owned = match owned_entry {
         Some(owned) if owned == &expected_entry => match hook_exists(&root, owned) {
             Ok(true) => false,
@@ -348,6 +355,29 @@ fn setup(
     }
     stdout.write_all(b"ok\n")?;
     Ok(0)
+}
+
+fn warn_on_replacement(
+    target: Target,
+    owned_entry: Option<&Value>,
+    expected_entry: &Value,
+    executable: &Path,
+    stderr: &mut dyn Write,
+) -> io::Result<()> {
+    if target == Target::Codex && owned_entry.is_some_and(|owned| owned != expected_entry) {
+        let build_kind = if env!("TAPAS_BUILD_LABEL").contains("-dev.") {
+            "development"
+        } else {
+            "stable"
+        };
+        writeln!(
+            stderr,
+            "warning: replacing the existing Tapas-owned Codex hook with the {build_kind} build {} ({})",
+            env!("TAPAS_BUILD_LABEL"),
+            executable.display()
+        )?;
+    }
+    Ok(())
 }
 
 fn unsetup(
@@ -466,10 +496,11 @@ mod tests {
     use std::fs::{self, Permissions};
     use std::io;
     use std::os::unix::fs::PermissionsExt;
+    use std::path::Path;
 
     use super::{
         SetupLocation, Target, Value, eligible, ensure_hook, hook_entry, remove_hook,
-        unsetup_with_remove, write_ownership,
+        unsetup_with_remove, warn_on_replacement, write_ownership,
     };
 
     #[test]
@@ -523,6 +554,26 @@ mod tests {
             panic!("PreToolUse is not an array");
         };
         assert!(super::nested_hook_exists(entries, b"other-hook"));
+    }
+
+    #[test]
+    fn codex_setup_warns_when_replacing_an_owned_hook() {
+        let old = hook_entry(b"/old/tapas --hook-eval codex");
+        let expected = hook_entry(b"/new/tapas --hook-eval codex");
+        let mut stderr = Vec::new();
+        warn_on_replacement(
+            Target::Codex,
+            Some(&old),
+            &expected,
+            Path::new("/new/tapas"),
+            &mut stderr,
+        )
+        .unwrap();
+
+        assert!(
+            String::from_utf8_lossy(&stderr)
+                .contains("replacing the existing Tapas-owned Codex hook")
+        );
     }
 
     #[test]
