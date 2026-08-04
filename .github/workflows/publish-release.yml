@@ -8,7 +8,6 @@ on:
 permissions: {}
 
 env:
-  TAPAS_VERSION: 0.1.0
   REPOSITORY: ${{ github.repository }}
 
 jobs:
@@ -28,17 +27,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id }}
           SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          TAG: ${{ github.event.workflow_run.head_branch }}
         run: |
           set -euo pipefail
           mkdir -p work
-          for target in aarch64-apple-darwin x86_64-unknown-linux-musl aarch64-unknown-linux-musl; do
+          for target in aarch64-apple-darwin x86_64-unknown-linux-musl aarch64-unknown-linux-musl x86_64-pc-windows-msvc; do
             gh run download "$RUN_ID" \
               --repo "$REPOSITORY" \
-              --name "tapas-${TAPAS_VERSION}-${target}" \
+              --name "tapas-${target}" \
               --dir "work/${target}"
             metadata="work/${target}/BUILD-METADATA.json"
             actual="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source_sha"])' "$metadata")"
             test "$actual" = "$SOURCE_SHA"
+            version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$metadata")"
+            test "$version" = "${TAG#v}"
+            actual_target="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["target"])' "$metadata")"
+            test "$actual_target" = "$target"
           done
 
       - name: Create release archives
@@ -49,17 +53,24 @@ jobs:
           SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
-          case "$TAG" in v*) ;; *) echo "invalid release tag: $TAG" >&2; exit 1 ;; esac
-          test "$TAG" = "v${TAPAS_VERSION}"
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "release tags must use vX.Y.Z" >&2
+            exit 1
+          }
           tag_sha="$(gh api "repos/${REPOSITORY}/commits/${TAG}" --jq .sha)"
           test "$tag_sha" = "$SOURCE_SHA"
           mkdir -p release
-          for target in aarch64-apple-darwin x86_64-unknown-linux-musl aarch64-unknown-linux-musl; do
-            archive="release/tapas-${target}.tar.gz"
-            tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
-              -C "work/${target}" -czf "$archive" tapas BUILD-METADATA.json SHA256SUMS
+          for target in aarch64-apple-darwin x86_64-unknown-linux-musl aarch64-unknown-linux-musl x86_64-pc-windows-msvc; do
+            if [ "$target" = "x86_64-pc-windows-msvc" ]; then
+              archive="release/tapas-${target}.zip"
+              (cd "work/${target}" && zip -q -X "../../${archive}" tapas.exe BUILD-METADATA.json SHA256SUMS)
+            else
+              archive="release/tapas-${target}.tar.gz"
+              tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
+                -C "work/${target}" -czf "$archive" tapas BUILD-METADATA.json SHA256SUMS
+            fi
           done
-          (cd release && sha256sum tapas-*.tar.gz > SHA256SUMS)
+          (cd release && sha256sum tapas-* > SHA256SUMS)
 
       - name: Publish the GitHub Release
         env:
