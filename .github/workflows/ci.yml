@@ -10,7 +10,6 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  TAPAS_VERSION: 0.1.0
 
 jobs:
   quality:
@@ -81,7 +80,7 @@ jobs:
       - name: Upload the historical benchmark report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: tapas-${{ env.TAPAS_VERSION }}-historical-token-benchmark
+          name: tapas-historical-token-benchmark
           path: benchmark-report.json
           if-no-files-found: error
           retention-days: 14
@@ -122,7 +121,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: tapas-${{ env.TAPAS_VERSION }}-executable-compatibility-benchmark
+          name: tapas-executable-compatibility-benchmark
           path: executable-benchmark-report.json
           if-no-files-found: warn
           retention-days: 14
@@ -133,6 +132,9 @@ jobs:
     needs: quality
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -140,12 +142,19 @@ jobs:
           - os: macos-15
             target: aarch64-apple-darwin
             abi: darwin
+            binary: tapas
           - os: ubuntu-24.04
             target: x86_64-unknown-linux-musl
             abi: musl
+            binary: tapas
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-musl
             abi: musl
+            binary: tapas
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+            abi: msvc
+            binary: tapas.exe
 
     steps:
       - name: Check out the tested commit
@@ -166,6 +175,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes musl-tools
 
+      - name: Resolve and validate the package version
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+              echo "release tags must use vX.Y.Z" >&2
+              exit 1
+            }
+            version="${GITHUB_REF_NAME#v}"
+            package_version="$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; print(json.load(sys.stdin)["packages"][0]["version"])')"
+            test "$package_version" = "$version"
+          else
+            version="$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; print(json.load(sys.stdin)["packages"][0]["version"])')"
+          fi
+          echo "TAPAS_VERSION=$version" >> "$GITHUB_ENV"
+
       - name: Set the build version label
         env:
           SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -180,7 +204,9 @@ jobs:
         run: cargo test --locked
 
       - name: Run the frozen compatibility contract
-        run: python3 scripts/parity.py --binary target/debug/tapas --tool tapas
+        run: python3 scripts/parity.py --binary "${DEBUG_BINARY}" --tool tapas
+        env:
+          DEBUG_BINARY: target/debug/${{ matrix.binary }}
 
       - name: Build comparable release profiles
         run: |
@@ -193,46 +219,58 @@ jobs:
 
       - name: Verify architecture and version natively
         run: |
-          file "${BINARY}"
+          if [ "$RUNNER_OS" != "Windows" ]; then file "${BINARY}"; fi
           "${BINARY}" --version | grep --fixed-strings "tapas ${TAPAS_BUILD_LABEL}"
         env:
-          BINARY: target/${{ matrix.target }}/z/tapas
+          BINARY: target/${{ matrix.target }}/z/${{ matrix.binary }}
 
       - name: Package checksums and build metadata
         run: |
           python3 scripts/package_artifact.py \
             --binary "${BINARY}" \
             --output "${OUTPUT}" \
+            --binary-name "${BINARY_NAME}" \
             --version "${TAPAS_VERSION}" \
             --version-label "${TAPAS_BUILD_LABEL}" \
             --source-sha "${SOURCE_SHA}" \
             --target "${TARGET}" \
             --abi "${ABI}" \
             --workflow-run "${GITHUB_RUN_ID}"
-          (cd "${OUTPUT}" && shasum --algorithm 256 --check SHA256SUMS)
+          python3 - "${OUTPUT}" <<'PY'
+          import hashlib, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          for line in (root / "SHA256SUMS").read_text().splitlines():
+              digest, name = line.split(maxsplit=1)
+              actual = hashlib.sha256((root / name).read_bytes()).hexdigest()
+              if actual != digest:
+                  raise SystemExit(f"checksum mismatch: {name}")
+          PY
         env:
           ABI: ${{ matrix.abi }}
-          BINARY: target/${{ matrix.target }}/z/tapas
+          BINARY: target/${{ matrix.target }}/z/${{ matrix.binary }}
+          BINARY_NAME: ${{ matrix.binary }}
           OUTPUT: dist/${{ matrix.target }}
           SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           TARGET: ${{ matrix.target }}
 
       - name: Measure the packaged release artifact and evaluate its budget
         id: release_metrics
+        if: runner.os != 'Windows'
         continue-on-error: true
         run: |
           python3 scripts/release_metrics.py \
             --release-artifact "${RELEASE_ARTIFACT}" \
-            --profile "z=${PROFILE_ROOT}/z/tapas" \
-            --profile "s=${PROFILE_ROOT}/s/tapas" \
-            --profile "3=${PROFILE_ROOT}/3/tapas" \
+            --profile "z=${PROFILE_ROOT}/z/${BINARY_NAME}" \
+            --profile "s=${PROFILE_ROOT}/s/${BINARY_NAME}" \
+            --profile "3=${PROFILE_ROOT}/3/${BINARY_NAME}" \
             --release-profile z \
             --target "${TARGET}" \
             --policy tests/release-budgets.json \
             --output "${REPORT}"
         env:
           PROFILE_ROOT: target/${{ matrix.target }}
-          RELEASE_ARTIFACT: dist/${{ matrix.target }}/tapas
+          BINARY_NAME: ${{ matrix.binary }}
+          RELEASE_ARTIFACT: dist/${{ matrix.target }}/${{ matrix.binary }}
           REPORT: release-metrics/${{ matrix.target }}.json
           TARGET: ${{ matrix.target }}
 
@@ -240,21 +278,35 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: tapas-${{ env.TAPAS_VERSION }}-${{ matrix.target }}-measurements
+          name: tapas-${{ matrix.target }}-measurements
           path: release-metrics/${{ matrix.target }}.json
           if-no-files-found: warn
           retention-days: 14
           compression-level: 9
 
       - name: Enforce the release measurement gate
-        if: steps.release_metrics.outcome == 'failure'
+        if: runner.os != 'Windows' && steps.release_metrics.outcome == 'failure'
         run: exit 1
 
       - name: Upload the release-profile artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: tapas-${{ env.TAPAS_VERSION }}-${{ matrix.target }}
+          name: tapas-${{ matrix.target }}
           path: dist/${{ matrix.target }}/*
           if-no-files-found: error
           retention-days: 30
           compression-level: 9
+
+      - name: Validate the PowerShell development cleanup
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $directory = Join-Path $env:RUNNER_TEMP 'tapas-installer-test'
+          New-Item -ItemType Directory -Path $directory -Force | Out-Null
+          New-Item -ItemType File -Path (Join-Path $directory 'tapas.exe') -Force | Out-Null
+          New-Item -ItemType File -Path (Join-Path $directory 'tapas-pr-test.exe') -Force | Out-Null
+          & "$env:GITHUB_WORKSPACE/install.ps1" -CleanDevBuilds -DryRun -InstallDir $directory
+          if (-not (Test-Path (Join-Path $directory 'tapas-pr-test.exe'))) { throw 'dry-run removed a development build' }
+          & "$env:GITHUB_WORKSPACE/install.ps1" -CleanDevBuilds -InstallDir $directory
+          if (Test-Path (Join-Path $directory 'tapas-pr-test.exe')) { throw 'development build was not removed' }
+          if (-not (Test-Path (Join-Path $directory 'tapas.exe'))) { throw 'stable binary was removed' }

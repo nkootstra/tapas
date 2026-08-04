@@ -35,7 +35,7 @@ jobs:
           for target in aarch64-apple-darwin x86_64-unknown-linux-musl aarch64-unknown-linux-musl; do
             gh run download "$RUN_ID" \
               --repo "$REPOSITORY" \
-              --name "tapas-${TAPAS_VERSION}-${target}" \
+              --name "tapas-${target}" \
               --dir "work/${target}"
             metadata="work/${target}/BUILD-METADATA.json"
             actual="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source_sha"])' "$metadata")"

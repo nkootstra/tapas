@@ -15,6 +15,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=pathlib.Path, required=True)
     parser.add_argument("--output", type=pathlib.Path, required=True)
+    parser.add_argument("--binary-name", default="tapas")
     parser.add_argument("--version", required=True)
     parser.add_argument("--version-label", required=True)
     parser.add_argument("--source-sha", required=True)
@@ -42,7 +43,7 @@ def main() -> int:
         raise SystemExit("--source-sha must be a full 40-character hexadecimal commit")
 
     args.output.mkdir(parents=True)
-    binary = args.output / "tapas"
+    binary = args.output / args.binary_name
     shutil.copyfile(args.binary, binary)
     binary.chmod(binary.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     binary_digest = sha256(binary)
@@ -57,7 +58,7 @@ def main() -> int:
         "abi": args.abi,
         "workflow_run": args.workflow_run,
         "binary": {
-            "name": "tapas",
+            "name": args.binary_name,
             "sha256": binary_digest,
             "uncompressed_bytes": binary.stat().st_size,
         },
