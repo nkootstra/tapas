@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pathlib
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -36,6 +37,137 @@ class ParityFixtureTests(unittest.TestCase):
             ),
             ["one", "two"],
         )
+
+
+class ParityBaselineComparisonTests(unittest.TestCase):
+    def test_identical_baseline_and_candidate_pass(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            binary = root / "tapas"
+            binary.write_text("#!/bin/sh\nprintf 'same output\\n'\n", encoding="utf-8")
+            binary.chmod(0o755)
+            cases = root / "cases.json"
+            cases.write_text(
+                """{
+  "cases": [{
+    "id": "comparison:identical",
+    "oracle": "smll",
+    "mode": "pipe",
+    "argv": ["unused"],
+    "stdin": {"base64": ""},
+    "env": {"set": {}, "unset": []},
+    "expect": {
+      "termination": {"exit_code": 0, "signal": null},
+      "stdout": {"facts": ["same output"], "byte_exact": false},
+      "stderr": {"facts": [], "byte_exact": false},
+      "incomplete_output": {"diagnostic_facts": []}
+    }
+  }]
+}
+""",
+                encoding="utf-8",
+            )
+
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS / "parity.py"),
+                    "--binary",
+                    str(binary),
+                    "--baseline-binary",
+                    str(binary),
+                    "--tool",
+                    "tapas",
+                    "--cases",
+                    str(cases),
+                    "--contract",
+                    str(root),
+                    "--jobs",
+                    "1",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertIn("baseline comparison: 1", proc.stdout)
+            self.assertIn("all characterization cases passed", proc.stdout)
+
+    def test_stdout_stderr_and_exit_mismatches_are_actionable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            baseline = root / "baseline"
+            baseline.write_text(
+                "#!/bin/sh\nprintf 'baseline out'\nprintf 'baseline err' >&2\nexit 7\n",
+                encoding="utf-8",
+            )
+            baseline.chmod(0o755)
+            candidate = root / "candidate"
+            candidate.write_text(
+                "#!/bin/sh\nprintf 'candidate out'\nprintf 'candidate err' >&2\nexit 9\n",
+                encoding="utf-8",
+            )
+            candidate.chmod(0o755)
+            cases = root / "cases.json"
+            cases.write_text(
+                """{
+  "cases": [{
+    "id": "comparison:different",
+    "oracle": "smll",
+    "mode": "pipe",
+    "argv": ["unused"],
+    "stdin": {"base64": ""},
+    "env": {"set": {}, "unset": []},
+    "expect": {
+      "termination": {"exit_code": null, "signal": null},
+      "stdout": {"facts": [], "byte_exact": false},
+      "stderr": {"facts": [], "byte_exact": false},
+      "incomplete_output": {"diagnostic_facts": []}
+    }
+  }]
+}
+""",
+                encoding="utf-8",
+            )
+
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS / "parity.py"),
+                    "--binary",
+                    str(candidate),
+                    "--baseline-binary",
+                    str(baseline),
+                    "--tool",
+                    "tapas",
+                    "--cases",
+                    str(cases),
+                    "--contract",
+                    str(root),
+                    "--jobs",
+                    "1",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(proc.returncode, 1)
+            self.assertIn("FAIL comparison:different", proc.stderr)
+            self.assertIn("exit differs (baseline 7, candidate 9)", proc.stderr)
+            self.assertRegex(
+                proc.stderr,
+                r"stdout differs \(baseline 12 bytes, candidate 13 bytes; "
+                r"first difference at byte 0: baseline=0x62, candidate=0x63\)",
+            )
+            self.assertRegex(
+                proc.stderr,
+                r"stderr differs \(baseline 12 bytes, candidate 13 bytes; "
+                r"first difference at byte 0: baseline=0x62, candidate=0x63\)",
+            )
 
 
 if __name__ == "__main__":
