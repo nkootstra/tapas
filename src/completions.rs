@@ -12,11 +12,14 @@ pub fn write(shell: Shell, output: &mut dyn Write) -> io::Result<()> {
 
 fn write_bash(output: &mut dyn Write) -> io::Result<()> {
     output.write_all(
-        b"_tapas() {\n    local current first target candidates\n    COMPREPLY=()\n    current=\"${COMP_WORDS[COMP_CWORD]}\"\n    first=\"${COMP_WORDS[1]}\"\n\n    if (( COMP_CWORD == 1 )); then\n        COMPREPLY=( $(compgen -W '",
+        b"_tapas() {\n    local current first target candidates word has_dry_run has_force\n    COMPREPLY=()\n    current=\"${COMP_WORDS[COMP_CWORD]}\"\n    first=\"${COMP_WORDS[1]}\"\n\n    if (( COMP_CWORD == 1 )); then\n        case \"$current\" in\n            --setup=*)\n                COMPREPLY=( $(compgen -W '",
     )?;
+    write_prefixed_target_names(output, "--setup=")?;
+    output.write_all(b"' -- \"$current\") )\n                return\n                ;;\n            --unsetup=*)\n                COMPREPLY=( $(compgen -W '")?;
+    write_prefixed_target_names(output, "--unsetup=")?;
+    output.write_all(b"' -- \"$current\") )\n                return\n                ;;\n        esac\n        COMPREPLY=( $(compgen -W '")?;
     write_names(output, spec::COMMANDS.iter())?;
-    output
-        .write_all(b"' -- \"$current\") )\n        return\n    fi\n\n    case \"$first\" in\n")?;
+    output.write_all(b"' -- \"$current\") )\n        return\n    fi\n\n    for word in \"${COMP_WORDS[@]}\"; do\n        [[ \"$word\" == --dry-run ]] && has_dry_run=1\n        [[ \"$word\" == --force ]] && has_force=1\n    done\n\n    case \"$first\" in\n")?;
 
     for command in spec::COMMANDS {
         match command.completion {
@@ -28,15 +31,17 @@ fn write_bash(output: &mut dyn Write) -> io::Result<()> {
                 output.write_all(b"' -- \"$current\") )\n            fi\n            ;;\n")?;
             }
             Completion::TargetOptions { force_for } => {
-                writeln!(output, "        {})", primary_name(command))?;
-                output.write_all(b"            if (( COMP_CWORD == 2 )); then\n                COMPREPLY=( $(compgen -W '")?;
+                let name = primary_name(command);
+                writeln!(output, "        {name}|{name}=*)")?;
+                output.write_all(b"            if [[ \"$first\" == ")?;
+                output.write_all(name.as_bytes())?;
+                output.write_all(b" ]] && (( COMP_CWORD == 2 )); then\n                COMPREPLY=( $(compgen -W '")?;
                 write_target_names(output)?;
-                output.write_all(b"' -- \"$current\") )\n            else\n                target=\"${COMP_WORDS[2]}\"\n                candidates='")?;
-                output.write_all(b"--dry-run'\n")?;
+                output.write_all(b"' -- \"$current\") )\n            else\n                if [[ \"$first\" == *=* ]]; then\n                    target=\"${first#*=}\"\n                else\n                    target=\"${COMP_WORDS[2]}\"\n                fi\n                candidates=''\n                [[ -z \"$has_dry_run\" ]] && candidates='--dry-run'\n")?;
                 if let Some(target) = force_for {
                     writeln!(
                         output,
-                        "                [[ \"$target\" == {} ]] && candidates+=\" --force\"",
+                        "                [[ \"$target\" == {} && -z \"$has_force\" ]] && candidates+=\" --force\"",
                         target.name()
                     )?;
                 }
@@ -53,7 +58,13 @@ fn write_zsh(output: &mut dyn Write) -> io::Result<()> {
     write_names(output, spec::COMMANDS.iter())?;
     output.write_all(b")\n    targets=(")?;
     write_target_names(output)?;
-    output.write_all(b")\n\n    if (( CURRENT == 2 )); then\n        compadd -- $top\n        return\n    fi\n\n    first=\"$words[2]\"\n    case \"$first\" in\n")?;
+    output.write_all(b")\n\n    if (( CURRENT == 2 )); then\n        case \"$words[CURRENT]\" in\n            --setup=*)\n                compadd -- ")?;
+    write_prefixed_target_names(output, "--setup=")?;
+    output.write_all(
+        b"\n                ;;\n            --unsetup=*)\n                compadd -- ",
+    )?;
+    write_prefixed_target_names(output, "--unsetup=")?;
+    output.write_all(b"\n                ;;\n            *)\n                compadd -- $top\n                ;;\n        esac\n        return\n    fi\n\n    first=\"$words[2]\"\n    case \"$first\" in\n")?;
 
     for command in spec::COMMANDS {
         match command.completion {
@@ -65,13 +76,15 @@ fn write_zsh(output: &mut dyn Write) -> io::Result<()> {
                 output.write_all(b"\n            ;;\n")?;
             }
             Completion::TargetOptions { force_for } => {
-                writeln!(output, "        {})", primary_name(command))?;
-                output.write_all(b"            if (( CURRENT == 3 )); then\n                compadd -- $targets\n            else\n                target=\"$words[3]\"\n                options=(")?;
-                output.write_all(b"--dry-run)\n")?;
+                let name = primary_name(command);
+                writeln!(output, "        {name}|{name}=*)")?;
+                output.write_all(b"            if [[ \"$first\" == ")?;
+                output.write_all(name.as_bytes())?;
+                output.write_all(b" ]] && (( CURRENT == 3 )); then\n                compadd -- $targets\n            else\n                if [[ \"$first\" == *=* ]]; then\n                    target=\"${first#*=}\"\n                else\n                    target=\"$words[3]\"\n                fi\n                options=()\n                (( ! ${words[(I)--dry-run]} )) && options+=(--dry-run)\n")?;
                 if let Some(target) = force_for {
                     writeln!(
                         output,
-                        "                [[ \"$target\" == {} ]] && options+=(--force)",
+                        "                [[ \"$target\" == {} ]] && (( ! ${{words[(I)--force]}} )) && options+=(--force)",
                         target.name()
                     )?;
                 }
@@ -87,7 +100,7 @@ fn write_zsh(output: &mut dyn Write) -> io::Result<()> {
 
 fn write_fish(output: &mut dyn Write) -> io::Result<()> {
     output.write_all(
-        b"function __tapas_arg_count_is\n    test (count (commandline -opc)) -eq $argv[1]\nend\n\nfunction __tapas_first_arg_is\n    set -l words (commandline -opc)\n    test (count $words) -ge 2; and test \"$words[2]\" = \"$argv[1]\"\nend\n\nfunction __tapas_target_is\n    set -l words (commandline -opc)\n    test (count $words) -ge 3; and test \"$words[3]\" = \"$argv[1]\"\nend\n\n",
+        b"function __tapas_arg_count_is\n    test (count (commandline -opc)) -eq $argv[1]\nend\n\nfunction __tapas_first_arg_is\n    set -l words (commandline -opc)\n    test (count $words) -ge 2; and begin\n        test \"$words[2]\" = \"$argv[1]\"; or string match -q -- \"$argv[1]=*\" \"$words[2]\"\n    end\nend\n\nfunction __tapas_options_started\n    set -l words (commandline -opc)\n    test (count $words) -gt 2; or begin\n        test (count $words) -ge 2; and string match -q -- \"$argv[1]=*\" \"$words[2]\"\n    end\nend\n\nfunction __tapas_target_is\n    set -l words (commandline -opc)\n    if test (count $words) -ge 3; and test \"$words[3]\" = \"$argv[1]\"\n        return 0\n    end\n    test (count $words) -ge 2; and string match -q -- \"*=$argv[1]\" \"$words[2]\"\nend\n\nfunction __tapas_has_arg\n    contains -- $argv[1] (commandline -opc)\nend\n\nfunction __tapas_attached_arg_is\n    string match -q -- \"$argv[1]=*\" (commandline -ct)\nend\n\n",
     )?;
 
     for command in spec::COMMANDS {
@@ -118,18 +131,24 @@ fn write_fish(output: &mut dyn Write) -> io::Result<()> {
             Completion::TargetOptions { force_for } => {
                 write!(
                     output,
+                    "complete -c tapas -n '__tapas_attached_arg_is {name}' -a '"
+                )?;
+                write_prefixed_target_names(output, &format!("{name}="))?;
+                output.write_all(b"'\n")?;
+                write!(
+                    output,
                     "complete -c tapas -n '__tapas_first_arg_is {name}; and __tapas_arg_count_is 2' -a '"
                 )?;
                 write_target_names(output)?;
                 output.write_all(b"'\n")?;
                 writeln!(
                     output,
-                    "complete -c tapas -n '__tapas_first_arg_is {name}; and not __tapas_arg_count_is 2' -l dry-run"
+                    "complete -c tapas -n '__tapas_first_arg_is {name}; and __tapas_options_started {name}; and not __tapas_has_arg --dry-run' -l dry-run"
                 )?;
                 if let Some(target) = force_for {
                     writeln!(
                         output,
-                        "complete -c tapas -n '__tapas_first_arg_is {name}; and __tapas_target_is {}; and not __tapas_arg_count_is 2' -l force",
+                        "complete -c tapas -n '__tapas_first_arg_is {name}; and __tapas_target_is {}; and __tapas_options_started {name}; and not __tapas_has_arg --force' -l force",
                         target.name()
                     )?;
                 }
@@ -170,12 +189,24 @@ fn write_target_names(output: &mut dyn Write) -> io::Result<()> {
     )
 }
 
-fn write_words<'a>(output: &mut dyn Write, words: impl Iterator<Item = &'a str>) -> io::Result<()> {
+fn write_prefixed_target_names(output: &mut dyn Write, prefix: &str) -> io::Result<()> {
+    write_words(
+        output,
+        crate::setup::Target::ALL
+            .iter()
+            .map(|target| format!("{prefix}{}", target.name())),
+    )
+}
+
+fn write_words<W: AsRef<str>>(
+    output: &mut dyn Write,
+    words: impl Iterator<Item = W>,
+) -> io::Result<()> {
     for (index, word) in words.enumerate() {
         if index != 0 {
             output.write_all(b" ")?;
         }
-        output.write_all(word.as_bytes())?;
+        output.write_all(word.as_ref().as_bytes())?;
     }
     Ok(())
 }
