@@ -1,6 +1,6 @@
 use super::{
-    EvidenceClass, FilterError, FilterOutput, StreamFilterOutput, append_line, command_basename,
-    find_subslice, strip_ansi,
+    EvidenceClass, FilterError, FilterOutput, StreamFilterDecision, StreamFilterOutput,
+    append_line, command_basename, find_subslice, strip_ansi,
 };
 
 type Matcher = fn(&[u8]) -> bool;
@@ -32,11 +32,14 @@ pub fn matches(input: &[u8]) -> bool {
 }
 
 pub fn apply_matched(input: &[u8]) -> Result<FilterOutput, FilterError> {
-    PIPE_FILTERS
+    try_apply_matched(input)?.ok_or(FilterError::InvalidInput)
+}
+
+pub(crate) fn try_apply_matched(input: &[u8]) -> Result<Option<FilterOutput>, FilterError> {
+    Ok(PIPE_FILTERS
         .iter()
         .find(|(matches, _)| matches(input))
-        .map(|(_, apply)| FilterOutput::new(apply(input, b""), EvidenceClass::FactComplete))
-        .ok_or(FilterError::InvalidInput)
+        .map(|(_, apply)| FilterOutput::new(apply(input, b""), EvidenceClass::FactComplete)))
 }
 
 pub fn dispatch_streams_argv(
@@ -46,11 +49,22 @@ pub fn dispatch_streams_argv(
     _exit_code: i32,
     lossless: bool,
 ) -> Result<StreamFilterOutput, FilterError> {
+    dispatch_streams_decision(argv, stdout, stderr, _exit_code, lossless)
+        .map(|decision| decision.into_output(stdout, stderr))
+}
+
+pub(crate) fn dispatch_streams_decision(
+    argv: &[&[u8]],
+    stdout: &[u8],
+    stderr: &[u8],
+    _exit_code: i32,
+    lossless: bool,
+) -> Result<StreamFilterDecision, FilterError> {
     if argv.is_empty() {
         return Err(FilterError::InvalidInput);
     }
     if lossless || crate::invocation_policy::requests_passthrough(argv) {
-        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
+        return Ok(StreamFilterDecision::Unchanged);
     }
     let command = command_basename(argv[0]);
     let arg1 = argv.get(1).copied().unwrap_or_default();
@@ -83,9 +97,9 @@ pub fn dispatch_streams_argv(
     };
 
     Ok(compact.map_or_else(
-        || StreamFilterOutput::passthrough(stdout, stderr),
+        || StreamFilterDecision::Unchanged,
         |compact| {
-            StreamFilterOutput::compact_single_stream(
+            StreamFilterDecision::compact_single_stream(
                 stdout,
                 stderr,
                 EvidenceClass::FactComplete,

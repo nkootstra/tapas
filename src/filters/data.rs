@@ -1,5 +1,6 @@
 use super::{
-    EvidenceClass, FilterError, StreamFilterOutput, command_basename, find_subslice, strip_ansi,
+    EvidenceClass, FilterError, StreamFilterDecision, StreamFilterOutput, command_basename,
+    find_subslice, strip_ansi,
 };
 
 pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
@@ -40,16 +41,27 @@ pub fn dispatch_streams_argv(
     exit_code: i32,
     lossless: bool,
 ) -> Result<StreamFilterOutput, FilterError> {
+    dispatch_streams_decision(argv, stdout, stderr, exit_code, lossless)
+        .map(|decision| decision.into_output(stdout, stderr))
+}
+
+pub(crate) fn dispatch_streams_decision(
+    argv: &[&[u8]],
+    stdout: &[u8],
+    stderr: &[u8],
+    exit_code: i32,
+    lossless: bool,
+) -> Result<StreamFilterDecision, FilterError> {
     if argv.is_empty() {
         return Err(FilterError::InvalidInput);
     }
     if lossless || crate::invocation_policy::requests_passthrough(argv) {
-        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
+        return Ok(StreamFilterDecision::Unchanged);
     }
 
     let command = command_basename(argv[0]);
     if matches!(command, b"pup" | b"acli") && exit_code != 0 {
-        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
+        return Ok(StreamFilterDecision::Unchanged);
     }
     let wants_json = matches!(command, b"aws" | b"jq" | b"pup" | b"acli")
         || command == b"gh" && gh_wants_data_output(argv);
@@ -57,49 +69,49 @@ pub fn dispatch_streams_argv(
         && stderr.is_empty()
         && let Some(compact) = compact_json(stdout)
     {
-        return Ok(StreamFilterOutput::new(
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
             compact,
             Vec::new(),
             EvidenceClass::PotentiallyLossy,
-        ));
+        )));
     }
 
     if command == b"pup" && matches_pup_table(stdout) {
-        return Ok(StreamFilterOutput::new(
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
             compact_pup_table(stdout),
             stderr.to_vec(),
             EvidenceClass::PotentiallyLossy,
-        ));
+        )));
     }
 
     if command == b"cat"
         && stdout.len() > 512
         && let Some(compact) = compact_cat(stdout, argv)
     {
-        return Ok(StreamFilterOutput::new(
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
             compact,
             stderr.to_vec(),
             EvidenceClass::PotentiallyLossy,
-        ));
+        )));
     }
 
     if command == b"sqlite3" && matches_sqlite_table(stdout) {
-        return Ok(StreamFilterOutput::new(
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
             compact_sqlite_table(stdout),
             stderr.to_vec(),
             EvidenceClass::PotentiallyLossy,
-        ));
+        )));
     }
 
     if is_columnar_command(command) && matches_columnar(stdout) {
-        return Ok(StreamFilterOutput::new(
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
             compact_columnar(stdout),
             stderr.to_vec(),
             EvidenceClass::PotentiallyLossy,
-        ));
+        )));
     }
 
-    Ok(StreamFilterOutput::passthrough(stdout, stderr))
+    Ok(StreamFilterDecision::Unchanged)
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]

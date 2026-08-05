@@ -6,11 +6,9 @@ use crate::filters::contains_ignore_ascii_case;
 
 use super::hooks::validate_hook;
 use super::json::Value;
-use super::ownership::{Ownership, read_ownership, write_ownership};
-use super::storage::{
-    existing_mode, read_optional, reject_symlink, restore_optional, write_atomic,
-    write_unique_backup,
-};
+use super::ownership::{Ownership, prepare_record_parent, read_ownership, record_bytes};
+use super::storage::{existing_mode, read_optional, reject_symlink, write_unique_backup};
+use super::transaction::Transaction;
 use super::{Action, MAX_CONFIG_BYTES, SetupLocation, Target, json, lossless};
 
 pub(super) fn configure_opencode(
@@ -101,7 +99,6 @@ fn setup_opencode(
                     path,
                     recognized: false,
                     content: Vec::new(),
-                    mode: 0,
                 });
             }
             Ok(_) => {
@@ -110,7 +107,6 @@ fn setup_opencode(
                     recognized: smll_artifact_digests.as_deref().is_some_and(|digests| {
                         smll_opencode_ownership_recognized(&content, &digests[0], &digests[1])
                     }),
-                    mode: existing_mode(&path, 0o600),
                     path,
                     content,
                 });
@@ -222,88 +218,66 @@ fn setup_opencode(
 
     let original_mode = existing_mode(&location.config_path, 0o600);
     let config_mode = existing_mode(&config_path, 0o600);
-    let ownership_before = read_optional(&location.ownership_path, MAX_CONFIG_BYTES)?;
     let removes_smll_directory = predecessors
         .iter()
         .any(|item| item.path.parent() == Some(smll_directory.as_path()));
+    for item in &predecessors {
+        if read_optional(&item.path, MAX_CONFIG_BYTES)?.as_deref() != Some(item.content.as_slice())
+        {
+            return Err(io::Error::other(format!(
+                "predecessor changed during setup: {}",
+                item.path.display()
+            )));
+        }
+    }
+    let mut transaction = Transaction::new();
+    for item in &predecessors {
+        transaction.remove_file(&item.path)?;
+    }
+    if removes_smll_directory {
+        transaction.remove_empty_directory(&smll_directory)?;
+    }
+    if let Some(bytes) = config_after.as_deref().filter(|_| config_changed) {
+        transaction.write(&config_path, bytes.to_vec(), config_mode)?;
+    }
+    transaction.write(&location.config_path, plugin.clone(), original_mode)?;
+    transaction.write(&location.ownership_path, record_bytes(&expected), 0o600)?;
     let mut created_backups = Vec::new();
-    let mut removed_predecessors = 0_usize;
-    let mut config_touched = false;
-    let mut plugin_touched = false;
-    let mut ownership_touched = false;
-    let result = (|| {
-        for item in &predecessors {
-            if read_optional(&item.path, MAX_CONFIG_BYTES)?.as_deref()
-                != Some(item.content.as_slice())
-            {
-                return Err(io::Error::other(format!(
-                    "predecessor changed during setup: {}",
-                    item.path.display()
-                )));
-            }
-            fs::remove_file(&item.path)?;
-            removed_predecessors += 1;
-        }
-        if removes_smll_directory {
-            match fs::remove_dir(&smll_directory) {
-                Ok(()) => {}
-                Err(error)
-                    if matches!(
-                        error.kind(),
-                        io::ErrorKind::NotFound | io::ErrorKind::DirectoryNotEmpty
-                    ) => {}
-                Err(error) => return Err(error),
-            }
-        }
-        if let Some(bytes) = config_after.as_deref().filter(|_| config_changed) {
-            if let Some(path) = write_unique_backup(&config_path, config_before.as_deref())? {
-                created_backups.push(path);
-            }
-            config_touched = true;
-            write_atomic(&config_path, bytes, config_mode)?;
+    let prepare = (|| {
+        if config_changed
+            && let Some(path) = write_unique_backup(&config_path, config_before.as_deref())?
+        {
+            created_backups.push(path);
         }
         if let Some(path) = write_unique_backup(&location.config_path, current.as_deref())? {
             created_backups.push(path);
         }
-        plugin_touched = true;
-        write_atomic(&location.config_path, &plugin, original_mode)?;
-        ownership_touched = true;
-        write_ownership(&location.ownership_path, &expected)
+        prepare_record_parent(&location.ownership_path)
     })();
-    if let Err(error) = result {
-        let mut rollback_failures = Vec::new();
-        if ownership_touched
-            && let Err(rollback) =
-                restore_optional(&location.ownership_path, ownership_before.as_deref())
-        {
-            rollback_failures.push(format!("{}: {rollback}", location.ownership_path.display()));
+    if let Err(error) = prepare {
+        for path in created_backups {
+            let _ = fs::remove_file(path);
         }
-        if plugin_touched
-            && let Err(rollback) = restore_optional(&location.config_path, current.as_deref())
-        {
-            rollback_failures.push(format!("{}: {rollback}", location.config_path.display()));
-        }
-        for item in predecessors.iter().take(removed_predecessors) {
-            if let Err(rollback) = write_atomic(&item.path, &item.content, item.mode) {
-                rollback_failures.push(format!("{}: {rollback}", item.path.display()));
-            }
-        }
-        if config_touched
-            && let Err(rollback) = restore_optional(&config_path, config_before.as_deref())
-        {
-            rollback_failures.push(format!("{}: {rollback}", config_path.display()));
-        }
-        if rollback_failures.is_empty() {
+        return Err(error);
+    }
+    if let Err(failure) = transaction.commit() {
+        if failure.rollback_failures.is_empty() {
             for path in created_backups {
                 let _ = fs::remove_file(path);
             }
-            return Err(error);
+            return Err(failure.error);
         }
         return Err(io::Error::new(
-            error.kind(),
+            failure.error.kind(),
             format!(
-                "OpenCode setup failed ({error}); rollback also failed: {}. Recovery backups were retained.",
-                rollback_failures.join("; ")
+                "OpenCode setup failed ({}); rollback also failed: {}. Recovery backups were retained.",
+                failure.error,
+                failure
+                    .rollback_failures
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join("; ")
             ),
         ));
     }
@@ -370,18 +344,20 @@ fn unsetup_opencode(
         )?;
         return Ok(0);
     }
-    let plugin_mode = existing_mode(&location.config_path, 0o600);
-    fs::remove_file(&location.config_path)?;
-    if let Err(error) = fs::remove_file(&location.ownership_path) {
-        if let Err(rollback) = write_atomic(&location.config_path, &current, plugin_mode) {
+    let mut transaction = Transaction::new();
+    transaction.remove_file(&location.config_path)?;
+    transaction.remove_file(&location.ownership_path)?;
+    if let Err(failure) = transaction.commit() {
+        if let Some(rollback) = failure.rollback_failures.first() {
             return Err(io::Error::new(
-                error.kind(),
+                failure.error.kind(),
                 format!(
-                    "failed to remove OpenCode ownership ({error}); plugin rollback failed: {rollback}"
+                    "failed to remove OpenCode ownership ({}); plugin rollback failed: {}",
+                    failure.error, rollback.error
                 ),
             ));
         }
-        return Err(error);
+        return Err(failure.error);
     }
     writeln!(stdout, "removed {}", location.config_path.display())?;
     stdout.write_all(b"ok\n")?;
@@ -392,7 +368,6 @@ struct Predecessor {
     path: PathBuf,
     recognized: bool,
     content: Vec<u8>,
-    mode: u32,
 }
 
 fn opencode_predecessors(plugin_dir: &Path) -> io::Result<Vec<Predecessor>> {
@@ -423,14 +398,12 @@ fn opencode_predecessors(plugin_dir: &Path) -> io::Result<Vec<Predecessor>> {
                     path,
                     recognized: false,
                     content: Vec::new(),
-                    mode: 0,
                 });
             }
             Ok(_) => {
                 let content = read_optional(&path, MAX_CONFIG_BYTES)?.unwrap_or_default();
                 found.push(Predecessor {
                     recognized: predecessor_content_recognized(&content, kind),
-                    mode: existing_mode(&path, 0o600),
                     path,
                     content,
                 });

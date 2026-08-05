@@ -18,11 +18,6 @@ const prompt = "TAPAS_HARNESS_E2E: inspect this repository by running git status
 const sentinel = `TAPAS_E2E_OK_${harness.toUpperCase()}`;
 const toolCallId = "call_tapas_git_status";
 const timeoutMs = Number(process.env.TAPAS_HARNESS_TIMEOUT_MS ?? 90_000);
-const shellToolNames = {
-  claude: ["Bash"],
-  codex: ["exec_command", "shell"],
-  opencode: ["bash"],
-};
 
 const temporaryRoot = await mkdtemp(join(tmpdir(), `tapas-${harness}-e2e-`));
 const home = join(temporaryRoot, "home");
@@ -69,14 +64,15 @@ const environment = {
 let succeeded = false;
 const mock = new LLMock({ port: 0, strict: true, journalMaxEntries: 20 });
 let observedRequests = [];
+const adapter = createHarnessAdapter(harness);
 
 try {
-  await run(join(binaries, harness), ["--version"], { label: `${harness}-version` });
+  await run(adapter.binary, ["--version"], { label: `${harness}-version` });
   await initializeRepository();
   await mock.start();
   environment.ANTHROPIC_BASE_URL = mock.url;
   configureFixtures();
-  await configureHarness();
+  await adapter.configure();
 
   await runTapas("--setup", harness);
   await saveHarnessConfiguration("configured");
@@ -141,8 +137,9 @@ function configureFixtures() {
 
 function shellToolCall(request) {
   const tools = request.tools ?? [];
-  const candidates = shellToolNames[harness];
-  const tool = tools.find((candidate) => candidates.includes(candidate.function?.name));
+  const tool = tools.find((candidate) =>
+    adapter.shellToolNames.includes(candidate.function?.name),
+  );
   assert.ok(
     tool,
     `${harness}: shell tool not advertised; received ${tools
@@ -172,9 +169,53 @@ function shellToolCall(request) {
   };
 }
 
-async function configureHarness() {
-  if (harness === "codex") {
-    const config = `model = "tapas-ci"
+function createHarnessAdapter(name) {
+  switch (name) {
+    case "claude":
+      return createClaudeAdapter();
+    case "codex":
+      return createCodexAdapter();
+    case "opencode":
+      return createOpenCodeAdapter();
+    default:
+      throw new Error(`unsupported harness: ${name}`);
+  }
+}
+
+function createClaudeAdapter() {
+  return {
+    binary: join(binaries, "claude"),
+    shellToolNames: ["Bash"],
+    configure: async () => {},
+    invocation: () => [
+      "--print",
+      prompt,
+      "--model",
+      "claude-sonnet-4-6",
+      "--max-turns",
+      "2",
+      "--output-format",
+      "stream-json",
+      "--verbose",
+      "--include-hook-events",
+      "--tools",
+      "Bash",
+      "--disable-slash-commands",
+      "--no-session-persistence",
+      "--dangerously-skip-permissions",
+      "--setting-sources",
+      "user",
+    ],
+    artifactPaths: () => [[join(home, ".claude/settings.json"), "settings.json"]],
+  };
+}
+
+function createCodexAdapter() {
+  return {
+    binary: join(binaries, "codex"),
+    shellToolNames: ["exec_command", "shell"],
+    configure: async () => {
+      const config = `model = "tapas-ci"
 model_provider = "aimock"
 model_reasoning_effort = "low"
 model_reasoning_summary = "none"
@@ -189,35 +230,76 @@ wire_api = "responses"
 request_max_retries = 0
 stream_max_retries = 0
 `;
-    await writeFile(join(codexHome, "config.toml"), config);
-  }
+      await writeFile(join(codexHome, "config.toml"), config);
+    },
+    invocation: () => [
+      "exec",
+      "--json",
+      "--ephemeral",
+      "--dangerously-bypass-hook-trust",
+      "--dangerously-bypass-approvals-and-sandbox",
+      "--cd",
+      workspace,
+      prompt,
+    ],
+    artifactPaths: () => [
+      [join(codexHome, "hooks.json"), "hooks.json"],
+      [join(codexHome, "config.toml"), "config.toml"],
+    ],
+  };
+}
 
-  if (harness === "opencode") {
-    const config = {
-      $schema: "https://opencode.ai/config.json",
-      model: "aimock/tapas-ci",
-      small_model: "aimock/tapas-ci",
-      provider: {
-        aimock: {
-          npm: "@ai-sdk/openai-compatible",
-          name: "aimock",
-          options: {
-            baseURL: `${mock.url}/v1`,
-            apiKey: "tapas-mock-key",
-          },
-          models: {
-            "tapas-ci": {
-              name: "Tapas CI",
-              limit: { context: 128000, output: 4096 },
+function createOpenCodeAdapter() {
+  return {
+    binary: join(binaries, "opencode"),
+    shellToolNames: ["bash"],
+    configure: async () => {
+      const config = {
+        $schema: "https://opencode.ai/config.json",
+        model: "aimock/tapas-ci",
+        small_model: "aimock/tapas-ci",
+        provider: {
+          aimock: {
+            npm: "@ai-sdk/openai-compatible",
+            name: "aimock",
+            options: {
+              baseURL: `${mock.url}/v1`,
+              apiKey: "tapas-mock-key",
+            },
+            models: {
+              "tapas-ci": {
+                name: "Tapas CI",
+                limit: { context: 128000, output: 4096 },
+              },
             },
           },
         },
-      },
-    };
-    const opencodeConfig = join(xdgConfigHome, "opencode");
-    await mkdir(opencodeConfig, { recursive: true });
-    await writeFile(join(opencodeConfig, "opencode.json"), `${JSON.stringify(config, null, 2)}\n`);
-  }
+      };
+      const opencodeConfig = join(xdgConfigHome, "opencode");
+      await mkdir(opencodeConfig, { recursive: true });
+      await writeFile(
+        join(opencodeConfig, "opencode.json"),
+        `${JSON.stringify(config, null, 2)}\n`,
+      );
+    },
+    invocation: () => [
+      "run",
+      "--format",
+      "json",
+      "--auto",
+      "--title",
+      "tapas-harness-e2e",
+      "--model",
+      "aimock/tapas-ci",
+      "--dir",
+      workspace,
+      prompt,
+    ],
+    artifactPaths: () => [
+      [join(xdgConfigHome, "opencode/plugins/tapas.js"), "tapas.js"],
+      [join(xdgConfigHome, "opencode/opencode.json"), "opencode.json"],
+    ],
+  };
 }
 
 async function runTapas(...args) {
@@ -225,61 +307,7 @@ async function runTapas(...args) {
 }
 
 async function runHarness(phase) {
-  const invocation = {
-    claude: [
-      join(binaries, "claude"),
-      [
-        "--print",
-        prompt,
-        "--model",
-        "claude-sonnet-4-6",
-        "--max-turns",
-        "2",
-        "--output-format",
-        "stream-json",
-        "--verbose",
-        "--include-hook-events",
-        "--tools",
-        "Bash",
-        "--disable-slash-commands",
-        "--no-session-persistence",
-        "--dangerously-skip-permissions",
-        "--setting-sources",
-        "user",
-      ],
-    ],
-    codex: [
-      join(binaries, "codex"),
-      [
-        "exec",
-        "--json",
-        "--ephemeral",
-        "--dangerously-bypass-hook-trust",
-        "--dangerously-bypass-approvals-and-sandbox",
-        "--cd",
-        workspace,
-        prompt,
-      ],
-    ],
-    opencode: [
-      join(binaries, "opencode"),
-      [
-        "run",
-        "--format",
-        "json",
-        "--auto",
-        "--title",
-        "tapas-harness-e2e",
-        "--model",
-        "aimock/tapas-ci",
-        "--dir",
-        workspace,
-        prompt,
-      ],
-    ],
-  }[harness];
-
-  return run(invocation[0], invocation[1], {
+  return run(adapter.binary, adapter.invocation(), {
     cwd: workspace,
     label: `${harness}-${phase}`,
   });
@@ -321,19 +349,7 @@ async function saveJournal(phase) {
 }
 
 async function saveHarnessConfiguration(phase) {
-  const paths = {
-    claude: [[join(home, ".claude/settings.json"), "settings.json"]],
-    codex: [
-      [join(codexHome, "hooks.json"), "hooks.json"],
-      [join(codexHome, "config.toml"), "config.toml"],
-    ],
-    opencode: [
-      [join(xdgConfigHome, "opencode/plugins/tapas.js"), "tapas.js"],
-      [join(xdgConfigHome, "opencode/opencode.json"), "opencode.json"],
-    ],
-  }[harness];
-
-  for (const [source, name] of paths) {
+  for (const [source, name] of adapter.artifactPaths()) {
     let contents;
     try {
       contents = await readFile(source);
