@@ -161,7 +161,7 @@ fn run_arguments(
             let flag = &args[0];
             stderr.write_all(b"tapas: option ")?;
             write!(stderr, "{flag:?}")?;
-            stderr.write_all(b" is not available in Tapas 0.2.0\n\n")?;
+            stderr.write_all(b" is not available in Tapas 0.3.0\n\n")?;
             spec::write_help(stderr)?;
             Ok(2)
         }

@@ -2,7 +2,7 @@
 
 Tapas reduces the tokens consumed by command-line output before that output reaches a coding agent. It is the maintained Rust successor to the archived [smll](https://github.com/nkootstra/smll) project, and it owns its command catalog and regression corpus directly.
 
-`0.2.0` continues the Tapas version line and intentionally has no `smll` executable alias, `SMLL_` environment aliases, or automatic `~/.smll` migration.
+`0.3.0` continues the Tapas version line and intentionally has no `smll` executable alias, `SMLL_` environment aliases, or automatic `~/.smll` migration.
 
 ## Results
 
@@ -142,13 +142,13 @@ curl -fsSL https://github.com/nkootstra/tapas/raw/refs/heads/main/install.sh | s
 
 Windows stable binaries are not published yet because the current runtime uses Unix-specific process and filesystem APIs. The PowerShell script currently supports development-build cleanup only.
 
-Use `--version 0.2.0` to install a specific tagged Unix release.
+Use `--version 0.3.0` to install a specific tagged Unix release.
 
 Stable releases are tag-driven. Update `Cargo.toml`, merge the version change, then create and push a matching tag:
 
 ```sh
-git tag -s v0.2.0 -m "Release v0.2.0"
-git push origin v0.2.0
+git tag -s v0.3.0 -m "Release v0.3.0"
+git push origin v0.3.0
 ```
 
 The tag determines whether the release is a patch, minor, or major version; ordinary merges to `main` do not publish stable releases.
@@ -159,7 +159,7 @@ To test a pull request before it is merged, install the exact build for its curr
 curl -fsSL https://github.com/nkootstra/tapas/raw/refs/heads/main/install-pr.sh | sh -s -- 123
 ```
 
-The installer verifies the release checksum and source commit, then places the development binary at `~/.local/bin/tapas-pr-<commit>`. A PR build reports a version such as `tapas 0.2.0-dev.332d7176` so it is distinguishable from a stable build. PR builds are temporary and are removed remotely when the pull request is merged or after the retention window.
+The installer verifies the release checksum and source commit, then places the development binary at `~/.local/bin/tapas-pr-<commit>`. A PR build reports a version such as `tapas 0.3.0-dev.332d7176` so it is distinguishable from a stable build. PR builds are temporary and are removed remotely when the pull request is merged or after the retention window.
 
 Remove local PR builds without affecting the stable `tapas` executable:
 
@@ -225,7 +225,7 @@ The command catalog in `src/catalog.rs` is tapas-owned and audited for internal 
 
 ## Current scope
 
-`0.2.0` covers command, pipe, process, streaming, and user-level integrations for Claude, Codex, and stable OpenCode V1. Stats, history, discovery, failure tee storage, and other agent integrations are intentionally deferred to later Tapas versions.
+`0.3.0` covers command, pipe, process, streaming, and user-level integrations for Claude, Codex, and stable OpenCode V1. Stats, history, discovery, failure tee storage, and other agent integrations are intentionally deferred to later Tapas versions.
 
 ## License
 
