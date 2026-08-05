@@ -1,0 +1,14 @@
+{
+  "name": "tapas-harness-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node runner.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-code": "2.1.222",
+    "@copilotkit/aimock": "1.38.0",
+    "@openai/codex": "0.146.0",
+    "opencode-ai": "1.18.13"
+  }
+}
