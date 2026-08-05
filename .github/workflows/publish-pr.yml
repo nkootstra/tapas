@@ -8,7 +8,7 @@ on:
 permissions: {}
 
 env:
-  TAPAS_VERSION: 0.2.0
+  TAPAS_VERSION: 0.3.0
   REPOSITORY: ${{ github.repository }}
 
 jobs:

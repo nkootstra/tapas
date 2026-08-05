@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "release": "0.2.0",
+  "release": "0.3.0",
   "status": "internal-baseline",
   "selected_profile": "z",
   "required_measurements": [
