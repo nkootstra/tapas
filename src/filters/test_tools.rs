@@ -32,11 +32,14 @@ pub fn matches(input: &[u8]) -> bool {
 }
 
 pub fn apply_matched(input: &[u8]) -> Result<FilterOutput, FilterError> {
-    PIPE_FILTERS
+    try_apply_matched(input)?.ok_or(FilterError::InvalidInput)
+}
+
+pub(crate) fn try_apply_matched(input: &[u8]) -> Result<Option<FilterOutput>, FilterError> {
+    Ok(PIPE_FILTERS
         .iter()
         .find(|(matches, _)| matches(input))
-        .map(|(_, apply)| FilterOutput::new(apply(input, b""), EvidenceClass::FactComplete))
-        .ok_or(FilterError::InvalidInput)
+        .map(|(_, apply)| FilterOutput::new(apply(input, b""), EvidenceClass::FactComplete)))
 }
 
 pub fn dispatch_streams_argv(

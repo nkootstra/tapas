@@ -255,3 +255,29 @@ fn pipe_chain_matches_container_package_and_curl_oracles() {
         .as_bytes()
     );
 }
+
+#[test]
+fn fused_default_routes_preserve_filter_identity_and_evidence() {
+    for (input, expected_filter, expected_evidence) in [
+        (
+            include_bytes!("regression/fixtures/git_status_conflict.txt").as_slice(),
+            "git",
+            EvidenceClass::FactComplete,
+        ),
+        (
+            include_bytes!("regression/fixtures/cargo_test_failing.txt").as_slice(),
+            "test-tools",
+            EvidenceClass::FactComplete,
+        ),
+        (
+            include_bytes!("regression/fixtures/ls_la.txt").as_slice(),
+            "listing",
+            EvidenceClass::PotentiallyLossy,
+        ),
+    ] {
+        let dispatch = pipeline::filter(input);
+        assert_eq!(dispatch.filter_name, expected_filter);
+        assert_eq!(dispatch.evidence, expected_evidence);
+        assert_ne!(dispatch.bytes.as_ref(), input);
+    }
+}

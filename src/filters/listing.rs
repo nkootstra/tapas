@@ -19,29 +19,36 @@ pub fn matches(input: &[u8]) -> bool {
 }
 
 pub fn apply_matched(input: &[u8]) -> Result<FilterOutput, FilterError> {
+    try_apply_matched(input)?.ok_or(FilterError::InvalidInput)
+}
+
+pub(crate) fn try_apply_matched(input: &[u8]) -> Result<Option<FilterOutput>, FilterError> {
     if matches_tree(input) {
-        return Ok(FilterOutput::new(
+        return Ok(Some(FilterOutput::new(
             apply_tree_pipe(input),
             EvidenceClass::FactComplete,
-        ));
+        )));
     }
     if matches_ls_long(input) {
         let bytes = apply_ls_long(input).ok_or(FilterError::InvalidInput)?;
-        return Ok(FilterOutput::new(bytes, EvidenceClass::PotentiallyLossy));
+        return Ok(Some(FilterOutput::new(
+            bytes,
+            EvidenceClass::PotentiallyLossy,
+        )));
     }
     if matches_find_ls(input) {
-        return Ok(FilterOutput::new(
+        return Ok(Some(FilterOutput::new(
             apply_find_ls(input),
             EvidenceClass::PotentiallyLossy,
-        ));
+        )));
     }
     if matches_du(input) {
-        return Ok(FilterOutput::new(
+        return Ok(Some(FilterOutput::new(
             apply_du(input, true),
             EvidenceClass::PotentiallyLossy,
-        ));
+        )));
     }
-    Err(FilterError::InvalidInput)
+    Ok(None)
 }
 
 pub fn dispatch_streams_argv(

@@ -1,6 +1,6 @@
 use super::{
-    EvidenceClass, FilterError, FilterOutput, StreamFilterOutput, find_subslice, rfind_subslice,
-    strip_ansi,
+    EvidenceClass, FilterError, FilterOutput, StreamFilterDecision, StreamFilterOutput,
+    find_subslice, rfind_subslice, strip_ansi,
 };
 
 pub fn matches(input: &[u8]) -> bool {
@@ -16,61 +16,65 @@ pub fn matches(input: &[u8]) -> bool {
 }
 
 pub fn apply_matched(input: &[u8]) -> Result<FilterOutput, FilterError> {
+    try_apply_matched(input)?.ok_or(FilterError::InvalidInput)
+}
+
+pub(crate) fn try_apply_matched(input: &[u8]) -> Result<Option<FilterOutput>, FilterError> {
     if matches_status(input) {
-        return Ok(FilterOutput::new(
+        return Ok(Some(FilterOutput::new(
             apply_status(input),
             EvidenceClass::FactComplete,
-        ));
+        )));
     }
     if matches_branch(input) {
-        return Ok(FilterOutput::new(
+        return Ok(Some(FilterOutput::new(
             apply_branch(input),
             EvidenceClass::FactComplete,
-        ));
+        )));
     }
     if matches_reflog(input) {
-        return Ok(FilterOutput::new(
+        return Ok(Some(FilterOutput::new(
             apply_reflog(input),
             EvidenceClass::FactComplete,
-        ));
+        )));
     }
     if matches_show(input) {
-        return Ok(FilterOutput::new(
+        return Ok(Some(FilterOutput::new(
             apply_show(input),
             EvidenceClass::PotentiallyLossy,
-        ));
+        )));
     }
     if matches_diff(input) {
-        return Ok(FilterOutput::new(
+        return Ok(Some(FilterOutput::new(
             apply_diff(input),
             EvidenceClass::FactComplete,
-        ));
+        )));
     }
     if matches_log(input) {
-        return Ok(FilterOutput::new(
+        return Ok(Some(FilterOutput::new(
             apply_log_compact(input),
             EvidenceClass::PotentiallyLossy,
-        ));
+        )));
     }
     if matches_commit(input) {
-        return Ok(FilterOutput::new(
+        return Ok(Some(FilterOutput::new(
             apply_commit(input),
             EvidenceClass::FactComplete,
-        ));
+        )));
     }
     if matches_merge(input) {
-        return Ok(FilterOutput::new(
+        return Ok(Some(FilterOutput::new(
             apply_merge(input, b""),
             EvidenceClass::FactComplete,
-        ));
+        )));
     }
     if matches_blame(input) {
-        return Ok(FilterOutput::new(
+        return Ok(Some(FilterOutput::new(
             apply_blame(input),
             EvidenceClass::PotentiallyLossy,
-        ));
+        )));
     }
-    Err(FilterError::InvalidInput)
+    Ok(None)
 }
 
 pub fn dispatch_argv(
@@ -84,6 +88,9 @@ pub fn dispatch_argv(
         return Err(FilterError::InvalidInput);
     }
     if lossless || exit_code != 0 {
+        return Ok(passthrough(stdout));
+    }
+    if !handles_subcommand(argv[1]) {
         return Ok(passthrough(stdout));
     }
 
@@ -316,32 +323,47 @@ pub fn dispatch_streams_argv(
     exit_code: i32,
     lossless: bool,
 ) -> Result<StreamFilterOutput, FilterError> {
+    dispatch_streams_decision(argv, stdout, stderr, exit_code, lossless)
+        .map(|decision| decision.into_output(stdout, stderr))
+}
+
+pub(crate) fn dispatch_streams_decision(
+    argv: &[&[u8]],
+    stdout: &[u8],
+    stderr: &[u8],
+    exit_code: i32,
+    lossless: bool,
+) -> Result<StreamFilterDecision, FilterError> {
     if argv.len() < 2 {
         return Err(FilterError::InvalidInput);
     }
     if lossless || exit_code != 0 {
-        return Ok(StreamFilterOutput::new(
-            stdout.to_vec(),
-            stderr.to_vec(),
-            EvidenceClass::ByteExact,
-        ));
+        return Ok(StreamFilterDecision::Unchanged);
     }
     if argv[1] == b"fetch" && !stdout.is_empty() {
-        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
+        return Ok(StreamFilterDecision::Unchanged);
     }
 
     if argv[1] == b"pull" {
-        return Ok(StreamFilterOutput::new(
-            compact_pull_stdout(stdout).unwrap_or_else(|| stdout.to_vec()),
-            compact_pull_stderr(stderr).unwrap_or_else(|| stderr.to_vec()),
-            EvidenceClass::FactComplete,
+        return Ok(applied_or_unchanged(
+            StreamFilterOutput::new(
+                compact_pull_stdout(stdout).unwrap_or_else(|| stdout.to_vec()),
+                compact_pull_stderr(stderr).unwrap_or_else(|| stderr.to_vec()),
+                EvidenceClass::FactComplete,
+            ),
+            stdout,
+            stderr,
         ));
     }
     if argv[1] == b"push" {
-        return Ok(StreamFilterOutput::new(
-            compact_push_stdout(stdout).unwrap_or_else(|| stdout.to_vec()),
-            compact_push_stderr(stderr).unwrap_or_else(|| stderr.to_vec()),
-            EvidenceClass::FactComplete,
+        return Ok(applied_or_unchanged(
+            StreamFilterOutput::new(
+                compact_push_stdout(stdout).unwrap_or_else(|| stdout.to_vec()),
+                compact_push_stderr(stderr).unwrap_or_else(|| stderr.to_vec()),
+                EvidenceClass::FactComplete,
+            ),
+            stdout,
+            stderr,
         ));
     }
 
@@ -356,20 +378,69 @@ pub fn dispatch_streams_argv(
         _ => None,
     };
     if let Some(compact) = compact {
-        return Ok(StreamFilterOutput::compact_single_stream(
+        if !stdout.is_empty() && !stderr.is_empty() {
+            return Ok(StreamFilterDecision::Unchanged);
+        }
+        let output = StreamFilterOutput::compact_single_stream(
             stdout,
             stderr,
             EvidenceClass::FactComplete,
             compact,
-        ));
+        );
+        return Ok(applied_or_unchanged(output, stdout, stderr));
+    }
+
+    if !handles_subcommand(argv[1]) {
+        return Ok(StreamFilterDecision::Unchanged);
     }
 
     let filtered = dispatch_argv(argv, stdout, stderr, exit_code, lossless)?;
-    Ok(StreamFilterOutput::new(
-        filtered.bytes,
-        stderr.to_vec(),
-        filtered.evidence,
+    Ok(applied_or_unchanged(
+        StreamFilterOutput::new(filtered.bytes, stderr.to_vec(), filtered.evidence),
+        stdout,
+        stderr,
     ))
+}
+
+fn applied_or_unchanged(
+    output: StreamFilterOutput,
+    stdout: &[u8],
+    stderr: &[u8],
+) -> StreamFilterDecision {
+    if output.stdout == stdout && output.stderr == stderr {
+        StreamFilterDecision::Unchanged
+    } else {
+        StreamFilterDecision::Applied(output)
+    }
+}
+
+fn handles_subcommand(subcommand: &[u8]) -> bool {
+    matches!(
+        subcommand,
+        b"status"
+            | b"diff"
+            | b"log"
+            | b"show"
+            | b"branch"
+            | b"reflog"
+            | b"commit"
+            | b"merge"
+            | b"blame"
+            | b"add"
+            | b"checkout"
+            | b"switch"
+            | b"fetch"
+            | b"pull"
+            | b"push"
+            | b"rebase"
+            | b"stash"
+            | b"config"
+            | b"grep"
+            | b"remote"
+            | b"shortlog"
+            | b"tag"
+            | b"worktree"
+    )
 }
 
 mod blame;
