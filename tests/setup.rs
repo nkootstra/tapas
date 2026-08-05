@@ -1,7 +1,11 @@
 #![cfg(unix)]
 
+#[cfg(target_os = "linux")]
+use std::ffi::OsString;
 use std::fs;
 use std::io::{self, Cursor, Write};
+#[cfg(target_os = "linux")]
+use std::os::unix::ffi::OsStringExt;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::fs::symlink;
 use std::path::PathBuf;
@@ -291,6 +295,29 @@ fn opencode_setup_is_idempotent_and_unsetup_removes_only_tapas() {
     assert!(unsetup.status.success(), "{:?}", unsetup.stderr);
     assert!(!plugin.exists());
     assert_eq!(fs::read(&sibling).unwrap(), b"export const keep = true;\n");
+}
+
+#[test]
+#[cfg(target_os = "linux")]
+fn opencode_setup_rejects_non_utf8_executable_paths_without_writing_files() {
+    let home = TestHome::new();
+    let executable = home.0.join(OsString::from_vec(b"tapas-\xff".to_vec()));
+    fs::copy(env!("CARGO_BIN_EXE_tapas"), &executable).unwrap();
+    fs::set_permissions(&executable, fs::Permissions::from_mode(0o755)).unwrap();
+    let xdg = home.path("xdg");
+
+    let output = Command::new(&executable)
+        .args(["--setup", "opencode"])
+        .env_clear()
+        .env("HOME", &home.0)
+        .env("XDG_CONFIG_HOME", &xdg)
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("UTF-8"));
+    assert!(!xdg.join("opencode/plugins/tapas.js").exists());
+    assert!(!home.path(".tapas/setup/opencode.owned").exists());
 }
 
 #[test]
@@ -806,6 +833,59 @@ fn codex_ownership_relocates_safely_and_unsetup_uses_the_recorded_path() {
         fs::read(second.join("hooks.json")).unwrap(),
         second_original
     );
+}
+
+#[test]
+fn codex_legacy_ownership_does_not_guess_a_changed_client_home() {
+    let home = TestHome::new();
+    let first = home.path("codex-one");
+    let second = home.path("codex-two");
+    fs::create_dir_all(&first).unwrap();
+    fs::create_dir_all(&second).unwrap();
+
+    let setup = tapas_with_env(
+        &home,
+        &["--setup", "codex"],
+        b"",
+        &[("CODEX_HOME", first.as_path())],
+    );
+    assert!(setup.status.success(), "{:?}", setup.stderr);
+    let configured = fs::read(first.join("hooks.json")).unwrap();
+    fs::write(second.join("hooks.json"), &configured).unwrap();
+
+    let command_start = configured
+        .windows(b"\"command\":\"".len())
+        .position(|part| part == b"\"command\":\"")
+        .unwrap()
+        + b"\"command\":\"".len();
+    let command_end = configured[command_start..]
+        .iter()
+        .position(|byte| *byte == b'"')
+        .unwrap()
+        + command_start;
+    let mut payload =
+        b"{\"matcher\":\"Bash\",\"hooks\":[{\"type\":\"command\",\"command\":\"".to_vec();
+    payload.extend_from_slice(&configured[command_start..command_end]);
+    payload.extend_from_slice(b"\",\"timeout\":10}]}");
+    let mut legacy = b"tapas-setup-v2\n".to_vec();
+    legacy.extend_from_slice(&ownership_digest(&payload));
+    legacy.push(b'\n');
+    legacy.extend_from_slice(&payload);
+    let ownership = home.path(".tapas/setup/codex.owned");
+    fs::write(&ownership, legacy).unwrap();
+
+    let unsetup = tapas_with_env(
+        &home,
+        &["--unsetup", "codex"],
+        b"",
+        &[("CODEX_HOME", second.as_path())],
+    );
+
+    assert_eq!(unsetup.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&unsetup.stderr).contains("original CODEX_HOME"));
+    assert_eq!(fs::read(first.join("hooks.json")).unwrap(), configured);
+    assert_eq!(fs::read(second.join("hooks.json")).unwrap(), configured);
+    assert!(ownership.exists());
 }
 
 #[test]

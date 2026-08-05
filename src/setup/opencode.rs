@@ -41,6 +41,12 @@ fn setup_opencode(
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> io::Result<i32> {
+    if !opencode_paths_are_utf8(&location.config_path, executable) {
+        stderr.write_all(
+            b"OpenCode setup requires UTF-8 executable and configuration paths; no files were changed\n",
+        )?;
+        return Ok(1);
+    }
     if !validate_hook(executable, Target::OpenCode)? {
         stderr.write_all(b"tapas hook evaluator self-check failed\n")?;
         return Ok(1);
@@ -466,6 +472,10 @@ fn predecessor_content_recognized(content: &[u8], kind: PredecessorKind) -> bool
     }
 }
 
+fn opencode_paths_are_utf8(config_path: &Path, executable: &Path) -> bool {
+    config_path.to_str().is_some() && executable.to_str().is_some()
+}
+
 fn smll_opencode_ownership_recognized(
     content: &[u8],
     index_digest: &[u8; 16],
@@ -687,4 +697,27 @@ fn opencode_owned_matches(owned: &Value, path: &Path, content: &[u8]) -> bool {
     matches!(owned.get(b"kind"), Some(Value::String(kind)) if kind == b"opencode-plugin")
         && matches!(owned.get(b"path"), Some(Value::String(value)) if value == path.as_os_str().as_encoded_bytes())
         && matches!(owned.get(b"content"), Some(Value::String(value)) if value == content)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::opencode_paths_are_utf8;
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+    use std::path::Path;
+
+    #[test]
+    fn opencode_paths_must_be_utf8() {
+        let invalid = Path::new(OsStr::from_bytes(b"/tmp/tapas-\xff"));
+
+        assert!(!opencode_paths_are_utf8(
+            Path::new("/tmp/tapas.js"),
+            invalid
+        ));
+        assert!(!opencode_paths_are_utf8(invalid, Path::new("/tmp/tapas")));
+        assert!(opencode_paths_are_utf8(
+            Path::new("/tmp/tapas.js"),
+            Path::new("/tmp/tapas")
+        ));
+    }
 }

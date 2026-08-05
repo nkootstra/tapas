@@ -238,7 +238,14 @@ pub fn configure_for_target_with_force(
     };
     let config_path = if action == Action::Unsetup {
         match read_ownership(&ownership_path)? {
-            Ownership::Valid(value) => recorded_path(&value).unwrap_or(resolved_path),
+            Ownership::Valid(value) => match recorded_path(&value) {
+                Some(path) => path,
+                None if target == Target::Codex => {
+                    stderr.write_all(b"legacy Codex ownership does not record its installation path; rerun `tapas --setup codex` with the original CODEX_HOME before unsetup\n")?;
+                    return Ok(1);
+                }
+                None => resolved_path,
+            },
             Ownership::Missing | Ownership::Modified => resolved_path,
         }
     } else {
