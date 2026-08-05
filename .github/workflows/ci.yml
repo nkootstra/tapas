@@ -26,6 +26,11 @@ jobs:
       - name: Install formatting and linting components
         run: rustup component add rustfmt clippy
 
+      - name: Install completion shells
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes fish zsh
+
       - name: Check formatting
         run: cargo fmt --all -- --check
 
@@ -37,6 +42,11 @@ jobs:
 
       - name: Audit the tapas command catalog
         run: python3 scripts/audit_catalog.py
+
+      - name: Verify generated shell completions
+        run: |
+          cargo build --locked
+          bash tests/completions.sh target/debug/tapas
 
       - name: Test release tooling
         run: |

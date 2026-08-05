@@ -1,5 +1,6 @@
 pub mod catalog;
 pub mod cli;
+mod completions;
 mod environment;
 pub mod filters;
 mod invocation_policy;

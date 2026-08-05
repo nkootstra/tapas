@@ -1,5 +1,7 @@
+use std::ffi::OsString;
 use std::fs;
 use std::io::Write;
+use std::os::unix::ffi::OsStringExt;
 use std::os::unix::fs::PermissionsExt;
 use std::process::{Command, Output, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -50,6 +52,7 @@ fn help_exposes_only_the_milestone_cli_surface() {
     let help = String::from_utf8(output.stdout).expect("UTF-8 help");
     for option in [
         "--filters",
+        "--completions bash",
         "--raw",
         "--explain",
         "--rewrite",
@@ -72,6 +75,127 @@ fn help_exposes_only_the_milestone_cli_surface() {
         );
     }
     assert!(output.stderr.is_empty());
+}
+
+#[test]
+fn invalid_tapas_parameters_explain_the_error_and_show_full_help() {
+    for (args, explanation) in [
+        (&["--v"][..], "unknown option \"--v\""),
+        (&["--help", "extra"][..], "--help does not accept arguments"),
+        (
+            &["--version", "extra"][..],
+            "--version does not accept arguments",
+        ),
+        (
+            &["--filters", "extra"][..],
+            "--filters does not accept arguments",
+        ),
+        (&["--raw", "--"][..], "--raw requires a command after --"),
+        (&["--explain"][..], "--explain requires a command"),
+        (&["--rewrite"][..], "--rewrite requires a command"),
+        (
+            &["--hook-eval", "cursor"][..],
+            "--hook-eval requires claude, codex, or opencode",
+        ),
+        (
+            &["--setup", "cursor"][..],
+            "invalid --setup or --unsetup arguments",
+        ),
+        (
+            &["--setup", "claude", "--force"][..],
+            "invalid --setup or --unsetup arguments",
+        ),
+        (
+            &["--completions"][..],
+            "--completions requires bash, zsh, or fish",
+        ),
+        (
+            &["--completions", "powershell"][..],
+            "--completions requires bash, zsh, or fish",
+        ),
+    ] {
+        let output = tapas(args);
+
+        assert_eq!(output.status.code(), Some(2), "args: {args:?}");
+        assert!(output.stdout.is_empty(), "args: {args:?}");
+        let error = String::from_utf8(output.stderr).expect("UTF-8 usage error");
+        assert!(
+            error.starts_with(&format!("tapas: {explanation}\n\nUsage:\n")),
+            "args: {args:?}: {error:?}"
+        );
+        assert!(error.contains("  tapas <cmd...>\n"), "args: {args:?}");
+        assert!(error.contains("  --completions"), "args: {args:?}");
+        assert!(error.contains("  -h, --help"), "args: {args:?}");
+    }
+}
+
+#[test]
+fn invalid_non_utf8_options_remain_actionable() {
+    let output = Command::new(env!("CARGO_BIN_EXE_tapas"))
+        .arg(OsString::from_vec(vec![b'-', b'-', 0xff]))
+        .output()
+        .expect("run tapas");
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    assert!(output.stderr.starts_with(b"tapas: unknown option "));
+    assert!(
+        output
+            .stderr
+            .windows(b"\n\nUsage:\n".len())
+            .any(|window| window == b"\n\nUsage:\n")
+    );
+    assert!(!output.stderr.contains(&0xff));
+}
+
+#[test]
+fn completions_cover_the_tapas_surface_for_supported_shells() {
+    for (shell, marker) in [
+        ("bash", "complete -F _tapas tapas"),
+        ("zsh", "#compdef tapas"),
+        ("fish", "complete -c tapas"),
+    ] {
+        let output = tapas(&["--completions", shell]);
+
+        assert!(output.status.success(), "shell: {shell:?}");
+        assert!(output.stderr.is_empty(), "shell: {shell:?}");
+        let completion = String::from_utf8(output.stdout).expect("UTF-8 completion");
+        assert!(completion.contains(marker), "shell: {shell:?}");
+        for candidate in [
+            "--help",
+            "--version",
+            "--filters",
+            "--raw",
+            "--explain",
+            "--rewrite",
+            "--hook-eval",
+            "--setup",
+            "--unsetup",
+            "--completions",
+            "claude",
+            "codex",
+            "opencode",
+            "bash",
+            "zsh",
+            "fish",
+        ] {
+            let candidate = if shell == "fish" {
+                candidate.trim_start_matches('-')
+            } else {
+                candidate
+            };
+            assert!(
+                completion.contains(candidate),
+                "missing {candidate:?} in {shell:?} completion"
+            );
+        }
+        for unsupported in ["smll", "rtk", "powershell"] {
+            assert!(
+                !completion.contains(unsupported),
+                "unexpected {unsupported:?} in {shell:?} completion"
+            );
+        }
+    }
 }
 
 #[test]
@@ -136,7 +260,7 @@ fn rewrite_leaves_unsupported_and_already_wrapped_commands_unwrapped() {
 }
 
 #[test]
-fn deferred_state_modes_are_concise_usage_errors() {
+fn deferred_state_modes_are_actionable_usage_errors() {
     for args in [
         &["--stats"][..],
         &["--discover"][..],
@@ -148,11 +272,8 @@ fn deferred_state_modes_are_concise_usage_errors() {
         assert_eq!(output.status.code(), Some(2), "args: {args:?}");
         assert!(output.stdout.is_empty(), "args: {args:?}");
         let error = String::from_utf8(output.stderr).expect("UTF-8 usage error");
-        assert!(
-            error.starts_with("usage: tapas "),
-            "args: {args:?}: {error:?}"
-        );
-        assert!(error.lines().count() <= 2, "args: {args:?}: {error:?}");
+        assert!(error.starts_with("tapas: "), "args: {args:?}: {error:?}");
+        assert!(error.contains("\n\nUsage:\n"), "args: {args:?}: {error:?}");
         assert!(!error.contains("placeholder"), "args: {args:?}: {error:?}");
     }
 }
@@ -165,10 +286,8 @@ fn unsupported_setup_targets_are_usage_errors() {
         assert_eq!(output.status.code(), Some(2), "args: {args:?}");
         assert!(output.stdout.is_empty(), "args: {args:?}");
         let error = String::from_utf8(output.stderr).expect("UTF-8 usage error");
-        assert_eq!(
-            error,
-            "usage: tapas --setup <claude|codex|opencode> [--dry-run] [--force]\n       tapas --unsetup <claude|codex|opencode> [--dry-run]\n"
-        );
+        assert!(error.starts_with("tapas: invalid --setup or --unsetup arguments\n\n"));
+        assert!(error.contains("Usage:\n"));
     }
 }
 
@@ -224,6 +343,23 @@ fn process_modes_execute_the_requested_child() {
     assert!(raw.stderr.is_empty());
     assert!(explained.status.success());
     assert_eq!(explained.stdout, b"explained\n");
+    assert!(explained.stderr.starts_with(b"\n(tapas explain:"));
+}
+
+#[test]
+fn child_options_are_never_reinterpreted_as_tapas_options() {
+    let normal = tapas(&["/usr/bin/printf", "%s\\n", "--help"]);
+    let raw = tapas(&["--raw", "--", "/usr/bin/printf", "%s\\n", "--version"]);
+    let explained = tapas(&["--explain", "/usr/bin/printf", "%s\\n", "--completions"]);
+
+    assert!(normal.status.success());
+    assert_eq!(normal.stdout, b"--help\n");
+    assert!(normal.stderr.is_empty());
+    assert!(raw.status.success());
+    assert_eq!(raw.stdout, b"--version\n");
+    assert!(raw.stderr.is_empty());
+    assert!(explained.status.success());
+    assert_eq!(explained.stdout, b"--completions\n");
     assert!(explained.stderr.starts_with(b"\n(tapas explain:"));
 }
 
