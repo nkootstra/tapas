@@ -87,11 +87,29 @@ impl Transaction {
         self,
         mut before_apply: impl FnMut(usize) -> io::Result<()>,
     ) -> Result<(), Failure> {
+        self.commit_inner(&mut before_apply, &mut |_| Ok(()))
+    }
+
+    #[cfg(test)]
+    pub(super) fn commit_with_after_apply(
+        self,
+        mut after_apply: impl FnMut(usize) -> io::Result<()>,
+    ) -> Result<(), Failure> {
+        self.commit_inner(&mut |_| Ok(()), &mut after_apply)
+    }
+
+    fn commit_inner(
+        self,
+        before_apply: &mut impl FnMut(usize) -> io::Result<()>,
+        after_apply: &mut impl FnMut(usize) -> io::Result<()>,
+    ) -> Result<(), Failure> {
         let mut applied = Vec::new();
         for (index, mutation) in self.mutations.iter().enumerate() {
             let ready = before_apply(index).and_then(|()| mutation.verify());
             let operation_started = ready.is_ok();
-            let result = ready.and_then(|()| mutation.apply());
+            let result = ready
+                .and_then(|()| mutation.apply())
+                .and_then(|changed| after_apply(index).map(|()| changed));
             match result {
                 Ok(changed) => applied.push((mutation, changed)),
                 Err(error) => {

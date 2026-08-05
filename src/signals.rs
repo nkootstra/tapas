@@ -46,6 +46,7 @@ const NEEDLES: &[(&[u8], u32)] = &[
 const NO_NEEDLE: u8 = u8::MAX;
 const FIRST_NEEDLE: [u8; 256] = build_first_needle();
 const PAST_LAST_NEEDLE: [u8; 256] = build_past_last_needle();
+const SIGNAL_BITS_BY_FIRST_BYTE: [u32; 256] = build_signal_bits_by_first_byte();
 const ALL_SIGNALS: u32 = CARGO_TEST | JEST | JS_TEST | TSC | GO_TEST | PYTEST | NPM_INSTALL;
 
 const fn build_first_needle() -> [u8; 256] {
@@ -71,12 +72,28 @@ const fn build_past_last_needle() -> [u8; 256] {
     table
 }
 
+const fn build_signal_bits_by_first_byte() -> [u32; 256] {
+    let mut table = [0_u32; 256];
+    let mut index = 0;
+    while index < NEEDLES.len() {
+        let (needle, bit) = NEEDLES[index];
+        table[needle[0] as usize] |= bit;
+        index += 1;
+    }
+    table
+}
+
 impl Signals {
     pub fn compute(input: &[u8]) -> Self {
         let mut bits = 0_u32;
         for offset in 0..input.len() {
             let first = FIRST_NEEDLE[input[offset] as usize];
             if first == NO_NEEDLE {
+                continue;
+            }
+            if bits & SIGNAL_BITS_BY_FIRST_BYTE[input[offset] as usize]
+                == SIGNAL_BITS_BY_FIRST_BYTE[input[offset] as usize]
+            {
                 continue;
             }
             let past_last = PAST_LAST_NEEDLE[input[offset] as usize];

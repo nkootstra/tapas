@@ -40,6 +40,80 @@ class ParityFixtureTests(unittest.TestCase):
 
 
 class ParityBaselineComparisonTests(unittest.TestCase):
+    def test_baseline_tool_uses_smll_environment_mapping(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            baseline = root / "smll"
+            baseline.write_text(
+                "#!/bin/sh\n"
+                "test \"${SMLL_PARITY_TOOL_MAPPING-}\" = baseline-tool-selected || exit 21\n"
+                "test -z \"${TAPAS_PARITY_TOOL_MAPPING-}\" || exit 22\n"
+                "printf 'mapped environment\\n'\n",
+                encoding="utf-8",
+            )
+            baseline.chmod(0o755)
+            candidate = root / "tapas"
+            candidate.write_text(
+                "#!/bin/sh\n"
+                "test \"${TAPAS_PARITY_TOOL_MAPPING-}\" = baseline-tool-selected || exit 23\n"
+                "test -z \"${SMLL_PARITY_TOOL_MAPPING-}\" || exit 24\n"
+                "printf 'mapped environment\\n'\n",
+                encoding="utf-8",
+            )
+            candidate.chmod(0o755)
+            cases = root / "cases.json"
+            cases.write_text(
+                """{
+  "cases": [{
+    "id": "comparison:baseline-tool-environment",
+    "oracle": "smll",
+    "mode": "pipe",
+    "argv": ["unused"],
+    "stdin": {"base64": ""},
+    "env": {
+      "set": {"SMLL_PARITY_TOOL_MAPPING": "baseline-tool-selected"},
+      "unset": []
+    },
+    "expect": {
+      "termination": {"exit_code": 0, "signal": null},
+      "stdout": {"facts": ["mapped environment"], "byte_exact": false},
+      "stderr": {"facts": [], "byte_exact": false},
+      "incomplete_output": {"diagnostic_facts": []}
+    }
+  }]
+}
+""",
+                encoding="utf-8",
+            )
+
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS / "parity.py"),
+                    "--binary",
+                    str(candidate),
+                    "--baseline-binary",
+                    str(baseline),
+                    "--tool",
+                    "tapas",
+                    "--baseline-tool",
+                    "smll",
+                    "--cases",
+                    str(cases),
+                    "--contract",
+                    str(root),
+                    "--jobs",
+                    "1",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertIn("baseline comparison: 1", proc.stdout)
+
     def test_identical_baseline_and_candidate_pass(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)

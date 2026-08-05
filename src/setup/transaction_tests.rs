@@ -44,6 +44,53 @@ fn injected_failure_restores_exact_bytes_modes_and_missing_paths() {
 }
 
 #[test]
+fn failed_write_after_apply_restores_its_path_and_all_prior_mutations() {
+    let home = tempfile_path("write-after-apply-rollback");
+    fs::create_dir_all(&home).unwrap();
+    let updated = home.join("updated");
+    let removed = home.join("removed");
+    let created = home.join("created");
+    let failed = home.join("failed");
+    fs::write(&updated, b"updated-before").unwrap();
+    fs::write(&removed, b"removed-before").unwrap();
+    fs::write(&failed, b"failed-before").unwrap();
+    fs::set_permissions(&updated, Permissions::from_mode(0o640)).unwrap();
+    fs::set_permissions(&removed, Permissions::from_mode(0o604)).unwrap();
+    fs::set_permissions(&failed, Permissions::from_mode(0o640)).unwrap();
+
+    let mut transaction = Transaction::new();
+    transaction
+        .write(&updated, b"updated-after".to_vec(), 0o600)
+        .unwrap();
+    transaction.remove_file(&removed).unwrap();
+    transaction
+        .write(&created, b"created-after".to_vec(), 0o600)
+        .unwrap();
+    transaction
+        .write(&failed, b"failed-after".to_vec(), 0o600)
+        .unwrap();
+    let failure = transaction
+        .commit_with_after_apply(|index| {
+            if index == 3 {
+                Err(io::Error::other("injected write failure after apply"))
+            } else {
+                Ok(())
+            }
+        })
+        .unwrap_err();
+
+    assert!(failure.rollback_failures.is_empty());
+    assert_eq!(fs::read(&updated).unwrap(), b"updated-before");
+    assert_eq!(fs::read(&removed).unwrap(), b"removed-before");
+    assert!(!created.exists());
+    assert_eq!(fs::read(&failed).unwrap(), b"failed-before");
+    assert_eq!(mode(&updated), 0o640);
+    assert_eq!(mode(&removed), 0o604);
+    assert_eq!(mode(&failed), 0o640);
+    fs::remove_dir_all(home).unwrap();
+}
+
+#[test]
 fn injected_failure_recreates_removed_predecessor_directory_before_its_files() {
     let home = tempfile_path("directory-rollback");
     let predecessor_dir = home.join("smll-proxy");
