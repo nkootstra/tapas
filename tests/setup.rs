@@ -302,8 +302,7 @@ fn opencode_setup_is_idempotent_and_unsetup_removes_only_tapas() {
 fn opencode_setup_rejects_non_utf8_executable_paths_without_writing_files() {
     let home = TestHome::new();
     let executable = home.0.join(OsString::from_vec(b"tapas-\xff".to_vec()));
-    fs::copy(env!("CARGO_BIN_EXE_tapas"), &executable).unwrap();
-    fs::set_permissions(&executable, fs::Permissions::from_mode(0o755)).unwrap();
+    fs::hard_link(env!("CARGO_BIN_EXE_tapas"), &executable).unwrap();
     let xdg = home.path("xdg");
 
     let output = Command::new(&executable)
