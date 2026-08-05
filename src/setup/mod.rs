@@ -57,6 +57,14 @@ pub fn configure_for_target_with_force(
             return Ok(2);
         }
     };
+    configure_request(request, stdout, stderr)
+}
+
+pub(crate) fn configure_request(
+    request: SetupRequest,
+    stdout: &mut dyn Write,
+    stderr: &mut dyn Write,
+) -> io::Result<i32> {
     let context = match SetupContext::from_process(request)? {
         ContextResolution::Ready(context) => context,
         ContextResolution::MissingHome => {
@@ -662,7 +670,8 @@ mod transaction;
 #[cfg(test)]
 mod transaction_tests;
 
-use context::{ContextResolution, InvalidSetupRequest, SetupContext, SetupLocation, SetupRequest};
+pub(crate) use context::SetupRequest;
+use context::{ContextResolution, InvalidSetupRequest, SetupContext, SetupLocation};
 
 use hooks::{
     contains_conflicting_integration, hook_command, hook_entry, hook_exists, parse_config,

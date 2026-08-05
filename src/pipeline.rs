@@ -17,9 +17,13 @@ type TryApplyFn = fn(&[u8]) -> Result<Option<FilterOutput>, FilterError>;
 pub struct FilterSpec {
     pub name: &'static str,
     gate: Option<GateFn>,
-    matches: MatchFn,
-    apply: ApplyFn,
-    try_apply: Option<TryApplyFn>,
+    route: Route,
+}
+
+#[derive(Clone, Copy)]
+enum Route {
+    Matched { matches: MatchFn, apply: ApplyFn },
+    TryApply(TryApplyFn),
 }
 
 impl FilterSpec {
@@ -27,9 +31,7 @@ impl FilterSpec {
         Self {
             name,
             gate: Some(gate),
-            matches,
-            apply,
-            try_apply: None,
+            route: Route::Matched { matches, apply },
         }
     }
 
@@ -37,42 +39,24 @@ impl FilterSpec {
         Self {
             name,
             gate: None,
-            matches,
-            apply,
-            try_apply: None,
+            route: Route::Matched { matches, apply },
         }
     }
 
-    const fn routed(
-        name: &'static str,
-        gate: Option<GateFn>,
-        matches: MatchFn,
-        apply: ApplyFn,
-        try_apply: TryApplyFn,
-    ) -> Self {
+    const fn routed(name: &'static str, gate: Option<GateFn>, try_apply: TryApplyFn) -> Self {
         Self {
             name,
             gate,
-            matches,
-            apply,
-            try_apply: Some(try_apply),
+            route: Route::TryApply(try_apply),
         }
     }
 }
 
 const DEFAULT_FILTERS: &[FilterSpec] = &[
-    FilterSpec::routed(
-        "git",
-        None,
-        git::matches,
-        git::apply_matched,
-        git::try_apply_matched,
-    ),
+    FilterSpec::routed("git", None, git::try_apply_matched),
     FilterSpec::routed(
         "test-tools",
         Some(test_tools_gate),
-        test_tools::matches,
-        test_tools::apply_matched,
         test_tools::try_apply_matched,
     ),
     FilterSpec::ungated(
@@ -81,13 +65,7 @@ const DEFAULT_FILTERS: &[FilterSpec] = &[
         infra::apply_container_pipe,
     ),
     FilterSpec::ungated("package", package::matches_pipe, package::apply_pipe),
-    FilterSpec::routed(
-        "listing",
-        None,
-        listing::matches,
-        listing::apply_matched,
-        listing::try_apply_matched,
-    ),
+    FilterSpec::routed("listing", None, listing::try_apply_matched),
     FilterSpec::ungated("curl", infra::matches_curl_pipe, infra::apply_curl_pipe),
     FilterSpec::ungated("generic", generic::matches, generic::apply_matched),
 ];
@@ -148,19 +126,20 @@ fn dispatch<'a>(input: &'a [u8], filters: &[FilterSpec]) -> DispatchResult<'a> {
         {
             continue;
         }
-        let candidate = if let Some(try_apply) = filter.try_apply {
-            match try_apply(input) {
+        let candidate = match filter.route {
+            Route::TryApply(try_apply) => match try_apply(input) {
                 Ok(Some(candidate)) => candidate,
                 Ok(None) => continue,
                 Err(_) => return passthrough(input),
-            }
-        } else {
-            if !(filter.matches)(input) {
-                continue;
-            }
-            match (filter.apply)(input) {
-                Ok(candidate) => candidate,
-                Err(_) => return passthrough(input),
+            },
+            Route::Matched { matches, apply } => {
+                if !matches(input) {
+                    continue;
+                }
+                match apply(input) {
+                    Ok(candidate) => candidate,
+                    Err(_) => return passthrough(input),
+                }
             }
         };
         return DispatchResult {

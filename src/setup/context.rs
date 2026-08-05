@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use super::ownership::{Ownership, read_ownership, recorded_path};
 use super::{Action, Target};
 
-pub(super) struct SetupRequest {
+pub(crate) struct SetupRequest {
     pub(super) action: Action,
     pub(super) target: Target,
     pub(super) dry_run: bool,
@@ -12,7 +12,7 @@ pub(super) struct SetupRequest {
 }
 
 impl SetupRequest {
-    pub(super) fn new(
+    pub(crate) fn new(
         action: Action,
         target: Target,
         dry_run: bool,
@@ -30,7 +30,7 @@ impl SetupRequest {
     }
 }
 
-pub(super) enum InvalidSetupRequest {
+pub(crate) enum InvalidSetupRequest {
     UnsupportedForce,
 }
 

@@ -37,14 +37,7 @@ pub(super) fn run(
         Invocation::HookEval { target, self_check } => {
             crate::setup::hook_eval_for_target(target, stdin, stdout, stderr, self_check)
         }
-        Invocation::Setup(request) => crate::setup::configure_for_target_with_force(
-            request.action,
-            request.target,
-            request.dry_run,
-            request.force,
-            stdout,
-            stderr,
-        ),
+        Invocation::Setup(request) => crate::setup::configure_request(request, stdout, stderr),
         Invocation::Deferred(flag) => {
             stderr.write_all(b"tapas: option ")?;
             write!(stderr, "{flag:?}")?;

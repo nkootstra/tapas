@@ -1,7 +1,7 @@
 use std::ffi::{OsStr, OsString};
 
 use super::spec;
-use crate::setup::{Action, Target};
+use crate::setup::{Action, SetupRequest, Target};
 
 pub(super) enum Invocation<'a> {
     Version,
@@ -28,13 +28,6 @@ pub(super) enum ProcessMode {
     Compact,
     Raw,
     Explain,
-}
-
-pub(super) struct SetupRequest {
-    pub(super) action: Action,
-    pub(super) target: Target,
-    pub(super) dry_run: bool,
-    pub(super) force: bool,
 }
 
 pub(super) fn parse(args: &[OsString]) -> Invocation<'_> {
@@ -129,23 +122,17 @@ fn setup_request(mode: spec::Mode, args: &[OsString]) -> Option<SetupRequest> {
         spec::Mode::Unsetup => Action::Unsetup,
         _ => unreachable!("setup_request only handles setup modes"),
     };
-    let mut request = SetupRequest {
-        action,
-        target: Target::parse_bytes(target)?,
-        dry_run: false,
-        force: false,
-    };
+    let target = Target::parse_bytes(target)?;
+    let mut dry_run = false;
+    let mut force = false;
     for option in &args[option_start..] {
         match option.as_encoded_bytes() {
-            b"--dry-run" if !request.dry_run => request.dry_run = true,
-            b"--force" if !request.force => request.force = true,
+            b"--dry-run" if !dry_run => dry_run = true,
+            b"--force" if !force => force = true,
             _ => return None,
         }
     }
-    if request.force && (request.action != Action::Setup || request.target != Target::OpenCode) {
-        return None;
-    }
-    Some(request)
+    SetupRequest::new(action, target, dry_run, force).ok()
 }
 
 fn is_deferred_mode(argument: &OsStr) -> bool {

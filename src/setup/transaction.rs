@@ -38,6 +38,7 @@ struct Mutation {
     kind: MutationKind,
 }
 
+#[derive(Eq, PartialEq)]
 enum FileState {
     Missing,
     File { content: Vec<u8>, mode: u32 },
@@ -187,31 +188,13 @@ impl FileState {
 
     fn verify(&self, path: &Path) -> io::Result<()> {
         let current = Self::read(path)?;
-        if self.matches(&current) {
+        if self == &current {
             Ok(())
         } else {
             Err(io::Error::other(format!(
                 "file changed during setup: {}",
                 path.display()
             )))
-        }
-    }
-
-    fn matches(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Missing, Self::Missing) => true,
-            (
-                Self::File {
-                    content: left,
-                    mode: left_mode,
-                },
-                Self::File {
-                    content: right,
-                    mode: right_mode,
-                },
-            ) => left == right && left_mode == right_mode,
-            (Self::Directory { mode: left }, Self::Directory { mode: right }) => left == right,
-            _ => false,
         }
     }
 

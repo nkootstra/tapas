@@ -84,31 +84,38 @@ pub fn dispatch_argv(
     exit_code: i32,
     lossless: bool,
 ) -> Result<FilterOutput, FilterError> {
+    try_dispatch_argv(argv, stdout, exit_code, lossless)
+        .map(|output| output.unwrap_or_else(|| passthrough(stdout)))
+}
+
+fn try_dispatch_argv(
+    argv: &[&[u8]],
+    stdout: &[u8],
+    exit_code: i32,
+    lossless: bool,
+) -> Result<Option<FilterOutput>, FilterError> {
     if argv.len() < 2 {
         return Err(FilterError::InvalidInput);
     }
     if lossless || exit_code != 0 {
-        return Ok(passthrough(stdout));
-    }
-    if !handles_subcommand(argv[1]) {
-        return Ok(passthrough(stdout));
+        return Ok(None);
     }
 
     match argv[1] {
         b"status" => {
             let args = &argv[1..];
             if has_arg(args, b"--porcelain") || has_arg(args, b"-z") {
-                Ok(passthrough(stdout))
+                Ok(None)
             } else if has_arg(args, b"--short") || has_arg(args, b"-s") {
-                Ok(FilterOutput::new(
+                Ok(Some(FilterOutput::new(
                     apply_status_short(stdout),
                     EvidenceClass::FactComplete,
-                ))
+                )))
             } else {
-                Ok(FilterOutput::new(
+                Ok(Some(FilterOutput::new(
                     apply_status(stdout),
                     EvidenceClass::FactComplete,
-                ))
+                )))
             }
         }
         b"diff" => {
@@ -125,12 +132,12 @@ pub fn dispatch_argv(
             .iter()
             .any(|argument| has_arg(args, argument))
             {
-                Ok(passthrough(stdout))
+                Ok(None)
             } else {
-                Ok(FilterOutput::new(
+                Ok(Some(FilterOutput::new(
                     apply_diff(stdout),
                     EvidenceClass::FactComplete,
-                ))
+                )))
             }
         }
         b"log" => {
@@ -151,17 +158,17 @@ pub fn dispatch_argv(
             .any(|argument| has_arg(args, argument))
                 || has_format_or_pretty_arg(args);
             if custom {
-                Ok(passthrough(stdout))
+                Ok(None)
             } else if has_arg(args, b"--stat") || has_arg(args, b"--shortstat") {
-                Ok(FilterOutput::new(
+                Ok(Some(FilterOutput::new(
                     apply_log_stat_compact(stdout),
                     EvidenceClass::PotentiallyLossy,
-                ))
+                )))
             } else {
-                Ok(FilterOutput::new(
+                Ok(Some(FilterOutput::new(
                     apply_log_compact(stdout),
                     EvidenceClass::PotentiallyLossy,
-                ))
+                )))
             }
         }
         b"show" => {
@@ -180,41 +187,41 @@ pub fn dispatch_argv(
                 .iter()
                 .any(|argument| !argument.starts_with(b"-") && argument.contains(&b':'));
             if summary || has_format_or_pretty_arg(args) || blob {
-                Ok(passthrough(stdout))
+                Ok(None)
             } else if has_arg(args, b"--stat") || has_arg(args, b"--shortstat") {
-                Ok(FilterOutput::new(
+                Ok(Some(FilterOutput::new(
                     apply_log_stat_compact(stdout),
                     EvidenceClass::PotentiallyLossy,
-                ))
+                )))
             } else {
-                Ok(FilterOutput::new(
+                Ok(Some(FilterOutput::new(
                     apply_show(stdout),
                     EvidenceClass::PotentiallyLossy,
-                ))
+                )))
             }
         }
-        b"branch" => Ok(FilterOutput::new(
+        b"branch" => Ok(Some(FilterOutput::new(
             apply_branch(stdout),
             EvidenceClass::FactComplete,
-        )),
+        ))),
         b"reflog" => {
             if has_format_or_pretty_arg(&argv[1..]) || !matches_reflog(stdout) {
-                Ok(passthrough(stdout))
+                Ok(None)
             } else {
-                Ok(FilterOutput::new(
+                Ok(Some(FilterOutput::new(
                     apply_reflog(stdout),
                     EvidenceClass::FactComplete,
-                ))
+                )))
             }
         }
-        b"commit" => Ok(FilterOutput::new(
+        b"commit" => Ok(Some(FilterOutput::new(
             apply_commit(stdout),
             EvidenceClass::FactComplete,
-        )),
-        b"merge" => Ok(FilterOutput::new(
+        ))),
+        b"merge" => Ok(Some(FilterOutput::new(
             apply_merge(stdout, b""),
             EvidenceClass::FactComplete,
-        )),
+        ))),
         b"blame" => {
             let args = &argv[1..];
             let alternate = [
@@ -229,88 +236,88 @@ pub fn dispatch_argv(
             .iter()
             .any(|argument| has_arg(args, argument));
             if alternate {
-                Ok(passthrough(stdout))
+                Ok(None)
             } else {
-                Ok(FilterOutput::new(
+                Ok(Some(FilterOutput::new(
                     apply_blame(stdout),
                     EvidenceClass::PotentiallyLossy,
-                ))
+                )))
             }
         }
-        b"add" => Ok(FilterOutput::new(
+        b"add" => Ok(Some(FilterOutput::new(
             apply_add(stdout, b""),
             EvidenceClass::FactComplete,
-        )),
-        b"checkout" | b"switch" => Ok(FilterOutput::new(
+        ))),
+        b"checkout" | b"switch" => Ok(Some(FilterOutput::new(
             apply_checkout(stdout, b""),
             EvidenceClass::FactComplete,
-        )),
-        b"fetch" => Ok(FilterOutput::new(
+        ))),
+        b"fetch" => Ok(Some(FilterOutput::new(
             apply_fetch(b""),
             EvidenceClass::FactComplete,
-        )),
-        b"pull" => Ok(FilterOutput::new(
+        ))),
+        b"pull" => Ok(Some(FilterOutput::new(
             apply_pull(stdout, b""),
             EvidenceClass::FactComplete,
-        )),
-        b"push" => Ok(FilterOutput::new(
+        ))),
+        b"push" => Ok(Some(FilterOutput::new(
             apply_push(b""),
             EvidenceClass::FactComplete,
-        )),
-        b"rebase" => Ok(FilterOutput::new(
+        ))),
+        b"rebase" => Ok(Some(FilterOutput::new(
             apply_rebase(stdout, b""),
             EvidenceClass::FactComplete,
-        )),
-        b"stash" => Ok(FilterOutput::new(
+        ))),
+        b"stash" => Ok(Some(FilterOutput::new(
             apply_stash(stdout, b""),
             EvidenceClass::FactComplete,
-        )),
+        ))),
         b"config" => {
             let args = &argv[1..];
             if (!has_arg(args, b"--list") && !has_arg(args, b"-l"))
                 || has_arg(args, b"--null")
                 || has_arg(args, b"-z")
             {
-                Ok(passthrough(stdout))
+                Ok(None)
             } else {
-                Ok(FilterOutput::new(
+                Ok(Some(FilterOutput::new(
                     compact_trimmed_lines(stdout),
                     EvidenceClass::FactComplete,
-                ))
+                )))
             }
         }
         // `git grep` emits one match per line; the output is already compact
         // and actionable, so it is intentionally left byte-exact.
-        b"grep" => Ok(passthrough(stdout)),
+        b"grep" => Ok(None),
         b"remote" => match compact_remote(&argv[1..], stdout) {
-            Some(output) => Ok(FilterOutput::new(output, EvidenceClass::FactComplete)),
-            None => Ok(passthrough(stdout)),
+            Some(output) => Ok(Some(FilterOutput::new(output, EvidenceClass::FactComplete))),
+            None => Ok(None),
         },
-        b"shortlog" => Ok(FilterOutput::new(
+        b"shortlog" => Ok(Some(FilterOutput::new(
             compact_shortlog(stdout),
             EvidenceClass::FactComplete,
-        )),
+        ))),
         b"tag" => {
             if has_format_or_pretty_arg(&argv[1..]) || has_arg(&argv[1..], b"--column") {
-                Ok(passthrough(stdout))
+                Ok(None)
             } else {
-                Ok(FilterOutput::new(
+                Ok(Some(FilterOutput::new(
                     compact_trimmed_lines(stdout),
                     EvidenceClass::FactComplete,
-                ))
+                )))
             }
         }
         b"worktree" => {
             if has_arg(&argv[1..], b"--porcelain") || has_arg(&argv[1..], b"-z") {
-                Ok(passthrough(stdout))
+                Ok(None)
             } else {
-                Ok(FilterOutput::new(
+                Ok(Some(FilterOutput::new(
                     compact_worktree(stdout),
                     EvidenceClass::FactComplete,
-                ))
+                )))
             }
         }
-        _ => Ok(passthrough(stdout)),
+        _ => Ok(None),
     }
 }
 
@@ -345,26 +352,40 @@ pub(crate) fn dispatch_streams_decision(
     }
 
     if argv[1] == b"pull" {
-        return Ok(applied_or_unchanged(
-            StreamFilterOutput::new(
-                compact_pull_stdout(stdout).unwrap_or_else(|| stdout.to_vec()),
-                compact_pull_stderr(stderr).unwrap_or_else(|| stderr.to_vec()),
-                EvidenceClass::FactComplete,
-            ),
-            stdout,
-            stderr,
-        ));
+        let compact_stdout = compact_pull_stdout(stdout);
+        let compact_stderr = compact_pull_stderr(stderr);
+        if compact_stdout
+            .as_deref()
+            .is_none_or(|bytes| bytes == stdout)
+            && compact_stderr
+                .as_deref()
+                .is_none_or(|bytes| bytes == stderr)
+        {
+            return Ok(StreamFilterDecision::Unchanged);
+        }
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
+            compact_stdout.unwrap_or_else(|| stdout.to_vec()),
+            compact_stderr.unwrap_or_else(|| stderr.to_vec()),
+            EvidenceClass::FactComplete,
+        )));
     }
     if argv[1] == b"push" {
-        return Ok(applied_or_unchanged(
-            StreamFilterOutput::new(
-                compact_push_stdout(stdout).unwrap_or_else(|| stdout.to_vec()),
-                compact_push_stderr(stderr).unwrap_or_else(|| stderr.to_vec()),
-                EvidenceClass::FactComplete,
-            ),
-            stdout,
-            stderr,
-        ));
+        let compact_stdout = compact_push_stdout(stdout);
+        let compact_stderr = compact_push_stderr(stderr);
+        if compact_stdout
+            .as_deref()
+            .is_none_or(|bytes| bytes == stdout)
+            && compact_stderr
+                .as_deref()
+                .is_none_or(|bytes| bytes == stderr)
+        {
+            return Ok(StreamFilterDecision::Unchanged);
+        }
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
+            compact_stdout.unwrap_or_else(|| stdout.to_vec()),
+            compact_stderr.unwrap_or_else(|| stderr.to_vec()),
+            EvidenceClass::FactComplete,
+        )));
     }
 
     type Compact = fn(&[u8], &[u8]) -> Vec<u8>;
@@ -390,16 +411,17 @@ pub(crate) fn dispatch_streams_decision(
         return Ok(applied_or_unchanged(output, stdout, stderr));
     }
 
-    if !handles_subcommand(argv[1]) {
+    let Some(filtered) = try_dispatch_argv(argv, stdout, exit_code, lossless)? else {
+        return Ok(StreamFilterDecision::Unchanged);
+    };
+    if filtered.bytes == stdout {
         return Ok(StreamFilterDecision::Unchanged);
     }
-
-    let filtered = dispatch_argv(argv, stdout, stderr, exit_code, lossless)?;
-    Ok(applied_or_unchanged(
-        StreamFilterOutput::new(filtered.bytes, stderr.to_vec(), filtered.evidence),
-        stdout,
-        stderr,
-    ))
+    Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
+        filtered.bytes,
+        stderr.to_vec(),
+        filtered.evidence,
+    )))
 }
 
 fn applied_or_unchanged(
@@ -412,35 +434,6 @@ fn applied_or_unchanged(
     } else {
         StreamFilterDecision::Applied(output)
     }
-}
-
-fn handles_subcommand(subcommand: &[u8]) -> bool {
-    matches!(
-        subcommand,
-        b"status"
-            | b"diff"
-            | b"log"
-            | b"show"
-            | b"branch"
-            | b"reflog"
-            | b"commit"
-            | b"merge"
-            | b"blame"
-            | b"add"
-            | b"checkout"
-            | b"switch"
-            | b"fetch"
-            | b"pull"
-            | b"push"
-            | b"rebase"
-            | b"stash"
-            | b"config"
-            | b"grep"
-            | b"remote"
-            | b"shortlog"
-            | b"tag"
-            | b"worktree"
-    )
 }
 
 mod blame;
