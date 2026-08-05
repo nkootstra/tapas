@@ -1,6 +1,6 @@
 use super::{
-    EvidenceClass, FilterError, StreamFilterOutput, append_line, command_basename,
-    contains_ignore_ascii_case as contains_ascii_case_insensitive, find_subslice,
+    EvidenceClass, FilterError, StreamFilterDecision, StreamFilterOutput, append_line,
+    command_basename, contains_ignore_ascii_case as contains_ascii_case_insensitive, find_subslice,
     strip_ansi_csi as strip_ansi,
 };
 
@@ -30,11 +30,22 @@ pub fn dispatch_streams_argv(
     _exit_code: i32,
     lossless: bool,
 ) -> Result<StreamFilterOutput, FilterError> {
+    dispatch_streams_decision(argv, stdout, stderr, _exit_code, lossless)
+        .map(|decision| decision.into_output(stdout, stderr))
+}
+
+pub(crate) fn dispatch_streams_decision(
+    argv: &[&[u8]],
+    stdout: &[u8],
+    stderr: &[u8],
+    _exit_code: i32,
+    lossless: bool,
+) -> Result<StreamFilterDecision, FilterError> {
     let Some(command) = argv.first().copied().map(command_basename) else {
         return Err(FilterError::InvalidInput);
     };
     if lossless || crate::invocation_policy::requests_passthrough(argv) {
-        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
+        return Ok(StreamFilterDecision::Unchanged);
     }
 
     type Compact = fn(&[u8], &[u8]) -> Vec<u8>;
@@ -56,9 +67,9 @@ pub fn dispatch_streams_argv(
     };
 
     Ok(output.map_or_else(
-        || StreamFilterOutput::passthrough(stdout, stderr),
+        || StreamFilterDecision::Unchanged,
         |(compact, evidence)| {
-            StreamFilterOutput::compact_single_stream(stdout, stderr, evidence, compact)
+            StreamFilterDecision::compact_single_stream(stdout, stderr, evidence, compact)
         },
     ))
 }

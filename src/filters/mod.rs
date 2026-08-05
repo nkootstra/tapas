@@ -74,24 +74,35 @@ impl StreamFilterOutput {
             (true, true) => Self::new(compact(b"", b""), Vec::new(), evidence),
         }
     }
-
-    pub(crate) fn into_byte_exact_decision(
-        self,
-        stdout: &[u8],
-        stderr: &[u8],
-    ) -> StreamFilterDecision {
-        if self.evidence == EvidenceClass::ByteExact
-            && self.stdout == stdout
-            && self.stderr == stderr
-        {
-            StreamFilterDecision::Unchanged
-        } else {
-            StreamFilterDecision::Applied(self)
-        }
-    }
 }
 
 impl StreamFilterDecision {
+    pub(crate) fn compact_single_stream(
+        stdout: &[u8],
+        stderr: &[u8],
+        evidence: EvidenceClass,
+        compact: impl FnOnce(&[u8], &[u8]) -> Vec<u8>,
+    ) -> Self {
+        match (stdout.is_empty(), stderr.is_empty()) {
+            (false, false) => Self::Unchanged,
+            (false, true) => Self::Applied(StreamFilterOutput::new(
+                compact(stdout, b""),
+                Vec::new(),
+                evidence,
+            )),
+            (true, false) => Self::Applied(StreamFilterOutput::new(
+                Vec::new(),
+                compact(b"", stderr),
+                evidence,
+            )),
+            (true, true) => Self::Applied(StreamFilterOutput::new(
+                compact(b"", b""),
+                Vec::new(),
+                evidence,
+            )),
+        }
+    }
+
     pub(crate) fn into_output(self, stdout: &[u8], stderr: &[u8]) -> StreamFilterOutput {
         match self {
             Self::Unchanged => StreamFilterOutput::passthrough(stdout, stderr),

@@ -198,7 +198,7 @@ type StreamFilter = fn(
     &[u8],
     i32,
     bool,
-) -> Result<crate::filters::StreamFilterOutput, crate::filters::FilterError>;
+) -> Result<StreamFilterDecision, crate::filters::FilterError>;
 
 struct StreamFilterSpec {
     name: &'static str,
@@ -210,37 +210,37 @@ const STREAM_FILTERS: &[StreamFilterSpec] = &[
     StreamFilterSpec {
         name: "test-tools",
         handles: crate::filters::test_tools::handles_argv,
-        apply: crate::filters::test_tools::dispatch_streams_argv,
+        apply: crate::filters::test_tools::dispatch_streams_decision,
     },
     StreamFilterSpec {
         name: "listing",
         handles: crate::filters::listing::handles_argv,
-        apply: crate::filters::listing::dispatch_streams_argv,
+        apply: crate::filters::listing::dispatch_streams_decision,
     },
     StreamFilterSpec {
         name: "build",
         handles: crate::filters::build::handles_argv,
-        apply: crate::filters::build::dispatch_streams_argv,
+        apply: crate::filters::build::dispatch_streams_decision,
     },
     StreamFilterSpec {
         name: "package",
         handles: crate::filters::package::handles_argv,
-        apply: crate::filters::package::dispatch_streams_argv,
+        apply: crate::filters::package::dispatch_streams_decision,
     },
     StreamFilterSpec {
         name: "infra",
         handles: crate::filters::infra::handles_argv,
-        apply: crate::filters::infra::dispatch_streams_argv,
+        apply: crate::filters::infra::dispatch_streams_decision,
     },
     StreamFilterSpec {
         name: "data",
         handles: crate::filters::data::handles_argv,
-        apply: crate::filters::data::dispatch_streams_argv,
+        apply: crate::filters::data::dispatch_streams_decision,
     },
     StreamFilterSpec {
         name: "diagnostics",
         handles: crate::filters::diagnostics::handles_argv,
-        apply: crate::filters::diagnostics::dispatch_streams_argv,
+        apply: crate::filters::diagnostics::dispatch_streams_decision,
     },
 ];
 
@@ -282,15 +282,19 @@ fn filter_captured_output<'a>(
         if !(filter.handles)(&argv_bytes) {
             continue;
         }
-        if let Ok(output) = (filter.apply)(
+        if let Ok(StreamFilterDecision::Applied(output)) = (filter.apply)(
             &argv_bytes,
             &captured.stdout,
             &captured.stderr,
             captured.exit_code,
             lossless,
-        ) && let Some(filtered) = changed_filtered_streams(output, captured, filter.name)
-        {
-            return filtered;
+        ) {
+            return FilteredStreams {
+                stdout: Cow::Owned(output.stdout),
+                stderr: Cow::Owned(output.stderr),
+                filter_name: filter.name,
+                evidence: output.evidence,
+            };
         }
     }
 
@@ -321,22 +325,6 @@ fn filter_captured_output<'a>(
         stderr: Cow::Borrowed(&captured.stderr),
         filter_name: result.filter_name,
         evidence: result.evidence,
-    }
-}
-
-fn changed_filtered_streams<'a>(
-    output: crate::filters::StreamFilterOutput,
-    captured: &'a capture::CapturedOutput,
-    filter_name: &'static str,
-) -> Option<FilteredStreams<'a>> {
-    match output.into_byte_exact_decision(&captured.stdout, &captured.stderr) {
-        StreamFilterDecision::Unchanged => None,
-        StreamFilterDecision::Applied(output) => Some(FilteredStreams {
-            stdout: Cow::Owned(output.stdout),
-            stderr: Cow::Owned(output.stderr),
-            filter_name,
-            evidence: output.evidence,
-        }),
     }
 }
 
