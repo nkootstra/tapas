@@ -41,6 +41,13 @@ pub struct StreamFilterOutput {
     pub evidence: EvidenceClass,
 }
 
+/// Internal routing result that lets dispatchers represent passthrough without
+/// an owned copy of the captured streams.
+pub(crate) enum StreamFilterDecision {
+    Unchanged,
+    Applied(StreamFilterOutput),
+}
+
 impl StreamFilterOutput {
     pub fn new(stdout: Vec<u8>, stderr: Vec<u8>, evidence: EvidenceClass) -> Self {
         Self {
@@ -65,6 +72,41 @@ impl StreamFilterOutput {
             (false, true) => Self::new(compact(stdout, b""), Vec::new(), evidence),
             (true, false) => Self::new(Vec::new(), compact(b"", stderr), evidence),
             (true, true) => Self::new(compact(b"", b""), Vec::new(), evidence),
+        }
+    }
+}
+
+impl StreamFilterDecision {
+    pub(crate) fn compact_single_stream(
+        stdout: &[u8],
+        stderr: &[u8],
+        evidence: EvidenceClass,
+        compact: impl FnOnce(&[u8], &[u8]) -> Vec<u8>,
+    ) -> Self {
+        match (stdout.is_empty(), stderr.is_empty()) {
+            (false, false) => Self::Unchanged,
+            (false, true) => Self::Applied(StreamFilterOutput::new(
+                compact(stdout, b""),
+                Vec::new(),
+                evidence,
+            )),
+            (true, false) => Self::Applied(StreamFilterOutput::new(
+                Vec::new(),
+                compact(b"", stderr),
+                evidence,
+            )),
+            (true, true) => Self::Applied(StreamFilterOutput::new(
+                compact(b"", b""),
+                Vec::new(),
+                evidence,
+            )),
+        }
+    }
+
+    pub(crate) fn into_output(self, stdout: &[u8], stderr: &[u8]) -> StreamFilterOutput {
+        match self {
+            Self::Unchanged => StreamFilterOutput::passthrough(stdout, stderr),
+            Self::Applied(output) => output,
         }
     }
 }

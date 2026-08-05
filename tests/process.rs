@@ -692,6 +692,25 @@ fn git_wrapper_dispatch_compacts_success_and_preserves_failed_streams() {
 }
 
 #[test]
+fn successful_unrecognized_git_output_remains_a_byte_exact_passthrough() {
+    let git = FakeCommand::new(
+        "git",
+        b"#!/bin/sh\nprintf 'custom stdout\\n'\nprintf 'custom stderr\\n' >&2\n",
+    );
+    let args = [git.path().as_os_str().to_owned(), OsString::from("config")];
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+
+    let report = run(&args, &mut stdout, &mut stderr, RunOptions::default())
+        .expect("run Git command without a compactor");
+
+    assert_eq!(report.filter_name, "passthrough");
+    assert_eq!(report.evidence, tapas::filters::EvidenceClass::ByteExact);
+    assert_eq!(stdout, b"custom stdout\n");
+    assert_eq!(stderr, b"custom stderr\n");
+}
+
+#[test]
 fn git_pull_and_push_compaction_keeps_descriptors_separate() {
     let git = FakeCommand::new(
         "git",

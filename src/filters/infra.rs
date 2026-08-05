@@ -1,7 +1,7 @@
 use super::{
-    EvidenceClass, FilterError, FilterOutput, StreamFilterOutput, append_line, command_basename,
-    data::compact_json, find_subslice, normalize_log_line, strip_ansi_csi as strip_ansi,
-    timestamp_end,
+    EvidenceClass, FilterError, FilterOutput, StreamFilterDecision, StreamFilterOutput,
+    append_line, command_basename, data::compact_json, find_subslice, normalize_log_line,
+    strip_ansi_csi as strip_ansi, timestamp_end,
 };
 
 pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
@@ -23,22 +23,33 @@ pub fn dispatch_streams_argv(
     exit_code: i32,
     lossless: bool,
 ) -> Result<StreamFilterOutput, FilterError> {
+    dispatch_streams_decision(argv, stdout, stderr, exit_code, lossless)
+        .map(|decision| decision.into_output(stdout, stderr))
+}
+
+pub(crate) fn dispatch_streams_decision(
+    argv: &[&[u8]],
+    stdout: &[u8],
+    stderr: &[u8],
+    exit_code: i32,
+    lossless: bool,
+) -> Result<StreamFilterDecision, FilterError> {
     let Some(command) = argv.first().copied().map(command_basename) else {
         return Err(FilterError::InvalidInput);
     };
     if lossless || crate::invocation_policy::requests_passthrough(argv) {
-        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
+        return Ok(StreamFilterDecision::Unchanged);
     }
     let arg1 = argv.get(1).copied().unwrap_or_default();
     let arg2 = argv.get(2).copied().unwrap_or_default();
     let arg3 = argv.get(3).copied().unwrap_or_default();
 
     if exit_code != 0 && !stderr.is_empty() {
-        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
+        return Ok(StreamFilterDecision::Unchanged);
     }
 
     if command == b"curl" && has_verbose_flag(argv) {
-        return Ok(StreamFilterOutput::new(
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
             stdout.to_vec(),
             if stderr.is_empty() {
                 Vec::new()
@@ -46,11 +57,11 @@ pub fn dispatch_streams_argv(
                 compact_curl(b"", stderr)
             },
             EvidenceClass::FactComplete,
-        ));
+        )));
     }
     if is_logs_invocation(command, argv) {
         let compose = command == b"docker-compose" || command == b"docker" && arg1 == b"compose";
-        return Ok(StreamFilterOutput::compact_single_stream(
+        return Ok(StreamFilterDecision::compact_single_stream(
             stdout,
             stderr,
             EvidenceClass::FactComplete,
@@ -80,8 +91,14 @@ pub fn dispatch_streams_argv(
     };
 
     Ok(output.map_or_else(
-        || StreamFilterOutput::passthrough(stdout, stderr),
-        |stdout| StreamFilterOutput::new(stdout, stderr.to_vec(), EvidenceClass::FactComplete),
+        || StreamFilterDecision::Unchanged,
+        |stdout| {
+            StreamFilterDecision::Applied(StreamFilterOutput::new(
+                stdout,
+                stderr.to_vec(),
+                EvidenceClass::FactComplete,
+            ))
+        },
     ))
 }
 

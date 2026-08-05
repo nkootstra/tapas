@@ -1,6 +1,7 @@
 use super::{
-    EvidenceClass, FilterError, FilterOutput, StreamFilterOutput, append_line, byte_after_lines,
-    command_basename, find_subslice, strip_ansi, trim_ascii_end_space as trim_end,
+    EvidenceClass, FilterError, FilterOutput, StreamFilterDecision, StreamFilterOutput,
+    append_line, byte_after_lines, command_basename, find_subslice, strip_ansi,
+    trim_ascii_end_space as trim_end,
 };
 
 const TREE_PREFIXES: &[&[u8]] = &[
@@ -31,11 +32,22 @@ pub fn dispatch_streams_argv(
     exit_code: i32,
     lossless: bool,
 ) -> Result<StreamFilterOutput, FilterError> {
+    dispatch_streams_decision(argv, stdout, stderr, exit_code, lossless)
+        .map(|decision| decision.into_output(stdout, stderr))
+}
+
+pub(crate) fn dispatch_streams_decision(
+    argv: &[&[u8]],
+    stdout: &[u8],
+    stderr: &[u8],
+    exit_code: i32,
+    lossless: bool,
+) -> Result<StreamFilterDecision, FilterError> {
     if argv.is_empty() {
         return Err(FilterError::InvalidInput);
     }
     if lossless || crate::invocation_policy::requests_passthrough(argv) {
-        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
+        return Ok(StreamFilterDecision::Unchanged);
     }
 
     let command = command_basename(argv[0]);
@@ -43,18 +55,18 @@ pub fn dispatch_streams_argv(
     let arg2 = argv.get(2).copied().unwrap_or_default();
     let recognized_error = has_package_error_marker(stdout) || has_package_error_marker(stderr);
     if exit_code != 0 && !stderr.is_empty() && !recognized_error {
-        return Ok(StreamFilterOutput::passthrough(stdout, stderr));
+        return Ok(StreamFilterDecision::Unchanged);
     }
 
     let package_tree_route = command == b"bun" && arg1 == b"pm" && arg2 == b"ls"
         || matches!(command, b"npm" | b"pnpm") && matches!(arg1, b"ls" | b"list")
         || command == b"yarn" && arg1 == b"list";
     if package_tree_route && matches_package_tree(stdout) {
-        return Ok(StreamFilterOutput::new(
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
             compact_package_tree(stdout, b""),
             stderr.to_vec(),
             EvidenceClass::PotentiallyLossy,
-        ));
+        )));
     }
 
     let js_install_route = matches!(command, b"npm" | b"pnpm" | b"yarn" | b"bun")
@@ -72,7 +84,7 @@ pub fn dispatch_streams_argv(
         } else {
             EvidenceClass::FactComplete
         };
-        return Ok(StreamFilterOutput::compact_single_stream(
+        return Ok(StreamFilterDecision::compact_single_stream(
             stdout,
             stderr,
             evidence,
@@ -83,11 +95,11 @@ pub fn dispatch_streams_argv(
     let pip_command = matches!(command, b"pip" | b"pip3");
     let pip_table_route = pip_command && matches!(arg1, b"list" | b"outdated");
     if pip_table_route {
-        return Ok(StreamFilterOutput::new(
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
             compact_pip_table(stdout, b""),
             stderr.to_vec(),
             EvidenceClass::FactComplete,
-        ));
+        )));
     }
     let pip_install_route = pip_command && matches!(arg1, b"install" | b"download" | b"wheel");
     if pip_install_route
@@ -98,7 +110,7 @@ pub fn dispatch_streams_argv(
         } else {
             EvidenceClass::FactComplete
         };
-        return Ok(StreamFilterOutput::compact_single_stream(
+        return Ok(StreamFilterDecision::compact_single_stream(
             stdout,
             stderr,
             evidence,
@@ -106,7 +118,7 @@ pub fn dispatch_streams_argv(
         ));
     }
 
-    Ok(StreamFilterOutput::passthrough(stdout, stderr))
+    Ok(StreamFilterDecision::Unchanged)
 }
 
 pub fn matches_pipe(input: &[u8]) -> bool {
