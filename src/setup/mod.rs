@@ -35,6 +35,8 @@ struct SetupLocation {
 }
 
 impl Target {
+    pub(crate) const ALL: [Self; 3] = [Self::Claude, Self::Codex, Self::OpenCode];
+
     pub fn parse(value: &OsStr) -> Option<Self> {
         Self::parse_bytes(value.as_encoded_bytes())
     }
@@ -48,7 +50,7 @@ impl Target {
         }
     }
 
-    fn name(self) -> &'static str {
+    pub(crate) const fn name(self) -> &'static str {
         match self {
             Self::Claude => "claude",
             Self::Codex => "codex",
