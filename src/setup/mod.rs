@@ -432,48 +432,53 @@ fn relocate_hook_setup(
     let old_mode = existing_mode(&owned.path, 0o600);
     let destination_mode = existing_mode(&location.config_path, 0o600);
     let destination_backup = write_unique_backup(&location.config_path, destination_before)?;
-    let ownership_before = read_optional(&location.ownership_path, MAX_CONFIG_BYTES)?;
-    let result = (|| {
-        if remove_old {
-            fs::remove_file(&owned.path)?;
-        } else {
-            write_atomic(&owned.path, &old_after, old_mode)?;
-        }
-        write_atomic(&location.config_path, &destination_after, destination_mode)?;
-        write_hook_ownership(
-            &location.ownership_path,
+    let transaction = (|| {
+        prepare_record_parent(&location.ownership_path)?;
+        let ownership = hook_ownership_record(
             location.target,
             &location.config_path,
             expected_entry,
             &destination_after,
             destination_before.is_some(),
             destination_backup.as_deref(),
-        )
+        );
+        let mut transaction = Transaction::new();
+        if remove_old {
+            transaction.remove_file(&owned.path)?;
+        } else {
+            transaction.write(&owned.path, old_after, old_mode)?;
+        }
+        transaction.write(&location.config_path, destination_after, destination_mode)?;
+        transaction.write(&location.ownership_path, record_bytes(&ownership), 0o600)?;
+        Ok(transaction)
     })();
-    if let Err(error) = result {
-        let mut rollback_failures = Vec::new();
-        if let Err(rollback) =
-            restore_optional(&location.ownership_path, ownership_before.as_deref())
-        {
-            rollback_failures.push(format!("{}: {rollback}", location.ownership_path.display()));
-        }
-        if let Err(rollback) = write_atomic(&owned.path, &old_before, old_mode) {
-            rollback_failures.push(format!("{}: {rollback}", owned.path.display()));
-        }
-        if let Err(rollback) = restore_optional(&location.config_path, destination_before) {
-            rollback_failures.push(format!("{}: {rollback}", location.config_path.display()));
-        }
-        if rollback_failures.is_empty() {
+    let transaction = match transaction {
+        Ok(transaction) => transaction,
+        Err(error) => {
             if let Some(path) = destination_backup {
                 let _ = fs::remove_file(path);
             }
             return Err(error);
         }
+    };
+    if let Err(failure) = transaction.commit() {
+        if failure.rollback_failures.is_empty() {
+            if let Some(path) = destination_backup {
+                let _ = fs::remove_file(path);
+            }
+            return Err(failure.error);
+        }
         return Err(io::Error::new(
-            error.kind(),
+            failure.error.kind(),
             format!(
-                "hook relocation failed ({error}); rollback also failed: {}. Recovery backup was retained.",
-                rollback_failures.join("; ")
+                "hook relocation failed ({}); rollback also failed: {}. Recovery backup was retained.",
+                failure.error,
+                failure
+                    .rollback_failures
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join("; ")
             ),
         ));
     }
@@ -653,6 +658,9 @@ mod opencode;
 mod ownership;
 mod storage;
 mod target;
+mod transaction;
+#[cfg(test)]
+mod transaction_tests;
 
 use context::{ContextResolution, InvalidSetupRequest, SetupContext, SetupLocation, SetupRequest};
 
@@ -666,12 +674,14 @@ use opencode::configure_opencode;
 #[cfg(test)]
 use ownership::write_ownership;
 use ownership::{
-    HookOwnership, Ownership, content_digest, hook_ownership, read_ownership, write_hook_ownership,
+    HookOwnership, Ownership, content_digest, hook_ownership, hook_ownership_record,
+    prepare_record_parent, read_ownership, record_bytes, write_hook_ownership,
 };
 use storage::{
     existing_mode, read_optional, reject_symlink, restore_optional, write_atomic,
     write_unique_backup,
 };
+use transaction::Transaction;
 
 #[cfg(test)]
 mod tests {
