@@ -39,8 +39,36 @@ pub(super) fn read_ownership(path: &Path) -> io::Result<Ownership> {
     Ok(Ownership::Valid(entry))
 }
 
+#[cfg(test)]
 pub(super) fn write_ownership(path: &Path, entry: &Value) -> io::Result<()> {
     write_record(path, entry)
+}
+
+pub(super) fn record_bytes(entry: &Value) -> Vec<u8> {
+    let payload = json::serialize(entry);
+    let mut content = OWNERSHIP_HEADER.to_vec();
+    content.extend_from_slice(&digest(&payload));
+    content.push(b'\n');
+    content.extend_from_slice(&payload);
+    content
+}
+
+pub(super) fn prepare_record_parent(path: &Path) -> io::Result<()> {
+    // Ownership directories are prepared outside file transactions on purpose. The original
+    // record writer created and tightened these directories before its atomic file write, so a
+    // later failure could already leave the directories behind. Retaining that behavior keeps
+    // the paths private without claiming that file rollback also reverts directory metadata.
+    let Some(parent) = path.parent() else {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "ownership path has no parent",
+        ));
+    };
+    fs::create_dir_all(parent)?;
+    if let Some(root) = parent.parent() {
+        fs::set_permissions(root, Permissions::from_mode(0o700))?;
+    }
+    fs::set_permissions(parent, Permissions::from_mode(0o700))
 }
 
 pub(super) fn write_hook_ownership(
@@ -52,6 +80,27 @@ pub(super) fn write_hook_ownership(
     before_existed: bool,
     backup_path: Option<&Path>,
 ) -> io::Result<()> {
+    write_record(
+        path,
+        &hook_ownership_record(
+            target,
+            config_path,
+            entry,
+            after,
+            before_existed,
+            backup_path,
+        ),
+    )
+}
+
+pub(super) fn hook_ownership_record(
+    target: Target,
+    config_path: &Path,
+    entry: &Value,
+    after: &[u8],
+    before_existed: bool,
+    backup_path: Option<&Path>,
+) -> Value {
     let mut fields = vec![
         (b"kind".to_vec(), Value::String(b"hook".to_vec())),
         (
@@ -72,7 +121,7 @@ pub(super) fn write_hook_ownership(
             Value::String(hex(backup.as_os_str().as_bytes())),
         ));
     }
-    write_record(path, &Value::Object(fields))
+    Value::Object(fields)
 }
 
 pub(super) fn hook_ownership(value: &Value, expected_target: Target) -> Option<HookOwnership> {
@@ -132,23 +181,8 @@ pub(super) fn content_digest(input: &[u8]) -> Vec<u8> {
 }
 
 fn write_record(path: &Path, entry: &Value) -> io::Result<()> {
-    let Some(parent) = path.parent() else {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "ownership path has no parent",
-        ));
-    };
-    fs::create_dir_all(parent)?;
-    if let Some(root) = parent.parent() {
-        fs::set_permissions(root, Permissions::from_mode(0o700))?;
-    }
-    fs::set_permissions(parent, Permissions::from_mode(0o700))?;
-    let payload = json::serialize(entry);
-    let mut content = OWNERSHIP_HEADER.to_vec();
-    content.extend_from_slice(&digest(&payload));
-    content.push(b'\n');
-    content.extend_from_slice(&payload);
-    write_atomic(path, &content, 0o600)
+    prepare_record_parent(path)?;
+    write_atomic(path, &record_bytes(entry), 0o600)
 }
 
 fn digest(input: &[u8]) -> [u8; 16] {

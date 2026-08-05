@@ -161,10 +161,56 @@ def run_case(binary: pathlib.Path, case: dict[str, Any], contract: pathlib.Path,
         return Result(case["id"], proc.returncode, proc.stdout, proc.stderr, assert_result(case, proc, child, contract))
 
 
+def describe_byte_difference(stream_name: str, baseline: bytes, candidate: bytes) -> str:
+    shared_length = min(len(baseline), len(candidate))
+    offset = next(
+        (index for index in range(shared_length) if baseline[index] != candidate[index]),
+        shared_length,
+    )
+    if offset < shared_length:
+        detail = (
+            f"first difference at byte {offset}: "
+            f"baseline=0x{baseline[offset]:02x}, candidate=0x{candidate[offset]:02x}"
+        )
+    else:
+        detail = f"common prefix is {shared_length} bytes"
+    return (
+        f"{stream_name} differs "
+        f"(baseline {len(baseline)} bytes, candidate {len(candidate)} bytes; {detail})"
+    )
+
+
+def compare_results(baseline: Result, candidate: Result) -> list[str]:
+    errors = [f"baseline contract: {error}" for error in baseline.errors]
+    errors.extend(f"candidate contract: {error}" for error in candidate.errors)
+    if baseline.returncode != candidate.returncode:
+        errors.append(
+            f"exit differs (baseline {baseline.returncode}, candidate {candidate.returncode})"
+        )
+    for stream_name in ("stdout", "stderr"):
+        baseline_bytes = getattr(baseline, stream_name)
+        candidate_bytes = getattr(candidate, stream_name)
+        if baseline_bytes != candidate_bytes:
+            errors.append(
+                describe_byte_difference(stream_name, baseline_bytes, candidate_bytes)
+            )
+    return errors
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=pathlib.Path, required=True)
     parser.add_argument("--tool", choices=("smll", "tapas"), required=True)
+    parser.add_argument(
+        "--baseline-binary",
+        type=pathlib.Path,
+        help="compare every selected case with this baseline binary",
+    )
+    parser.add_argument(
+        "--baseline-tool",
+        choices=("smll", "tapas"),
+        help="baseline binary kind (default: same as --tool)",
+    )
     parser.add_argument("--cases", type=pathlib.Path, default=DEFAULT_CASES)
     parser.add_argument("--contract", type=pathlib.Path, default=DEFAULT_CONTRACT)
     parser.add_argument("--case", action="append", dest="case_ids")
@@ -202,7 +248,31 @@ def main() -> int:
     if not binary.is_file():
         print(f"binary not found: {binary}", file=sys.stderr)
         return 2
-    run = lambda case: run_case(binary, case, args.contract, args.timeout, args.tool)
+    if args.baseline_tool and not args.baseline_binary:
+        print("--baseline-tool requires --baseline-binary", file=sys.stderr)
+        return 2
+    baseline_binary = args.baseline_binary.resolve() if args.baseline_binary else None
+    if baseline_binary is not None and not baseline_binary.is_file():
+        print(f"baseline binary not found: {baseline_binary}", file=sys.stderr)
+        return 2
+    if baseline_binary is None:
+        run = lambda case: run_case(binary, case, args.contract, args.timeout, args.tool)
+    else:
+        baseline_tool = args.baseline_tool or args.tool
+
+        def run(case: dict[str, Any]) -> Result:
+            baseline = run_case(
+                baseline_binary, case, args.contract, args.timeout, baseline_tool
+            )
+            candidate = run_case(binary, case, args.contract, args.timeout, args.tool)
+            return Result(
+                case["id"],
+                candidate.returncode,
+                candidate.stdout,
+                candidate.stderr,
+                compare_results(baseline, candidate),
+            )
+
     if args.jobs == 1:
         results = map(run, cases)
         failures = [result for result in results if result.errors]
@@ -210,6 +280,8 @@ def main() -> int:
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as executor:
             failures = [result for result in executor.map(run, cases) if result.errors]
     print(f"{args.tool} parity cases: {len(cases)}")
+    if baseline_binary is not None:
+        print(f"baseline comparison: {len(cases)}")
     if failures:
         for result in failures:
             print(f"FAIL {result.case_id}: {'; '.join(result.errors)}", file=sys.stderr)
