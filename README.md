@@ -56,11 +56,12 @@ Tapas never invokes a shell to run a wrapped command. Shell execution happens on
 
 ## Agent setup
 
-Install a user-level `PreToolUse` hook for either supported coding agent:
+Install a user-level integration for a supported coding agent:
 
 ```sh
 tapas --setup claude
 tapas --setup codex
+tapas --setup opencode
 ```
 
 Preview or remove it:
@@ -70,20 +71,26 @@ tapas --setup claude --dry-run
 tapas --unsetup claude
 tapas --setup codex --dry-run
 tapas --unsetup codex
+tapas --setup opencode --dry-run
+tapas --unsetup opencode
 ```
 
-If you use a custom client home, pass the same value during setup and removal:
+Custom Codex homes are supported. Ownership records the absolute hook path, so removal still targets the installed profile if `CODEX_HOME` later changes. Running setup with a different `CODEX_HOME` safely relocates an unmodified Tapas-owned hook:
 
 ```sh
 CODEX_HOME=/path/to/codex-home tapas --setup codex
-CODEX_HOME=/path/to/codex-home tapas --unsetup codex
+CODEX_HOME=/another/codex-home tapas --setup codex
 ```
 
-Setup preserves unrelated settings and handlers, writes atomically, keeps a backup beside the client configuration file, and records private ownership under `~/.tapas/setup`. Unsetup removes only the exact hook recorded by Tapas.
+Setup preserves the original bytes, ordering, formatting, number spellings, escapes, unrelated settings, and unrelated handlers in Claude and Codex JSON files. It rejects ambiguous JSON, symbolic links, non-regular managed files, duplicate keys, and unowned Tapas-looking hooks. Changes are written atomically with non-overwriting private backups and path-bound ownership under `~/.tapas/setup`. Unsetup restores the exact pre-install file when it is unchanged apart from Tapas; after unrelated user edits it removes only the uniquely owned hook.
 
 Running `--setup codex` from a development build points Codex at that exact executable. If it replaces a different Tapas-owned hook, Tapas prints a warning naming the active development version and executable path.
 
 The Claude integration writes `~/.claude/settings.json` and provides rewrite guidance without granting command permission. The Codex integration writes `${CODEX_HOME:-$HOME/.codex}/hooks.json`; after setup, open `/hooks` to review and trust the exact hook that was added. Review other matching hooks from every active user, project, profile, and plugin layer at the same time. Codex requires an allow decision when a hook supplies updated input, so Tapas limits Codex rewrites to unqualified, local read-only command forms resolved through absolute executable search paths outside the session workspace. The executable and all its path ancestors must not be group- or world-writable; unsafe candidates are skipped in favor of a later trusted candidate. Tapas disables supported tools' configuration-driven helper execution before running them. Mutating flags, commands that run project code, network tools, shell operators, substitutions, multiline commands, unsupported commands, and already wrapped commands are left untouched.
+
+The OpenCode integration installs a dependency-free stable V1 plugin at `${XDG_CONFIG_HOME:-$HOME/.config}/opencode/plugins/tapas.js`. The plugin invokes the absolute Tapas executable without a shell, changes only eligible Bash command text, preserves every other tool argument, and fails open to the original command if evaluation fails. OpenCode V2 beta is not supported.
+
+Tapas detects recognized `smll` and `rtk` OpenCode integrations before installation. Without `--force`, setup warns and changes nothing. `tapas --setup opencode --force` removes only recognized user-level OpenCode plugin files, exact strict-JSON registration entries, and matching OpenCode ownership before installing Tapas in the same operation. Project, custom, inline, JSONC, modified, ambiguous, and symlinked conflicts remain hard blockers; Tapas never removes predecessor binaries, packages, caches, unrelated files, or non-empty directories. `--force` is intentionally invalid for Claude, Codex, and every unsetup command.
 
 ## Build
 
@@ -173,6 +180,17 @@ cargo build --locked
 python3 scripts/parity.py --binary target/debug/tapas --tool tapas
 ```
 
+Run the pinned real-harness contracts with Node.js 22 or newer. These tests use
+aimock locally and do not require provider credentials:
+
+```sh
+cargo build --locked
+npm --prefix tests/harness-e2e ci
+for harness in claude codex opencode; do
+  TAPAS_HARNESS="$harness" npm --prefix tests/harness-e2e test
+done
+```
+
 Inspect command usage against the catalog:
 
 ```sh
@@ -186,7 +204,7 @@ The command catalog in `src/catalog.rs` is tapas-owned and audited for internal 
 
 ## Current scope
 
-`0.2.0` covers command, pipe, process, streaming, and user-level hook behavior for Claude and Codex. Stats, history, discovery, failure tee storage, and other agent integrations are intentionally deferred to later Tapas versions.
+`0.2.0` covers command, pipe, process, streaming, and user-level integrations for Claude, Codex, and stable OpenCode V1. Stats, history, discovery, failure tee storage, and other agent integrations are intentionally deferred to later Tapas versions.
 
 ## License
 

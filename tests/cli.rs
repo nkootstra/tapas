@@ -55,10 +55,13 @@ fn help_exposes_only_the_milestone_cli_surface() {
         "--rewrite",
         "--hook-eval claude",
         "--hook-eval codex",
+        "--hook-eval opencode",
         "--setup claude",
         "--setup codex",
+        "--setup opencode",
         "--unsetup claude",
         "--unsetup codex",
+        "--unsetup opencode",
     ] {
         assert!(help.contains(option), "missing {option:?} in {help:?}");
     }
@@ -156,7 +159,7 @@ fn deferred_state_modes_are_concise_usage_errors() {
 
 #[test]
 fn unsupported_setup_targets_are_usage_errors() {
-    for args in [&["--setup=cursor"][..], &["--unsetup", "opencode"][..]] {
+    for args in [&["--setup=cursor"][..], &["--unsetup", "cursor"][..]] {
         let output = tapas(args);
 
         assert_eq!(output.status.code(), Some(2), "args: {args:?}");
@@ -164,8 +167,20 @@ fn unsupported_setup_targets_are_usage_errors() {
         let error = String::from_utf8(output.stderr).expect("UTF-8 usage error");
         assert_eq!(
             error,
-            "usage: tapas --setup <claude|codex> [--dry-run]\n       tapas --unsetup <claude|codex> [--dry-run]\n"
+            "usage: tapas --setup <claude|codex|opencode> [--dry-run] [--force]\n       tapas --unsetup <claude|codex|opencode> [--dry-run]\n"
         );
+    }
+}
+
+#[test]
+fn force_is_valid_only_for_opencode_setup() {
+    for args in [
+        &["--setup", "claude", "--force"][..],
+        &["--setup", "codex", "--force"][..],
+        &["--unsetup", "opencode", "--force"][..],
+    ] {
+        let output = tapas(args);
+        assert_eq!(output.status.code(), Some(2), "args: {args:?}");
     }
 }
 
@@ -406,6 +421,33 @@ fn codex_hook_allows_only_the_rewritten_command() {
     assert!(self_check.status.success());
     assert!(self_check.stdout.is_empty());
     assert!(self_check.stderr.is_empty());
+}
+
+#[test]
+fn opencode_hook_returns_only_the_rewritten_command() {
+    let eligible = tapas_with_stdin(
+        &["--hook-eval", "opencode"],
+        br#"{"tool_input":{"command":"git status --short"}}"#,
+        &[],
+    );
+    assert!(eligible.status.success());
+    let executable = env!("CARGO_BIN_EXE_tapas");
+    assert_eq!(
+        eligible.stdout,
+        format!("'{executable}' git status --short\n").as_bytes()
+    );
+    assert!(eligible.stderr.is_empty());
+
+    for input in [
+        br#"{"tool_input":{"command":"git status | cat"}}"#.as_slice(),
+        br#"{"tool_input":{"command":"unknown command"}}"#,
+        b"invalid",
+    ] {
+        let ignored = tapas_with_stdin(&["--hook-eval", "opencode"], input, &[]);
+        assert!(ignored.status.success());
+        assert!(ignored.stdout.is_empty());
+        assert!(ignored.stderr.is_empty());
+    }
 }
 
 #[test]

@@ -13,10 +13,13 @@ Usage:
   tapas --rewrite <cmd...>
   tapas --hook-eval claude
   tapas --hook-eval codex
+  tapas --hook-eval opencode
   tapas --setup claude [--dry-run]
   tapas --setup codex [--dry-run]
+  tapas --setup opencode [--dry-run] [--force]
   tapas --unsetup claude [--dry-run]
   tapas --unsetup codex [--dry-run]
+  tapas --unsetup opencode [--dry-run]
 
 Options:
   -h, --help       Show this help
@@ -24,7 +27,7 @@ Options:
   --filters        List the static compatibility catalogs
 ";
 const SETUP_USAGE: &[u8] =
-    b"usage: tapas --setup <claude|codex> [--dry-run]\n       tapas --unsetup <claude|codex> [--dry-run]\n";
+    b"usage: tapas --setup <claude|codex|opencode> [--dry-run] [--force]\n       tapas --unsetup <claude|codex|opencode> [--dry-run]\n";
 
 pub fn main_entry() -> i32 {
     let args: Vec<OsString> = std::env::args_os().skip(1).collect();
@@ -133,7 +136,7 @@ pub fn run(
         }
         [flag, ..] if flag == OsStr::new("--hook-eval") => {
             let Some((target, self_check)) = hook_request(args) else {
-                stderr.write_all(b"usage: tapas --hook-eval <claude|codex>\n")?;
+                stderr.write_all(b"usage: tapas --hook-eval <claude|codex|opencode>\n")?;
                 return Ok(2);
             };
             crate::setup::hook_eval_for_target(target, stdin, stdout, stderr, self_check)
@@ -147,11 +150,25 @@ pub fn run(
             Ok(2)
         }
         [flag, ..] if is_setup_flag(flag) => {
-            let Some((action, target, dry_run)) = setup_request(args) else {
+            let Some(request) = setup_request(args) else {
                 stderr.write_all(SETUP_USAGE)?;
                 return Ok(2);
             };
-            crate::setup::configure_for_target(action, target, dry_run, stdout, stderr)
+            if request.force
+                && (request.action != crate::setup::Action::Setup
+                    || request.target != crate::setup::Target::OpenCode)
+            {
+                stderr.write_all(SETUP_USAGE)?;
+                return Ok(2);
+            }
+            crate::setup::configure_for_target_with_force(
+                request.action,
+                request.target,
+                request.dry_run,
+                request.force,
+                stdout,
+                stderr,
+            )
         }
         [flag, ..] if flag.as_encoded_bytes().starts_with(b"-") => {
             stderr.write_all(b"usage: tapas [--help|--version|--filters] <cmd...>\n")?;
@@ -237,41 +254,38 @@ fn hook_request(args: &[OsString]) -> Option<(crate::setup::Target, bool)> {
     }
 }
 
-fn setup_request(args: &[OsString]) -> Option<(crate::setup::Action, crate::setup::Target, bool)> {
-    let (flag, target, dry_run) = match args {
-        [combined, dry_run] if dry_run == OsStr::new("--dry-run") => {
-            return setup_request_combined(combined.as_encoded_bytes(), true);
-        }
-        [flag, target, dry_run] if dry_run == OsStr::new("--dry-run") => {
-            (flag.as_os_str(), target.as_os_str(), true)
-        }
-        [flag, target] => (flag.as_os_str(), target.as_os_str(), false),
-        [combined] => {
-            return setup_request_combined(combined.as_encoded_bytes(), false);
-        }
-        _ => return None,
-    };
-    setup_request_parts(flag.as_encoded_bytes(), target.as_encoded_bytes(), dry_run)
+struct SetupRequest {
+    action: crate::setup::Action,
+    target: crate::setup::Target,
+    dry_run: bool,
+    force: bool,
 }
 
-fn setup_request_combined(
-    argument: &[u8],
-    dry_run: bool,
-) -> Option<(crate::setup::Action, crate::setup::Target, bool)> {
-    let separator = argument.iter().position(|byte| *byte == b'=')?;
-    let (flag, value) = argument.split_at(separator);
-    setup_request_parts(flag, &value[1..], dry_run)
-}
-
-fn setup_request_parts(
-    flag: &[u8],
-    target: &[u8],
-    dry_run: bool,
-) -> Option<(crate::setup::Action, crate::setup::Target, bool)> {
+fn setup_request(args: &[OsString]) -> Option<SetupRequest> {
+    let first = args.first()?.as_encoded_bytes();
+    let (flag, target, option_start) =
+        if let Some(separator) = first.iter().position(|byte| *byte == b'=') {
+            (&first[..separator], &first[separator + 1..], 1)
+        } else {
+            (first, args.get(1)?.as_encoded_bytes(), 2)
+        };
     let action = match flag {
         b"--setup" => crate::setup::Action::Setup,
         b"--unsetup" => crate::setup::Action::Unsetup,
         _ => return None,
     };
-    Some((action, crate::setup::Target::parse_bytes(target)?, dry_run))
+    let mut request = SetupRequest {
+        action,
+        target: crate::setup::Target::parse_bytes(target)?,
+        dry_run: false,
+        force: false,
+    };
+    for option in &args[option_start..] {
+        match option.as_encoded_bytes() {
+            b"--dry-run" if !request.dry_run => request.dry_run = true,
+            b"--force" if !request.force => request.force = true,
+            _ => return None,
+        }
+    }
+    Some(request)
 }
