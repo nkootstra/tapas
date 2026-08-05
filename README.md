@@ -54,6 +54,27 @@ TAPAS_STREAM=1 tapas tsc --watch
 
 Tapas never invokes a shell to run a wrapped command. Shell execution happens only when the caller explicitly requests a shell, such as `tapas sh -c '...'`.
 
+Invalid Tapas options print an explanation followed by the complete help text. Options that appear after a wrapped command belong to that command and pass through unchanged.
+
+## Shell completions
+
+Tapas generates completions for its own options, modes, setup targets, and shell names. It stops offering Tapas-specific candidates once a wrapped command begins and never edits shell configuration automatically.
+
+Load completions for the current shell session:
+
+```sh
+# Bash
+source <(tapas --completions bash)
+
+# Zsh (after compinit)
+source <(tapas --completions zsh)
+
+# Fish
+tapas --completions fish | source
+```
+
+To enable them permanently, add the relevant command to the shell's startup file. Fish users can instead save the generated script at `~/.config/fish/completions/tapas.fish`.
+
 ## Agent setup
 
 Install a user-level integration for a supported coding agent:

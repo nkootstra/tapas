@@ -3,31 +3,7 @@ use std::io::{self, Read, Write};
 
 use crate::catalog;
 
-const HELP: &str = "\
-Usage:
-  tapas <cmd...>
-  <cmd> | tapas
-  tapas --raw [--] <cmd...>
-  <cmd> | tapas --raw
-  tapas --explain <cmd...>
-  tapas --rewrite <cmd...>
-  tapas --hook-eval claude
-  tapas --hook-eval codex
-  tapas --hook-eval opencode
-  tapas --setup claude [--dry-run]
-  tapas --setup codex [--dry-run]
-  tapas --setup opencode [--dry-run] [--force]
-  tapas --unsetup claude [--dry-run]
-  tapas --unsetup codex [--dry-run]
-  tapas --unsetup opencode [--dry-run]
-
-Options:
-  -h, --help       Show this help
-  --version        Show the Tapas version
-  --filters        List the static compatibility catalogs
-";
-const SETUP_USAGE: &[u8] =
-    b"usage: tapas --setup <claude|codex|opencode> [--dry-run] [--force]\n       tapas --unsetup <claude|codex|opencode> [--dry-run]\n";
+pub(crate) mod spec;
 
 pub fn main_entry() -> i32 {
     let args: Vec<OsString> = std::env::args_os().skip(1).collect();
@@ -52,7 +28,7 @@ pub fn run(
 ) -> io::Result<i32> {
     match args {
         [] if stdin_is_tty() => {
-            stdout.write_all(HELP.as_bytes())?;
+            spec::write_help(stdout)?;
             Ok(0)
         }
         [] if crate::environment::flag_on("TAPAS_LOSSLESS") => {
@@ -63,15 +39,28 @@ pub fn run(
             crate::pipeline::run(stdin, stdout)?;
             Ok(0)
         }
-        [arg] if arg == OsStr::new("--version") => {
+        _ => run_arguments(args, stdin, stdout, stderr),
+    }
+}
+
+fn run_arguments(
+    args: &[OsString],
+    stdin: &mut dyn Read,
+    stdout: &mut dyn Write,
+    stderr: &mut dyn Write,
+) -> io::Result<i32> {
+    match spec::Mode::parse(&args[0]) {
+        Some(spec::Mode::Version) if args.len() == 1 => {
             writeln!(stdout, "tapas {}", env!("TAPAS_BUILD_LABEL"))?;
             Ok(0)
         }
-        [arg] if arg == OsStr::new("--help") || arg == OsStr::new("-h") => {
-            stdout.write_all(HELP.as_bytes())?;
+        Some(spec::Mode::Version) => usage_error(stderr, b"--version does not accept arguments"),
+        Some(spec::Mode::Help) if args.len() == 1 => {
+            spec::write_help(stdout)?;
             Ok(0)
         }
-        [arg] if arg == OsStr::new("--filters") => {
+        Some(spec::Mode::Help) => usage_error(stderr, b"--help does not accept arguments"),
+        Some(spec::Mode::Filters) if args.len() == 1 => {
             writeln!(stdout, "tapas filters")?;
             writeln!(stdout)?;
             writeln!(
@@ -87,21 +76,29 @@ pub fn run(
             )?;
             Ok(0)
         }
-        [arg] if arg == OsStr::new("--raw") => {
-            if stdin_is_tty() {
-                stderr
-                    .write_all(b"usage: tapas --raw [--] <cmd...>\n       <cmd> | tapas --raw\n")?;
-                return Ok(2);
-            }
-            io::copy(stdin, stdout)?;
+        Some(spec::Mode::Filters) => usage_error(stderr, b"--filters does not accept arguments"),
+        Some(spec::Mode::Completions) => {
+            let [_, shell] = args else {
+                return usage_error(stderr, b"--completions requires bash, zsh, or fish");
+            };
+            let Some(shell) = spec::Shell::parse(shell) else {
+                return usage_error(stderr, b"--completions requires bash, zsh, or fish");
+            };
+            crate::completions::write(shell, stdout)?;
             Ok(0)
         }
-        [flag, rest @ ..] if flag == OsStr::new("--raw") => {
+        Some(spec::Mode::Raw) => {
+            let rest = &args[1..];
+            if rest.is_empty() {
+                if stdin_is_tty() {
+                    return usage_error(stderr, b"--raw requires a command or piped input");
+                }
+                io::copy(stdin, stdout)?;
+                return Ok(0);
+            }
             let command = rest.strip_prefix(&[OsString::from("--")]).unwrap_or(rest);
             if command.is_empty() {
-                stderr
-                    .write_all(b"usage: tapas --raw [--] <cmd...>\n       <cmd> | tapas --raw\n")?;
-                return Ok(2);
+                return usage_error(stderr, b"--raw requires a command after --");
             }
             crate::process::run(
                 command,
@@ -114,19 +111,19 @@ pub fn run(
             )
             .map(|report| report.exit_code)
         }
-        [flag, command @ ..] if flag == OsStr::new("--explain") && !command.is_empty() => {
-            crate::process::run(
-                command,
-                stdout,
-                stderr,
-                crate::process::RunOptions {
-                    raw: false,
-                    explain: true,
-                },
-            )
-            .map(|report| report.exit_code)
-        }
-        [flag, command @ ..] if flag == OsStr::new("--rewrite") && !command.is_empty() => {
+        Some(spec::Mode::Explain) if args.len() > 1 => crate::process::run(
+            &args[1..],
+            stdout,
+            stderr,
+            crate::process::RunOptions {
+                raw: false,
+                explain: true,
+            },
+        )
+        .map(|report| report.exit_code),
+        Some(spec::Mode::Explain) => usage_error(stderr, b"--explain requires a command"),
+        Some(spec::Mode::Rewrite) if args.len() > 1 => {
+            let command = &args[1..];
             if should_wrap(command) {
                 stdout.write_all(b"tapas ")?;
             }
@@ -134,32 +131,22 @@ pub fn run(
             stdout.write_all(b"\n")?;
             Ok(0)
         }
-        [flag, ..] if flag == OsStr::new("--hook-eval") => {
-            let Some((target, self_check)) = hook_request(args) else {
-                stderr.write_all(b"usage: tapas --hook-eval <claude|codex|opencode>\n")?;
-                return Ok(2);
+        Some(spec::Mode::Rewrite) => usage_error(stderr, b"--rewrite requires a command"),
+        Some(spec::Mode::HookEval) => {
+            let Some((target, self_check)) = hook_request(&args[1..]) else {
+                return usage_error(stderr, b"--hook-eval requires claude, codex, or opencode");
             };
             crate::setup::hook_eval_for_target(target, stdin, stdout, stderr, self_check)
         }
-        [flag, ..]
-            if ["--stats", "--discover", "--err", "--test"]
-                .iter()
-                .any(|deferred| flag == OsStr::new(deferred)) =>
-        {
-            stderr.write_all(b"usage: tapas does not expose deferred state modes in 0.2.0\n")?;
-            Ok(2)
-        }
-        [flag, ..] if is_setup_flag(flag) => {
-            let Some(request) = setup_request(args) else {
-                stderr.write_all(SETUP_USAGE)?;
-                return Ok(2);
+        Some(mode @ (spec::Mode::Setup | spec::Mode::Unsetup)) => {
+            let Some(request) = setup_request(mode, args) else {
+                return usage_error(stderr, b"invalid --setup or --unsetup arguments");
             };
             if request.force
                 && (request.action != crate::setup::Action::Setup
                     || request.target != crate::setup::Target::OpenCode)
             {
-                stderr.write_all(SETUP_USAGE)?;
-                return Ok(2);
+                return usage_error(stderr, b"invalid --setup or --unsetup arguments");
             }
             crate::setup::configure_for_target_with_force(
                 request.action,
@@ -170,18 +157,32 @@ pub fn run(
                 stderr,
             )
         }
-        [flag, ..] if flag.as_encoded_bytes().starts_with(b"-") => {
-            stderr.write_all(b"usage: tapas [--help|--version|--filters] <cmd...>\n")?;
+        None if is_deferred_mode(&args[0]) => {
+            let flag = &args[0];
+            stderr.write_all(b"tapas: option ")?;
+            write!(stderr, "{flag:?}")?;
+            stderr.write_all(b" is not available in Tapas 0.2.0\n\n")?;
+            spec::write_help(stderr)?;
             Ok(2)
         }
-        command @ [_, ..] => crate::process::run(
-            command,
-            stdout,
-            stderr,
-            crate::process::RunOptions::default(),
-        )
-        .map(|report| report.exit_code),
+        None if args[0].as_encoded_bytes().starts_with(b"-") => {
+            stderr.write_all(b"tapas: unknown option ")?;
+            write!(stderr, "{:?}", args[0])?;
+            stderr.write_all(b"\n\n")?;
+            spec::write_help(stderr)?;
+            Ok(2)
+        }
+        None => crate::process::run(args, stdout, stderr, crate::process::RunOptions::default())
+            .map(|report| report.exit_code),
     }
+}
+
+fn usage_error(stderr: &mut dyn Write, explanation: &[u8]) -> io::Result<i32> {
+    stderr.write_all(b"tapas: ")?;
+    stderr.write_all(explanation)?;
+    stderr.write_all(b"\n\n")?;
+    spec::write_help(stderr)?;
+    Ok(2)
 }
 
 fn stdin_is_tty() -> bool {
@@ -232,22 +233,16 @@ fn is_shell_safe(byte: u8) -> bool {
         )
 }
 
-fn is_setup_flag(argument: &OsStr) -> bool {
-    let bytes = argument.as_encoded_bytes();
-    bytes == b"--setup"
-        || bytes == b"--unsetup"
-        || bytes.starts_with(b"--setup=")
-        || bytes.starts_with(b"--unsetup=")
+fn is_deferred_mode(argument: &OsStr) -> bool {
+    ["--stats", "--discover", "--err", "--test"]
+        .iter()
+        .any(|deferred| argument == OsStr::new(deferred))
 }
 
 fn hook_request(args: &[OsString]) -> Option<(crate::setup::Target, bool)> {
     match args {
-        [flag, target] if flag == OsStr::new("--hook-eval") => {
-            Some((crate::setup::Target::parse(target)?, false))
-        }
-        [flag, target, self_check]
-            if flag == OsStr::new("--hook-eval") && self_check == OsStr::new("--self-check") =>
-        {
+        [target] => Some((crate::setup::Target::parse(target)?, false)),
+        [target, self_check] if self_check == OsStr::new("--self-check") => {
             Some((crate::setup::Target::parse(target)?, true))
         }
         _ => None,
@@ -261,18 +256,18 @@ struct SetupRequest {
     force: bool,
 }
 
-fn setup_request(args: &[OsString]) -> Option<SetupRequest> {
+fn setup_request(mode: spec::Mode, args: &[OsString]) -> Option<SetupRequest> {
     let first = args.first()?.as_encoded_bytes();
-    let (flag, target, option_start) =
+    let (target, option_start) =
         if let Some(separator) = first.iter().position(|byte| *byte == b'=') {
-            (&first[..separator], &first[separator + 1..], 1)
+            (&first[separator + 1..], 1)
         } else {
-            (first, args.get(1)?.as_encoded_bytes(), 2)
+            (args.get(1)?.as_encoded_bytes(), 2)
         };
-    let action = match flag {
-        b"--setup" => crate::setup::Action::Setup,
-        b"--unsetup" => crate::setup::Action::Unsetup,
-        _ => return None,
+    let action = match mode {
+        spec::Mode::Setup => crate::setup::Action::Setup,
+        spec::Mode::Unsetup => crate::setup::Action::Unsetup,
+        _ => unreachable!("setup_request only handles setup modes"),
     };
     let mut request = SetupRequest {
         action,
