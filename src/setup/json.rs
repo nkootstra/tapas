@@ -12,6 +12,7 @@ pub enum Value {
 }
 
 impl Value {
+    #[cfg(test)]
     pub fn object() -> Self {
         Self::Object(Vec::new())
     }
@@ -26,6 +27,7 @@ impl Value {
             .map(|(_, value)| value)
     }
 
+    #[cfg(test)]
     pub fn get_mut(&mut self, key: &[u8]) -> Option<&mut Self> {
         let Self::Object(fields) = self else {
             return None;
@@ -162,12 +164,11 @@ impl Parser<'_> {
             self.whitespace();
             self.expect(b':')?;
             let value = self.value()?;
-            if let Some(&index) = positions.get(&key) {
-                fields[index].1 = value;
-            } else {
-                positions.insert(key.clone(), fields.len());
-                fields.push((key, value));
+            if positions.contains_key(&key) {
+                return Err(Error);
             }
+            positions.insert(key.clone(), fields.len());
+            fields.push((key, value));
             self.whitespace();
             if self.take(b'}') {
                 return Ok(Value::Object(fields));
