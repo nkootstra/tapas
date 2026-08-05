@@ -1,8 +1,7 @@
 mod json;
 
-use std::ffi::OsStr;
 use std::fs;
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::path::Path;
 use std::sync::atomic::AtomicU64;
 #[cfg(test)]
@@ -10,7 +9,6 @@ use std::sync::atomic::Ordering;
 
 use json::Value;
 
-const MAX_HOOK_INPUT: u64 = 64 * 1024;
 const MAX_CONFIG_BYTES: u64 = 8 * 1024 * 1024;
 const OWNERSHIP_HEADER: &[u8] = b"tapas-setup-v3\n";
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
@@ -21,168 +19,8 @@ pub enum Action {
     Unsetup,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
-pub enum Target {
-    Claude,
-    Codex,
-    OpenCode,
-}
-
-struct SetupLocation {
-    config_path: std::path::PathBuf,
-    ownership_path: std::path::PathBuf,
-    target: Target,
-}
-
-impl Target {
-    pub(crate) const ALL: [Self; 3] = [Self::Claude, Self::Codex, Self::OpenCode];
-
-    pub fn parse(value: &OsStr) -> Option<Self> {
-        Self::parse_bytes(value.as_encoded_bytes())
-    }
-
-    pub(crate) fn parse_bytes(value: &[u8]) -> Option<Self> {
-        match value {
-            b"claude" => Some(Self::Claude),
-            b"codex" => Some(Self::Codex),
-            b"opencode" => Some(Self::OpenCode),
-            _ => None,
-        }
-    }
-
-    pub(crate) const fn name(self) -> &'static str {
-        match self {
-            Self::Claude => "claude",
-            Self::Codex => "codex",
-            Self::OpenCode => "opencode",
-        }
-    }
-
-    fn config_path(self, home: &Path, codex_home: Option<&Path>) -> std::path::PathBuf {
-        match self {
-            Self::Claude => home.join(".claude").join(self.config_name()),
-            Self::Codex => codex_home
-                .map_or_else(|| home.join(".codex"), Path::to_path_buf)
-                .join(self.config_name()),
-            Self::OpenCode => unreachable!("OpenCode uses its plugin path"),
-        }
-    }
-
-    fn config_name(self) -> &'static str {
-        match self {
-            Self::Claude => "settings.json",
-            Self::Codex => "hooks.json",
-            Self::OpenCode => "tapas.js",
-        }
-    }
-
-    fn grants_rewrite_permission(self) -> bool {
-        self == Self::Codex
-    }
-
-    fn accepts_command(self, command: &[u8]) -> bool {
-        eligible(command) && (self != Self::Codex || codex_read_only(command))
-    }
-
-    fn accepts_hook_event(self, value: &Value) -> bool {
-        self != Self::Codex
-            || matches!(
-                (value.get(b"hook_event_name"), value.get(b"tool_name")),
-                (Some(Value::String(event)), Some(Value::String(tool)))
-                    if event == b"PreToolUse" && tool == b"Bash"
-            )
-    }
-}
-
-pub fn hook_eval(
-    stdin: &mut dyn Read,
-    stdout: &mut dyn Write,
-    stderr: &mut dyn Write,
-    self_check: bool,
-) -> io::Result<i32> {
-    hook_eval_for_target(Target::Claude, stdin, stdout, stderr, self_check)
-}
-
-pub fn hook_eval_for_target(
-    target: Target,
-    stdin: &mut dyn Read,
-    stdout: &mut dyn Write,
-    _stderr: &mut dyn Write,
-    self_check: bool,
-) -> io::Result<i32> {
-    if self_check {
-        return Ok(i32::from(!target.accepts_command(b"git status")));
-    }
-    let mut input = Vec::new();
-    stdin.take(MAX_HOOK_INPUT + 1).read_to_end(&mut input)?;
-    if input.len() as u64 > MAX_HOOK_INPUT {
-        return Ok(0);
-    }
-    let Ok(value) = json::parse(&input) else {
-        return Ok(0);
-    };
-    if !target.accepts_hook_event(&value) {
-        return Ok(0);
-    }
-    let Some(command) = event_command(&value) else {
-        return Ok(0);
-    };
-    let (environment, command) = match target {
-        Target::OpenCode if target.accepts_command(command) => {
-            let executable = std::env::current_exe()?;
-            let mut updated = shell_escape(executable.as_os_str());
-            updated.push(b' ');
-            updated.extend_from_slice(command);
-            stdout.write_all(&updated)?;
-            stdout.write_all(b"\n")?;
-            return Ok(0);
-        }
-        Target::Claude if target.accepts_command(command) => (b"".as_slice(), command.to_vec()),
-        Target::Codex => {
-            let Some(Value::String(cwd)) = value.get(b"cwd") else {
-                return Ok(0);
-            };
-            let Some(command) = codex_command(command, cwd) else {
-                return Ok(0);
-            };
-            (command.environment, command.command)
-        }
-        Target::Claude | Target::OpenCode => return Ok(0),
-    };
-
-    let mut updated_input = value
-        .get(b"tool_input")
-        .cloned()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "tool_input disappeared"))?;
-    let executable = std::env::current_exe()?;
-    let mut updated_command = environment.to_vec();
-    updated_command.extend_from_slice(&shell_escape(executable.as_os_str()));
-    updated_command.push(b' ');
-    updated_command.extend_from_slice(&command);
-    updated_input
-        .insert(b"command", Value::String(updated_command))
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "tool_input is not an object"))?;
-
-    let mut hook_output = Vec::with_capacity(2 + usize::from(target.grants_rewrite_permission()));
-    hook_output.push((
-        b"hookEventName".to_vec(),
-        Value::String(b"PreToolUse".to_vec()),
-    ));
-    if target.grants_rewrite_permission() {
-        hook_output.push((
-            b"permissionDecision".to_vec(),
-            Value::String(b"allow".to_vec()),
-        ));
-    }
-    hook_output.push((b"updatedInput".to_vec(), updated_input));
-    let output = Value::Object(vec![(
-        b"hookSpecificOutput".to_vec(),
-        Value::Object(hook_output),
-    )]);
-    stdout.write_all(&json::serialize(&output))?;
-    stdout.write_all(b"\n")?;
-    Ok(0)
-}
+pub use evaluator::{hook_eval, hook_eval_for_target};
+pub use target::Target;
 
 pub fn configure(
     action: Action,
@@ -211,59 +49,31 @@ pub fn configure_for_target_with_force(
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> io::Result<i32> {
-    if force && (action != Action::Setup || target != Target::OpenCode) {
-        stderr.write_all(b"tapas agent setup: --force is supported only for OpenCode setup\n")?;
-        return Ok(2);
-    }
-    let Some(home) = std::env::var_os("HOME") else {
-        stderr.write_all(b"tapas agent setup: HOME is not set\n")?;
-        return Ok(1);
-    };
-    let executable = std::env::current_exe()?;
-    let codex_home = if target == Target::Codex {
-        std::env::var_os("CODEX_HOME")
-            .filter(|value| !value.is_empty())
-            .map(std::path::PathBuf::from)
-    } else {
-        None
-    };
-    let home = Path::new(&home);
-    let ownership_path = home.join(format!(".tapas/setup/{}.owned", target.name()));
-    let resolved_path = if target == Target::OpenCode {
-        std::env::var_os("XDG_CONFIG_HOME")
-            .filter(|value| !value.is_empty())
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| home.join(".config"))
-            .join("opencode/plugins/tapas.js")
-    } else {
-        target.config_path(home, codex_home.as_deref())
-    };
-    let config_path = if action == Action::Unsetup {
-        match read_ownership(&ownership_path)? {
-            Ownership::Valid(value) => match recorded_path(&value) {
-                Some(path) => path,
-                None if target == Target::Codex => {
-                    stderr.write_all(b"legacy Codex ownership does not record its installation path; rerun `tapas --setup codex` with the original CODEX_HOME before unsetup\n")?;
-                    return Ok(1);
-                }
-                None => resolved_path,
-            },
-            Ownership::Missing | Ownership::Modified => resolved_path,
+    let request = match SetupRequest::new(action, target, dry_run, force) {
+        Ok(request) => request,
+        Err(InvalidSetupRequest::UnsupportedForce) => {
+            stderr
+                .write_all(b"tapas agent setup: --force is supported only for OpenCode setup\n")?;
+            return Ok(2);
         }
-    } else {
-        resolved_path
     };
-    let location = SetupLocation {
-        config_path,
-        ownership_path,
-        target,
+    let context = match SetupContext::from_process(request)? {
+        ContextResolution::Ready(context) => context,
+        ContextResolution::MissingHome => {
+            stderr.write_all(b"tapas agent setup: HOME is not set\n")?;
+            return Ok(1);
+        }
+        ContextResolution::LegacyCodexPath => {
+            stderr.write_all(b"legacy Codex ownership does not record its installation path; rerun `tapas --setup codex` with the original CODEX_HOME before unsetup\n")?;
+            return Ok(1);
+        }
     };
     configure_at(
-        &location,
-        &executable,
-        action,
-        dry_run,
-        force,
+        &context.location,
+        &context.executable,
+        context.request.action,
+        context.request.dry_run,
+        context.request.force,
         stdout,
         stderr,
     )
@@ -835,24 +645,28 @@ fn unsetup_with_remove(
     Ok(0)
 }
 
+mod context;
+mod evaluator;
 mod hooks;
 mod lossless;
 mod opencode;
 mod ownership;
 mod storage;
+mod target;
+
+use context::{ContextResolution, InvalidSetupRequest, SetupContext, SetupLocation, SetupRequest};
 
 use hooks::{
-    codex_command, codex_read_only, contains_conflicting_integration, eligible, event_command,
-    hook_command, hook_entry, hook_exists, parse_config, shell_escape, validate_hook,
+    contains_conflicting_integration, hook_command, hook_entry, hook_exists, parse_config,
+    validate_hook,
 };
 #[cfg(test)]
-use hooks::{ensure_hook, nested_hook_exists, remove_hook};
+use hooks::{eligible, ensure_hook, nested_hook_exists, remove_hook};
 use opencode::configure_opencode;
 #[cfg(test)]
 use ownership::write_ownership;
 use ownership::{
-    HookOwnership, Ownership, content_digest, hook_ownership, read_ownership, recorded_path,
-    write_hook_ownership,
+    HookOwnership, Ownership, content_digest, hook_ownership, read_ownership, write_hook_ownership,
 };
 use storage::{
     existing_mode, read_optional, reject_symlink, restore_optional, write_atomic,
