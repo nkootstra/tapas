@@ -8,7 +8,7 @@ use std::io::{self, Cursor, Write};
 use std::os::unix::ffi::OsStringExt;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::fs::symlink;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -18,8 +18,12 @@ struct TestHome(PathBuf);
 
 impl TestHome {
     fn new() -> Self {
+        Self::new_in(&std::env::temp_dir())
+    }
+
+    fn new_in(parent: &Path) -> Self {
         let sequence = NEXT_HOME.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
+        let path = parent.join(format!(
             "tapas-setup-test-{}-{sequence}",
             std::process::id()
         ));
@@ -300,9 +304,10 @@ fn opencode_setup_is_idempotent_and_unsetup_removes_only_tapas() {
 #[test]
 #[cfg(target_os = "linux")]
 fn opencode_setup_rejects_non_utf8_executable_paths_without_writing_files() {
-    let home = TestHome::new();
+    let source = Path::new(env!("CARGO_BIN_EXE_tapas"));
+    let home = TestHome::new_in(source.parent().unwrap());
     let executable = home.0.join(OsString::from_vec(b"tapas-\xff".to_vec()));
-    fs::hard_link(env!("CARGO_BIN_EXE_tapas"), &executable).unwrap();
+    fs::hard_link(source, &executable).unwrap();
     let xdg = home.path("xdg");
 
     let output = Command::new(&executable)
