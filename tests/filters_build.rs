@@ -1,15 +1,8 @@
 use tapas::filters::{EvidenceClass, StreamFilterOutput, build};
+mod common;
+use common::fixture;
 
-const FIXTURES: &str = "regression/fixtures";
 type BuildCase<'a> = (&'a [&'a [u8]], Vec<u8>, i32, &'a [u8]);
-
-fn fixture(path: &str) -> Vec<u8> {
-    std::fs::read(format!(
-        "{}/tests/{FIXTURES}/{path}",
-        env!("CARGO_MANIFEST_DIR")
-    ))
-    .unwrap()
-}
 
 #[test]
 fn cargo_build_fixture_matches_the_pinned_wrapper_oracle() {

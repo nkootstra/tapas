@@ -1,14 +1,6 @@
 use tapas::filters::{EvidenceClass, StreamFilterOutput, package};
-
-const FIXTURES: &str = "regression/fixtures";
-
-fn fixture(name: &str) -> Vec<u8> {
-    std::fs::read(format!(
-        "{}/tests/{FIXTURES}/{name}",
-        env!("CARGO_MANIFEST_DIR")
-    ))
-    .unwrap()
-}
+mod common;
+use common::fixture;
 
 #[test]
 fn npm_ls_fixture_matches_the_pinned_package_tree_oracle() {

@@ -1,22 +1,6 @@
 use tapas::filters::{EvidenceClass, StreamFilterOutput, diagnostics};
-
-const FIXTURES: &str = "regression/fixtures";
-
-fn fixture(name: &str) -> Vec<u8> {
-    std::fs::read(format!(
-        "{}/tests/{FIXTURES}/{name}",
-        env!("CARGO_MANIFEST_DIR")
-    ))
-    .unwrap()
-}
-
-fn benchmark_fixture(name: &str) -> Vec<u8> {
-    std::fs::read(format!(
-        "{}/tests/regression/fixtures/{name}",
-        env!("CARGO_MANIFEST_DIR")
-    ))
-    .unwrap()
-}
+mod common;
+use common::fixture;
 
 #[test]
 fn mypy_keeps_diagnostics_summaries_and_pretty_carets() {
@@ -100,7 +84,7 @@ fn eslint_stylish_keeps_file_diagnostics_and_summary() {
 
 #[test]
 fn precommit_fixture_keeps_failed_hook_and_counts_passes() {
-    let input = benchmark_fixture("pre_commit_failed.txt");
+    let input = fixture("pre_commit_failed.txt");
     let output = diagnostics::dispatch_streams_argv(
         &[b"pre-commit", b"run", b"--all-files"],
         &input,
