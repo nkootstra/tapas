@@ -453,6 +453,7 @@ mod log;
 mod merge;
 mod refs;
 mod status;
+mod transport;
 mod wrapper;
 
 use blame::{apply_blame, matches_blame};
@@ -466,8 +467,8 @@ use refs::{
     matches_reflog, passthrough,
 };
 use status::{apply_status, matches_status};
-use wrapper::{
-    apply_add, apply_checkout, apply_fetch, apply_pull, apply_push, apply_rebase, apply_stash,
-    apply_status_short, compact_pull_stderr, compact_pull_stdout, compact_push_stderr,
-    compact_push_stdout,
+use transport::{
+    apply_fetch, apply_pull, apply_push, compact_pull_stderr, compact_pull_stdout,
+    compact_push_stderr, compact_push_stdout,
 };
+use wrapper::{apply_add, apply_checkout, apply_rebase, apply_stash, apply_status_short};
