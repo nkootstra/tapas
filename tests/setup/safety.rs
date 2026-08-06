@@ -1,4 +1,7 @@
-use super::*;
+use std::fs;
+use std::os::unix::fs::symlink;
+
+use super::support::{TestHome, insert_before_root_close, tapas};
 
 #[test]
 fn unsetup_preserves_unrelated_edits_made_after_setup() {

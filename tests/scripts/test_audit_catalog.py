@@ -34,8 +34,15 @@ class CatalogAuditTests(unittest.TestCase):
             git_subcommands=["missing-subcommand"],
             transparent_runners=[],
             filter_families={
-                family: set() for family in audit_catalog.EXPECTED_FILTER_FAMILIES
+                family: set()
+                for family in audit_catalog.parse_stream_filter_names(
+                    audit_catalog.PROCESS.read_text(encoding="utf-8")
+                )
             },
+            filter_family_exemptions=set(),
+            stream_filter_names=audit_catalog.parse_stream_filter_names(
+                audit_catalog.PROCESS.read_text(encoding="utf-8")
+            ),
         )
         self.assertTrue(any("AUTO_WRAP_COMMANDS" in error for error in errors))
         self.assertTrue(any("git subcommands without" in error for error in errors))

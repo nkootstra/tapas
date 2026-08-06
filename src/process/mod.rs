@@ -199,7 +199,13 @@ struct StreamFilterSpec {
     name: &'static str,
     handles: StreamMatcher,
     apply: StreamFilter,
-    terminal_passthrough: bool,
+    on_unchanged: OnUnchanged,
+}
+
+#[derive(Clone, Copy)]
+enum OnUnchanged {
+    Continue,
+    Passthrough,
 }
 
 const STREAM_FILTERS: &[StreamFilterSpec] = &[
@@ -207,49 +213,49 @@ const STREAM_FILTERS: &[StreamFilterSpec] = &[
         name: "git",
         handles: crate::filters::git::handles_argv,
         apply: crate::filters::git::dispatch_streams_decision,
-        terminal_passthrough: true,
+        on_unchanged: OnUnchanged::Passthrough,
     },
     StreamFilterSpec {
         name: "test-tools",
         handles: crate::filters::test_tools::handles_argv,
         apply: crate::filters::test_tools::dispatch_streams_decision,
-        terminal_passthrough: false,
+        on_unchanged: OnUnchanged::Continue,
     },
     StreamFilterSpec {
         name: "listing",
         handles: crate::filters::listing::handles_argv,
         apply: crate::filters::listing::dispatch_streams_decision,
-        terminal_passthrough: false,
+        on_unchanged: OnUnchanged::Continue,
     },
     StreamFilterSpec {
         name: "build",
         handles: crate::filters::build::handles_argv,
         apply: crate::filters::build::dispatch_streams_decision,
-        terminal_passthrough: false,
+        on_unchanged: OnUnchanged::Continue,
     },
     StreamFilterSpec {
         name: "package",
         handles: crate::filters::package::handles_argv,
         apply: crate::filters::package::dispatch_streams_decision,
-        terminal_passthrough: false,
+        on_unchanged: OnUnchanged::Continue,
     },
     StreamFilterSpec {
         name: "infra",
         handles: crate::filters::infra::handles_argv,
         apply: crate::filters::infra::dispatch_streams_decision,
-        terminal_passthrough: false,
+        on_unchanged: OnUnchanged::Continue,
     },
     StreamFilterSpec {
         name: "data",
         handles: crate::filters::data::handles_argv,
         apply: crate::filters::data::dispatch_streams_decision,
-        terminal_passthrough: false,
+        on_unchanged: OnUnchanged::Continue,
     },
     StreamFilterSpec {
         name: "diagnostics",
         handles: crate::filters::diagnostics::handles_argv,
         apply: crate::filters::diagnostics::dispatch_streams_decision,
-        terminal_passthrough: false,
+        on_unchanged: OnUnchanged::Continue,
     },
 ];
 
@@ -287,7 +293,9 @@ fn filter_captured_output<'a>(
                     evidence: output.evidence,
                 };
             }
-            Ok(StreamFilterDecision::Unchanged) if filter.terminal_passthrough => {
+            Ok(StreamFilterDecision::Unchanged)
+                if matches!(filter.on_unchanged, OnUnchanged::Passthrough) =>
+            {
                 return passthrough_streams(captured);
             }
             Ok(StreamFilterDecision::Unchanged) | Err(_) => {}

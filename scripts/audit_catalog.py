@@ -15,27 +15,14 @@ import re
 import sys
 from typing import Any
 
-from catalog_source import parse_filter_families, parse_string_const
+from catalog_source import parse_byte_const, parse_filter_families, parse_string_const
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CATALOG = ROOT / "src" / "catalog.rs"
 FILTERS_DIR = ROOT / "src" / "filters"
 GIT = FILTERS_DIR / "git.rs"
+PROCESS = ROOT / "src" / "process" / "mod.rs"
 TESTS_DIR = ROOT / "tests"
-
-EXPECTED_FILTER_FAMILIES = {
-    "build",
-    "data",
-    "diagnostics",
-    "git",
-    "infra",
-    "listing",
-    "package",
-    "test_tools",
-}
-
-# Shells and env wrappers are content-redispatched or left to the caller.
-EXEMPT_FROM_FILTER_FAMILY = {"bash", "sh", "zsh", "env", "head", "tail"}
 
 
 def parse_const(source: str, name: str) -> list[str]:
@@ -60,6 +47,20 @@ def parse_git_dispatch(source: str) -> set[str]:
     }
 
 
+def parse_stream_filter_names(source: str) -> set[str]:
+    match = re.search(
+        r"const STREAM_FILTERS:\s*&\[StreamFilterSpec\]\s*=\s*&\[(.*?)\n\];",
+        source,
+        re.S,
+    )
+    if not match:
+        raise ValueError("stream filter registry not found")
+    return {
+        name.replace("-", "_")
+        for name in re.findall(r'name:\s*"([a-z-]+)"', match.group(1))
+    }
+
+
 def check_catalog(
     *,
     auto_wrap: list[str],
@@ -67,6 +68,8 @@ def check_catalog(
     git_subcommands: list[str],
     transparent_runners: list[str],
     filter_families: dict[str, set[str]],
+    filter_family_exemptions: set[str],
+    stream_filter_names: set[str],
 ) -> list[str]:
     errors: list[str] = []
 
@@ -79,12 +82,12 @@ def check_catalog(
             f"AUTO_WRAP_COMMANDS missing from WRAPPER_COMMANDS: {', '.join(sorted(missing_wrapper))}"
         )
 
-    missing_families = EXPECTED_FILTER_FAMILIES - filter_families.keys()
+    missing_families = stream_filter_names - filter_families.keys()
     if missing_families:
         errors.append(
             f"filter family catalogs missing: {', '.join(sorted(missing_families))}"
         )
-    unexpected_families = filter_families.keys() - EXPECTED_FILTER_FAMILIES
+    unexpected_families = filter_families.keys() - stream_filter_names
     if unexpected_families:
         errors.append(
             f"unexpected filter family catalogs: {', '.join(sorted(unexpected_families))}"
@@ -99,7 +102,7 @@ def check_catalog(
     uncovered = (
         auto_wrap_set
         - handled_anywhere
-        - EXEMPT_FROM_FILTER_FAMILY
+        - filter_family_exemptions
     )
     if uncovered:
         errors.append(
@@ -108,7 +111,7 @@ def check_catalog(
 
     transparent_commands = {runner.split(maxsplit=1)[0] for runner in transparent_runners}
     wrapper_uncovered = (
-        wrapper_set - handled_anywhere - transparent_commands - EXEMPT_FROM_FILTER_FAMILY
+        wrapper_set - handled_anywhere - transparent_commands - filter_family_exemptions
     )
     if wrapper_uncovered:
         errors.append(
@@ -125,7 +128,7 @@ def check_catalog(
         )
 
     # Every filter family must have regression tests and fixtures.
-    for family in EXPECTED_FILTER_FAMILIES:
+    for family in stream_filter_names:
         source_file = FILTERS_DIR / f"{family}.rs"
         if not source_file.is_file():
             errors.append(f"filter family source missing: {source_file.name}")
@@ -160,6 +163,8 @@ def main() -> int:
         git_subcommands = parse_const(source, "GIT_SUBCOMMANDS")
         transparent_runners = parse_const(source, "TRANSPARENT_RUNNERS")
         filter_families = parse_filter_families(source)
+        filter_family_exemptions = parse_byte_const(source, "FILTER_FAMILY_EXEMPTIONS")
+        stream_filter_names = parse_stream_filter_names(PROCESS.read_text(encoding="utf-8"))
     except (RuntimeError, ValueError) as exc:
         print(f"catalog audit failed: {exc}", file=sys.stderr)
         return 1
@@ -169,6 +174,8 @@ def main() -> int:
         git_subcommands=git_subcommands,
         transparent_runners=transparent_runners,
         filter_families=filter_families,
+        filter_family_exemptions=filter_family_exemptions,
+        stream_filter_names=stream_filter_names,
     )
     if errors:
         print("catalog audit failed:", file=sys.stderr)

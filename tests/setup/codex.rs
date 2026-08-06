@@ -1,4 +1,7 @@
-use super::*;
+use std::fs;
+use std::os::unix::fs::PermissionsExt;
+
+use super::support::{TestHome, ownership_digest, replace_once, tapas, tapas_with_env};
 
 #[test]
 fn codex_setup_manages_its_own_hook_file_and_ownership() {

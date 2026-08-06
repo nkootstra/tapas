@@ -6,7 +6,6 @@ use std::os::unix::ffi::OsStringExt;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Output, Stdio};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use tapas::process::invocation::{
@@ -14,7 +13,7 @@ use tapas::process::invocation::{
 };
 use tapas::process::{RunOptions, run};
 
-static NEXT_TEMP_DIRECTORY: AtomicU64 = AtomicU64::new(0);
+mod common;
 
 struct FakeCommand {
     directory: PathBuf,
@@ -23,12 +22,7 @@ struct FakeCommand {
 
 impl FakeCommand {
     fn new(name: &str, script: &[u8]) -> Self {
-        let sequence = NEXT_TEMP_DIRECTORY.fetch_add(1, Ordering::Relaxed);
-        let directory = std::env::temp_dir().join(format!(
-            "tapas-process-test-{}-{sequence}",
-            std::process::id()
-        ));
-        std::fs::create_dir(&directory).expect("create fake command directory");
+        let directory = common::unique_temp_dir(&std::env::temp_dir(), "tapas-process-test");
         let path = directory.join(name);
         std::fs::write(&path, script).expect("write fake command");
         let mut permissions = std::fs::metadata(&path)

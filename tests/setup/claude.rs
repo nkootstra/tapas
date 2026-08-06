@@ -1,4 +1,7 @@
-use super::*;
+use std::fs;
+use std::os::unix::fs::PermissionsExt;
+
+use super::support::{TestHome, ownership_digest, replace_once, tapas};
 
 #[test]
 fn setup_is_atomic_idempotent_private_and_preserves_unrelated_content() {

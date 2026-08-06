@@ -270,6 +270,9 @@ pub(crate) const DIAGNOSTICS_FILTER_COMMANDS: &[&[u8]] = &[
     b"terraform",
     b"tofu",
 ];
+#[expect(dead_code, reason = "consumed by scripts/audit_catalog.py")]
+pub(crate) const FILTER_FAMILY_EXEMPTIONS: &[&[u8]] =
+    &[b"bash", b"sh", b"zsh", b"env", b"head", b"tail"];
 
 pub fn command_basename(command: &OsStr) -> Option<&OsStr> {
     Path::new(command).file_name()

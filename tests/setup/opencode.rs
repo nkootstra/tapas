@@ -1,4 +1,15 @@
-use super::*;
+#[cfg(target_os = "linux")]
+use std::ffi::OsString;
+use std::fs;
+#[cfg(target_os = "linux")]
+use std::os::unix::ffi::OsStringExt;
+use std::os::unix::fs::symlink;
+#[cfg(target_os = "linux")]
+use std::path::Path;
+#[cfg(target_os = "linux")]
+use std::process::Command;
+
+use super::support::{TestHome, assert_opencode_plugin_behavior, tapas_with_env};
 
 #[test]
 fn opencode_setup_is_idempotent_and_unsetup_removes_only_tapas() {

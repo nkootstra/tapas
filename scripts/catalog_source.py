@@ -28,6 +28,17 @@ def parse_catalog(source: str) -> dict[str, set[str]]:
     }
 
 
+def parse_byte_const(source: str, name: str) -> set[str]:
+    match = re.search(
+        rf"pub\(crate\) const {name}:\s*&\s*\[\s*&\s*\[u8\]\]\s*=\s*&\[(.*?)\];",
+        source,
+        re.S,
+    )
+    if not match:
+        raise ValueError(f"catalog byte constant not found: {name}")
+    return set(re.findall(r'b"([^"\\]+)"', match.group(1)))
+
+
 def parse_filter_families(source: str) -> dict[str, set[str]]:
     pattern = re.compile(
         r"pub\(crate\) const ([A-Z_]+)_FILTER_COMMANDS:\s*"
