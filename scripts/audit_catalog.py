@@ -47,7 +47,7 @@ def parse_git_dispatch(source: str) -> set[str]:
     }
 
 
-def parse_stream_filter_names(source: str) -> set[str]:
+def parse_stream_filters(source: str) -> dict[str, str]:
     match = re.search(
         r"const STREAM_FILTERS:\s*&\[StreamFilterSpec\]\s*=\s*&\[(.*?)\n\];",
         source,
@@ -55,10 +55,52 @@ def parse_stream_filter_names(source: str) -> set[str]:
     )
     if not match:
         raise ValueError("stream filter registry not found")
-    return {
-        name.replace("-", "_")
-        for name in re.findall(r'name:\s*"([a-z-]+)"', match.group(1))
-    }
+    filters: dict[str, str] = {}
+    entries = re.findall(
+        r"StreamFilterSpec\s*\{(.*?)\n\s*\},", match.group(1), re.S
+    )
+    for entry in entries:
+        name = re.search(r'name:\s*"([a-z-]+)"', entry)
+        handler = re.search(
+            r"handles:\s*crate::filters::([a-z_]+)::handles_argv",
+            entry,
+        )
+        if not name or not handler:
+            raise ValueError("stream filter registry entry is missing a name or handler")
+        filters[name.group(1).replace("-", "_")] = handler.group(1)
+    return filters
+
+
+def handler_catalog_constants(source: str) -> set[str]:
+    signature = re.search(r"pub\(crate\)\s+fn handles_argv\b", source)
+    if not signature:
+        return set()
+    body_start = source.find("{", signature.end())
+    if body_start == -1:
+        return set()
+
+    depth = 0
+    for index in range(body_start, len(source)):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                body = source[body_start + 1 : index]
+                return set(
+                    re.findall(
+                        r"crate::catalog::([A-Z][A-Z0-9_]*_FILTER_COMMANDS)\b",
+                        body,
+                    )
+                )
+    return set()
+
+
+def check_handler_wiring(family: str, source: str) -> str | None:
+    expected = f"{family.upper()}_FILTER_COMMANDS"
+    if expected not in handler_catalog_constants(source):
+        return f"filter family {family} handles_argv does not reference {expected}"
+    return None
 
 
 def check_catalog(
@@ -69,9 +111,10 @@ def check_catalog(
     transparent_runners: list[str],
     filter_families: dict[str, set[str]],
     filter_family_exemptions: set[str],
-    stream_filter_names: set[str],
+    stream_filters: dict[str, str],
 ) -> list[str]:
     errors: list[str] = []
+    stream_filter_names = set(stream_filters)
 
     auto_wrap_set = set(auto_wrap)
     wrapper_set = set(wrapper)
@@ -92,6 +135,14 @@ def check_catalog(
         errors.append(
             f"unexpected filter family catalogs: {', '.join(sorted(unexpected_families))}"
         )
+
+    for family, handler_family in stream_filters.items():
+        if handler_family != family:
+            errors.append(
+                f"stream filter registry handler mismatch for {family}: "
+                f"expected crate::filters::{family}::handles_argv, "
+                f"found crate::filters::{handler_family}::handles_argv"
+            )
 
     handled_anywhere = (
         set().union(*filter_families.values()) if filter_families else set()
@@ -132,6 +183,12 @@ def check_catalog(
         source_file = FILTERS_DIR / f"{family}.rs"
         if not source_file.is_file():
             errors.append(f"filter family source missing: {source_file.name}")
+        else:
+            wiring_error = check_handler_wiring(
+                family, source_file.read_text(encoding="utf-8")
+            )
+            if wiring_error:
+                errors.append(wiring_error)
         test_file = TESTS_DIR / f"filters_{family}.rs"
         if not test_file.is_file():
             errors.append(f"no regression test file for {family}: {test_file.name}")
@@ -164,7 +221,7 @@ def main() -> int:
         transparent_runners = parse_const(source, "TRANSPARENT_RUNNERS")
         filter_families = parse_filter_families(source)
         filter_family_exemptions = parse_byte_const(source, "FILTER_FAMILY_EXEMPTIONS")
-        stream_filter_names = parse_stream_filter_names(PROCESS.read_text(encoding="utf-8"))
+        stream_filters = parse_stream_filters(PROCESS.read_text(encoding="utf-8"))
     except (RuntimeError, ValueError) as exc:
         print(f"catalog audit failed: {exc}", file=sys.stderr)
         return 1
@@ -175,7 +232,7 @@ def main() -> int:
         transparent_runners=transparent_runners,
         filter_families=filter_families,
         filter_family_exemptions=filter_family_exemptions,
-        stream_filter_names=stream_filter_names,
+        stream_filters=stream_filters,
     )
     if errors:
         print("catalog audit failed:", file=sys.stderr)
