@@ -1,10 +1,3 @@
-pub(crate) fn command_basename(command: &[u8]) -> &[u8] {
-    command
-        .iter()
-        .rposition(|byte| matches!(byte, b'/' | b'\\'))
-        .map_or(command, |separator| &command[separator + 1..])
-}
-
 pub(crate) fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.is_empty() {
         return Some(0);

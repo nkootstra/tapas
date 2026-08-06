@@ -1,26 +1,11 @@
 use super::{
-    EvidenceClass, FilterError, StreamFilterDecision, StreamFilterOutput, append_line,
-    command_basename, contains_ignore_ascii_case as contains_ascii_case_insensitive, find_subslice,
-    strip_ansi_csi as strip_ansi,
+    EvidenceClass, FilterError, StreamFilterDecision, StreamFilterInput, StreamFilterOutput,
+    append_line, command_basename, contains_ignore_ascii_case as contains_ascii_case_insensitive,
+    find_subslice, strip_ansi_csi as strip_ansi,
 };
 
 pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
-    argv.first()
-        .copied()
-        .map(command_basename)
-        .is_some_and(|command| {
-            matches!(
-                command,
-                b"mypy"
-                    | b"ruff"
-                    | b"eslint"
-                    | b"biome"
-                    | b"pre-commit"
-                    | b"prettier"
-                    | b"terraform"
-                    | b"tofu"
-            )
-        })
+    crate::catalog::filter_family_handles(argv, crate::catalog::DIAGNOSTICS_FILTER_COMMANDS)
 }
 
 pub fn dispatch_streams_argv(
@@ -30,17 +15,22 @@ pub fn dispatch_streams_argv(
     _exit_code: i32,
     lossless: bool,
 ) -> Result<StreamFilterOutput, FilterError> {
-    dispatch_streams_decision(argv, stdout, stderr, _exit_code, lossless)
-        .map(|decision| decision.into_output(stdout, stderr))
+    dispatch_streams_decision(StreamFilterInput::new(
+        argv, stdout, stderr, _exit_code, lossless,
+    ))
+    .map(|decision| decision.into_output(stdout, stderr))
 }
 
 pub(crate) fn dispatch_streams_decision(
-    argv: &[&[u8]],
-    stdout: &[u8],
-    stderr: &[u8],
-    _exit_code: i32,
-    lossless: bool,
+    input: StreamFilterInput<'_>,
 ) -> Result<StreamFilterDecision, FilterError> {
+    let StreamFilterInput {
+        argv,
+        stdout,
+        stderr,
+        exit_code: _,
+        lossless,
+    } = input;
     let Some(command) = argv.first().copied().map(command_basename) else {
         return Err(FilterError::InvalidInput);
     };

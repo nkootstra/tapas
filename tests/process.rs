@@ -695,7 +695,7 @@ fn git_wrapper_dispatch_compacts_success_and_preserves_failed_streams() {
 fn successful_unrecognized_git_output_remains_a_byte_exact_passthrough() {
     let git = FakeCommand::new(
         "git",
-        b"#!/bin/sh\nprintf 'custom stdout\\n'\nprintf 'custom stderr\\n' >&2\n",
+        b"#!/bin/sh\ni=0\nwhile [ \"$i\" -lt 600 ]; do\n  printf 'custom stdout\\n'\n  i=$((i + 1))\ndone\nprintf 'custom stderr\\n' >&2\n",
     );
     let args = [git.path().as_os_str().to_owned(), OsString::from("config")];
     let mut stdout = Vec::new();
@@ -706,8 +706,27 @@ fn successful_unrecognized_git_output_remains_a_byte_exact_passthrough() {
 
     assert_eq!(report.filter_name, "passthrough");
     assert_eq!(report.evidence, tapas::filters::EvidenceClass::ByteExact);
-    assert_eq!(stdout, b"custom stdout\n");
+    assert_eq!(stdout, b"custom stdout\n".repeat(600));
     assert_eq!(stderr, b"custom stderr\n");
+}
+
+#[test]
+fn bare_git_output_remains_composable_with_content_filters() {
+    let git = FakeCommand::new(
+        "git",
+        b"#!/bin/sh\ni=0\nwhile [ \"$i\" -lt 600 ]; do\n  printf 'bare output\\n'\n  i=$((i + 1))\ndone\n",
+    );
+    let args = [git.path().as_os_str().to_owned()];
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+
+    let report =
+        run(&args, &mut stdout, &mut stderr, RunOptions::default()).expect("run bare Git command");
+
+    assert_eq!(report.filter_name, "generic");
+    assert_eq!(report.evidence, tapas::filters::EvidenceClass::FactComplete);
+    assert_eq!(stdout, "bare output ×600\n".as_bytes());
+    assert!(stderr.is_empty());
 }
 
 #[test]
