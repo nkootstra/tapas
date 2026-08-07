@@ -18,6 +18,8 @@ import sqlite3
 import sys
 from typing import Any, Iterable, Iterator
 
+from catalog_source import parse_catalog
+
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DEFAULT_OPENCODE_DB = pathlib.Path.home() / ".local/share/opencode/opencode.db"
@@ -42,27 +44,6 @@ SHELL_KEYWORDS = {
     "while",
 }
 WRAPPERS = {"smll", "tapas"}
-
-
-def parse_catalog(source: str) -> dict[str, set[str]]:
-    """Parse the static command catalog without importing Rust code."""
-
-    result: dict[str, set[str]] = {}
-    for name in (
-        "AUTO_WRAP_COMMANDS",
-        "WRAPPER_COMMANDS",
-        "GIT_SUBCOMMANDS",
-        "TRANSPARENT_RUNNERS",
-    ):
-        match = re.search(
-            rf"pub const {name}:\s*&\s*\[\s*&\s*str\]\s*=\s*&\[(.*?)\];",
-            source,
-            re.S,
-        )
-        if not match:
-            raise ValueError(f"catalog constant not found: {name}")
-        result[name] = set(re.findall(r'"([^"\\]+)"', match.group(1)))
-    return result
 
 
 def basename(value: str) -> str:

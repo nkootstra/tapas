@@ -7,7 +7,7 @@ pub mod invocation;
 mod stream;
 mod unix;
 
-use crate::filters::{EvidenceClass, StreamFilterDecision};
+use crate::filters::{EvidenceClass, StreamFilterDecision, StreamFilterInput};
 use capture::CaptureMode;
 use invocation::{StreamDecision, classify, classify_stream, is_raw_curl, requests_exact_output};
 
@@ -192,55 +192,70 @@ struct FilteredStreams<'a> {
 }
 
 type StreamMatcher = fn(&[&[u8]]) -> bool;
-type StreamFilter = fn(
-    &[&[u8]],
-    &[u8],
-    &[u8],
-    i32,
-    bool,
-) -> Result<StreamFilterDecision, crate::filters::FilterError>;
+type StreamFilter =
+    for<'a> fn(StreamFilterInput<'a>) -> Result<StreamFilterDecision, crate::filters::FilterError>;
 
 struct StreamFilterSpec {
     name: &'static str,
     handles: StreamMatcher,
     apply: StreamFilter,
+    on_unchanged: OnUnchanged,
+}
+
+#[derive(Clone, Copy)]
+enum OnUnchanged {
+    Continue,
+    Passthrough,
 }
 
 const STREAM_FILTERS: &[StreamFilterSpec] = &[
     StreamFilterSpec {
+        name: "git",
+        handles: crate::filters::git::handles_argv,
+        apply: crate::filters::git::dispatch_streams_decision,
+        on_unchanged: OnUnchanged::Passthrough,
+    },
+    StreamFilterSpec {
         name: "test-tools",
         handles: crate::filters::test_tools::handles_argv,
         apply: crate::filters::test_tools::dispatch_streams_decision,
+        on_unchanged: OnUnchanged::Continue,
     },
     StreamFilterSpec {
         name: "listing",
         handles: crate::filters::listing::handles_argv,
         apply: crate::filters::listing::dispatch_streams_decision,
+        on_unchanged: OnUnchanged::Continue,
     },
     StreamFilterSpec {
         name: "build",
         handles: crate::filters::build::handles_argv,
         apply: crate::filters::build::dispatch_streams_decision,
+        on_unchanged: OnUnchanged::Continue,
     },
     StreamFilterSpec {
         name: "package",
         handles: crate::filters::package::handles_argv,
         apply: crate::filters::package::dispatch_streams_decision,
+        on_unchanged: OnUnchanged::Continue,
     },
     StreamFilterSpec {
         name: "infra",
         handles: crate::filters::infra::handles_argv,
         apply: crate::filters::infra::dispatch_streams_decision,
+        on_unchanged: OnUnchanged::Continue,
     },
     StreamFilterSpec {
         name: "data",
         handles: crate::filters::data::handles_argv,
         apply: crate::filters::data::dispatch_streams_decision,
+        on_unchanged: OnUnchanged::Continue,
     },
     StreamFilterSpec {
         name: "diagnostics",
         handles: crate::filters::diagnostics::handles_argv,
         apply: crate::filters::diagnostics::dispatch_streams_decision,
+        on_unchanged: OnUnchanged::Continue,
     },
 ];
 
@@ -257,44 +272,33 @@ fn filter_captured_output<'a>(
         .iter()
         .map(|argument| argument.as_encoded_bytes())
         .collect();
-    if command_is(argv, b"git")
-        && argv.len() > 1
-        && let Ok(decision) = crate::filters::git::dispatch_streams_decision(
-            &argv_bytes,
-            &captured.stdout,
-            &captured.stderr,
-            captured.exit_code,
-            lossless,
-        )
-    {
-        return match decision {
-            StreamFilterDecision::Unchanged => passthrough_streams(captured),
-            StreamFilterDecision::Applied(output) => FilteredStreams {
-                stdout: Cow::Owned(output.stdout),
-                stderr: Cow::Owned(output.stderr),
-                filter_name: "git",
-                evidence: output.evidence,
-            },
-        };
-    }
+    let input = StreamFilterInput::new(
+        &argv_bytes,
+        &captured.stdout,
+        &captured.stderr,
+        captured.exit_code,
+        lossless,
+    );
 
     for filter in STREAM_FILTERS {
         if !(filter.handles)(&argv_bytes) {
             continue;
         }
-        if let Ok(StreamFilterDecision::Applied(output)) = (filter.apply)(
-            &argv_bytes,
-            &captured.stdout,
-            &captured.stderr,
-            captured.exit_code,
-            lossless,
-        ) {
-            return FilteredStreams {
-                stdout: Cow::Owned(output.stdout),
-                stderr: Cow::Owned(output.stderr),
-                filter_name: filter.name,
-                evidence: output.evidence,
-            };
+        match (filter.apply)(input) {
+            Ok(StreamFilterDecision::Applied(output)) => {
+                return FilteredStreams {
+                    stdout: Cow::Owned(output.stdout),
+                    stderr: Cow::Owned(output.stderr),
+                    filter_name: filter.name,
+                    evidence: output.evidence,
+                };
+            }
+            Ok(StreamFilterDecision::Unchanged)
+                if matches!(filter.on_unchanged, OnUnchanged::Passthrough) =>
+            {
+                return passthrough_streams(captured);
+            }
+            Ok(StreamFilterDecision::Unchanged) | Err(_) => {}
         }
     }
 

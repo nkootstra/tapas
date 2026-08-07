@@ -1,14 +1,6 @@
 use tapas::filters::{EvidenceClass, StreamFilterOutput, infra};
-
-const FIXTURES: &str = "regression/fixtures";
-
-fn fixture(name: &str) -> Vec<u8> {
-    std::fs::read(format!(
-        "{}/tests/{FIXTURES}/{name}",
-        env!("CARGO_MANIFEST_DIR")
-    ))
-    .unwrap()
-}
+mod common;
+use common::fixture;
 
 #[test]
 fn docker_ps_and_images_match_the_pinned_compact_grammars() {
