@@ -1,14 +1,6 @@
 use tapas::filters::{EvidenceClass, FilterOutput, listing};
-
-const FIXTURES: &str = "regression/fixtures";
-
-fn fixture(name: &str) -> Vec<u8> {
-    std::fs::read(format!(
-        "{}/tests/{FIXTURES}/{name}",
-        env!("CARGO_MANIFEST_DIR")
-    ))
-    .unwrap()
-}
+mod common;
+use common::fixture;
 
 #[test]
 fn tree_pipe_filter_matches_the_pinned_oracle() {

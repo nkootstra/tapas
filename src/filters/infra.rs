@@ -1,19 +1,11 @@
 use super::{
-    EvidenceClass, FilterError, FilterOutput, StreamFilterDecision, StreamFilterOutput,
-    append_line, command_basename, data::compact_json, find_subslice, normalize_log_line,
-    strip_ansi_csi as strip_ansi, timestamp_end,
+    EvidenceClass, FilterError, FilterOutput, StreamFilterDecision, StreamFilterInput,
+    StreamFilterOutput, append_line, command_basename, data::compact_json, find_subslice,
+    normalize_log_line, strip_ansi_csi as strip_ansi, timestamp_end,
 };
 
 pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
-    argv.first()
-        .copied()
-        .map(command_basename)
-        .is_some_and(|command| {
-            matches!(
-                command,
-                b"curl" | b"docker" | b"docker-compose" | b"kubectl" | b"gh" | b"acli"
-            )
-        })
+    crate::catalog::filter_family_handles(argv, crate::catalog::INFRA_FILTER_COMMANDS)
 }
 
 pub fn dispatch_streams_argv(
@@ -23,17 +15,22 @@ pub fn dispatch_streams_argv(
     exit_code: i32,
     lossless: bool,
 ) -> Result<StreamFilterOutput, FilterError> {
-    dispatch_streams_decision(argv, stdout, stderr, exit_code, lossless)
-        .map(|decision| decision.into_output(stdout, stderr))
+    dispatch_streams_decision(StreamFilterInput::new(
+        argv, stdout, stderr, exit_code, lossless,
+    ))
+    .map(|decision| decision.into_output(stdout, stderr))
 }
 
 pub(crate) fn dispatch_streams_decision(
-    argv: &[&[u8]],
-    stdout: &[u8],
-    stderr: &[u8],
-    exit_code: i32,
-    lossless: bool,
+    input: StreamFilterInput<'_>,
 ) -> Result<StreamFilterDecision, FilterError> {
+    let StreamFilterInput {
+        argv,
+        stdout,
+        stderr,
+        exit_code,
+        lossless,
+    } = input;
     let Some(command) = argv.first().copied().map(command_basename) else {
         return Err(FilterError::InvalidInput);
     };

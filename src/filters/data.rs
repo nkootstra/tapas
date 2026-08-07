@@ -1,37 +1,10 @@
 use super::{
-    EvidenceClass, FilterError, StreamFilterDecision, StreamFilterOutput, command_basename,
-    find_subslice, strip_ansi,
+    EvidenceClass, FilterError, StreamFilterDecision, StreamFilterInput, StreamFilterOutput,
+    command_basename, find_subslice, strip_ansi,
 };
 
 pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
-    argv.first()
-        .copied()
-        .map(command_basename)
-        .is_some_and(|command| {
-            matches!(
-                command,
-                b"aws"
-                    | b"jq"
-                    | b"pup"
-                    | b"acli"
-                    | b"gh"
-                    | b"sqlite3"
-                    | b"cat"
-                    | b"docker"
-                    | b"docker-compose"
-                    | b"kubectl"
-                    | b"ps"
-                    | b"df"
-                    | b"psql"
-                    | b"systemctl"
-                    | b"lsof"
-                    | b"npm"
-                    | b"pnpm"
-                    | b"yarn"
-                    | b"brew"
-                    | b"bun"
-            )
-        })
+    crate::catalog::filter_family_handles(argv, crate::catalog::DATA_FILTER_COMMANDS)
 }
 
 pub fn dispatch_streams_argv(
@@ -41,17 +14,22 @@ pub fn dispatch_streams_argv(
     exit_code: i32,
     lossless: bool,
 ) -> Result<StreamFilterOutput, FilterError> {
-    dispatch_streams_decision(argv, stdout, stderr, exit_code, lossless)
-        .map(|decision| decision.into_output(stdout, stderr))
+    dispatch_streams_decision(StreamFilterInput::new(
+        argv, stdout, stderr, exit_code, lossless,
+    ))
+    .map(|decision| decision.into_output(stdout, stderr))
 }
 
 pub(crate) fn dispatch_streams_decision(
-    argv: &[&[u8]],
-    stdout: &[u8],
-    stderr: &[u8],
-    exit_code: i32,
-    lossless: bool,
+    input: StreamFilterInput<'_>,
 ) -> Result<StreamFilterDecision, FilterError> {
+    let StreamFilterInput {
+        argv,
+        stdout,
+        stderr,
+        exit_code,
+        lossless,
+    } = input;
     if argv.is_empty() {
         return Err(FilterError::InvalidInput);
     }

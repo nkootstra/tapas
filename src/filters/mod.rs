@@ -9,10 +9,10 @@ pub mod package;
 pub mod test_tools;
 mod util;
 
+pub(crate) use crate::catalog::command_basename_bytes as command_basename;
 pub(crate) use util::{
-    append_line, byte_after_lines, command_basename, contains_ignore_ascii_case, find_subslice,
-    normalize_log_line, rfind_subslice, strip_ansi, strip_ansi_csi, timestamp_end,
-    trim_ascii_end_space,
+    append_line, byte_after_lines, contains_ignore_ascii_case, find_subslice, normalize_log_line,
+    rfind_subslice, strip_ansi, strip_ansi_csi, timestamp_end, trim_ascii_end_space,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -39,6 +39,33 @@ pub struct StreamFilterOutput {
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
     pub evidence: EvidenceClass,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct StreamFilterInput<'a> {
+    pub(crate) argv: &'a [&'a [u8]],
+    pub(crate) stdout: &'a [u8],
+    pub(crate) stderr: &'a [u8],
+    pub(crate) exit_code: i32,
+    pub(crate) lossless: bool,
+}
+
+impl<'a> StreamFilterInput<'a> {
+    pub(crate) fn new(
+        argv: &'a [&'a [u8]],
+        stdout: &'a [u8],
+        stderr: &'a [u8],
+        exit_code: i32,
+        lossless: bool,
+    ) -> Self {
+        Self {
+            argv,
+            stdout,
+            stderr,
+            exit_code,
+            lossless,
+        }
+    }
 }
 
 /// Internal routing result that lets dispatchers represent passthrough without

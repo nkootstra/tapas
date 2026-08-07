@@ -1,6 +1,6 @@
 use super::{
-    EvidenceClass, FilterError, FilterOutput, StreamFilterDecision, StreamFilterOutput,
-    find_subslice, rfind_subslice, strip_ansi,
+    EvidenceClass, FilterError, FilterOutput, StreamFilterDecision, StreamFilterInput,
+    StreamFilterOutput, find_subslice, rfind_subslice, strip_ansi,
 };
 
 pub fn matches(input: &[u8]) -> bool {
@@ -323,6 +323,11 @@ fn try_dispatch_argv(
 
 /// Apply Git wrapper semantics while retaining each fact on its source stream.
 /// Compactors that need both streams fail open when both contain output.
+pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
+    argv.len() > 1
+        && crate::catalog::filter_family_handles(argv, crate::catalog::GIT_FILTER_COMMANDS)
+}
+
 pub fn dispatch_streams_argv(
     argv: &[&[u8]],
     stdout: &[u8],
@@ -330,17 +335,22 @@ pub fn dispatch_streams_argv(
     exit_code: i32,
     lossless: bool,
 ) -> Result<StreamFilterOutput, FilterError> {
-    dispatch_streams_decision(argv, stdout, stderr, exit_code, lossless)
-        .map(|decision| decision.into_output(stdout, stderr))
+    dispatch_streams_decision(StreamFilterInput::new(
+        argv, stdout, stderr, exit_code, lossless,
+    ))
+    .map(|decision| decision.into_output(stdout, stderr))
 }
 
 pub(crate) fn dispatch_streams_decision(
-    argv: &[&[u8]],
-    stdout: &[u8],
-    stderr: &[u8],
-    exit_code: i32,
-    lossless: bool,
+    input: StreamFilterInput<'_>,
 ) -> Result<StreamFilterDecision, FilterError> {
+    let StreamFilterInput {
+        argv,
+        stdout,
+        stderr,
+        exit_code,
+        lossless,
+    } = input;
     if argv.len() < 2 {
         return Err(FilterError::InvalidInput);
     }
@@ -443,6 +453,7 @@ mod log;
 mod merge;
 mod refs;
 mod status;
+mod transport;
 mod wrapper;
 
 use blame::{apply_blame, matches_blame};
@@ -456,8 +467,8 @@ use refs::{
     matches_reflog, passthrough,
 };
 use status::{apply_status, matches_status};
-use wrapper::{
-    apply_add, apply_checkout, apply_fetch, apply_pull, apply_push, apply_rebase, apply_stash,
-    apply_status_short, compact_pull_stderr, compact_pull_stdout, compact_push_stderr,
-    compact_push_stdout,
+use transport::{
+    apply_fetch, apply_pull, apply_push, compact_pull_stderr, compact_pull_stdout,
+    compact_push_stderr, compact_push_stdout,
 };
+use wrapper::{apply_add, apply_checkout, apply_rebase, apply_stash, apply_status_short};

@@ -1,16 +1,9 @@
 use tapas::filters::{EvidenceClass, StreamFilterOutput, data};
+mod common;
+use common::fixture;
 
-const FIXTURES: &str = "regression/fixtures";
 type StreamsCase<'a> = (&'a [&'a [u8]], &'a [u8], &'a [u8]);
 type ExitCase<'a> = (&'a [&'a [u8]], &'a [u8], i32);
-
-fn fixture(name: &str) -> Vec<u8> {
-    std::fs::read(format!(
-        "{}/tests/{FIXTURES}/{name}",
-        env!("CARGO_MANIFEST_DIR")
-    ))
-    .unwrap()
-}
 
 #[test]
 fn structured_json_dispatch_minifies_single_containers_byte_safely() {

@@ -332,12 +332,8 @@ fn options<'a>(argv: &'a [&'a [u8]]) -> &'a [&'a [u8]] {
 }
 
 fn command<'a>(argv: &'a [&'a [u8]]) -> Option<&'a [u8]> {
-    argv.first().map(|command| {
-        command
-            .iter()
-            .rposition(|byte| matches!(byte, b'/' | b'\\'))
-            .map_or(*command, |separator| &command[separator + 1..])
-    })
+    argv.first()
+        .map(|command| crate::catalog::command_basename_bytes(command))
 }
 
 fn has_any(arguments: &[&[u8]], needles: &[&[u8]]) -> bool {

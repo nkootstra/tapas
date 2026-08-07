@@ -15,36 +15,21 @@ import re
 import sys
 from typing import Any
 
+from catalog_source import parse_byte_const, parse_filter_families, parse_string_const
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CATALOG = ROOT / "src" / "catalog.rs"
 FILTERS_DIR = ROOT / "src" / "filters"
 GIT = FILTERS_DIR / "git.rs"
+PROCESS = ROOT / "src" / "process" / "mod.rs"
 TESTS_DIR = ROOT / "tests"
-
-# Filter families and the Rust test file expected to cover them.
-FILTER_FAMILIES: dict[str, tuple[str, ...]] = {
-    "build": ("make", "ninja", "cargo", "go", "zig", "npm", "pnpm", "yarn", "bun", "dotnet", "gradle", "gradlew", "mvn", "mvnw", "next", "webpack", "turbo", "swift", "xcodebuild", "uv", "uvx", "npx", "poetry"),
-    "data": ("aws", "jq", "pup", "acli", "cat", "gh", "sqlite3", "brew", "df", "lsof", "ps", "psql", "systemctl", "docker", "docker-compose", "kubectl"),
-    "diagnostics": ("mypy", "ruff", "eslint", "biome", "pre-commit", "prettier", "terraform", "tofu"),
-    "infra": ("curl", "docker", "docker-compose", "kubectl", "gh", "acli"),
-    "listing": ("find", "tree", "ls", "du", "wc", "env", "rg"),
-    "package": ("npm", "pnpm", "yarn", "bun", "composer", "pip", "pip3"),
-    "test_tools": ("pytest", "jest", "vitest", "mocha", "tsc", "cargo", "go", "node"),
-}
-
-# Transparent runners dispatch to the inner command rather than being filtered
-# themselves, so they are not required to have a direct filter family.
-TRANSPARENT_RUNNERS = {"bunx", "npx", "uvx"}
-
-# Shells and env wrappers are content-redispatched or left to the caller.
-EXEMPT_FROM_FILTER_FAMILY = {"bash", "sh", "zsh", "env", "head", "tail"}
 
 
 def parse_const(source: str, name: str) -> list[str]:
-    match = re.search(rf"pub const {name}:\s*&\s*\[\s*&\s*str\]\s*=\s*&\[(.*?)\];", source, re.S)
-    if not match:
-        raise RuntimeError(f"cannot parse catalog constant {name}")
-    return re.findall(r'"([^"]+)"', match.group(1))
+    try:
+        return parse_string_const(source, name)
+    except ValueError as error:
+        raise RuntimeError(f"cannot parse catalog constant {name}") from error
 
 
 def parse_git_dispatch(source: str) -> set[str]:
@@ -62,13 +47,74 @@ def parse_git_dispatch(source: str) -> set[str]:
     }
 
 
+def parse_stream_filters(source: str) -> dict[str, str]:
+    match = re.search(
+        r"const STREAM_FILTERS:\s*&\[StreamFilterSpec\]\s*=\s*&\[(.*?)\n\];",
+        source,
+        re.S,
+    )
+    if not match:
+        raise ValueError("stream filter registry not found")
+    filters: dict[str, str] = {}
+    entries = re.findall(
+        r"StreamFilterSpec\s*\{(.*?)\n\s*\},", match.group(1), re.S
+    )
+    for entry in entries:
+        name = re.search(r'name:\s*"([a-z-]+)"', entry)
+        handler = re.search(
+            r"handles:\s*crate::filters::([a-z_]+)::handles_argv",
+            entry,
+        )
+        if not name or not handler:
+            raise ValueError("stream filter registry entry is missing a name or handler")
+        filters[name.group(1).replace("-", "_")] = handler.group(1)
+    return filters
+
+
+def handler_catalog_constants(source: str) -> set[str]:
+    signature = re.search(r"pub\(crate\)\s+fn handles_argv\b", source)
+    if not signature:
+        return set()
+    body_start = source.find("{", signature.end())
+    if body_start == -1:
+        return set()
+
+    depth = 0
+    for index in range(body_start, len(source)):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                body = source[body_start + 1 : index]
+                return set(
+                    re.findall(
+                        r"crate::catalog::([A-Z][A-Z0-9_]*_FILTER_COMMANDS)\b",
+                        body,
+                    )
+                )
+    return set()
+
+
+def check_handler_wiring(family: str, source: str) -> str | None:
+    expected = f"{family.upper()}_FILTER_COMMANDS"
+    if expected not in handler_catalog_constants(source):
+        return f"filter family {family} handles_argv does not reference {expected}"
+    return None
+
+
 def check_catalog(
     *,
     auto_wrap: list[str],
     wrapper: list[str],
     git_subcommands: list[str],
+    transparent_runners: list[str],
+    filter_families: dict[str, set[str]],
+    filter_family_exemptions: set[str],
+    stream_filters: dict[str, str],
 ) -> list[str]:
     errors: list[str] = []
+    stream_filter_names = set(stream_filters)
 
     auto_wrap_set = set(auto_wrap)
     wrapper_set = set(wrapper)
@@ -79,50 +125,45 @@ def check_catalog(
             f"AUTO_WRAP_COMMANDS missing from WRAPPER_COMMANDS: {', '.join(sorted(missing_wrapper))}"
         )
 
-    # Parse the actual filter implementations.
-    handled_by_family: dict[str, set[str]] = {}
-    for family, _ in FILTER_FAMILIES.items():
-        handled = set()
-        source_file = FILTERS_DIR / f"{family}.rs"
-        if not source_file.is_file():
-            errors.append(f"filter family source missing: {source_file.name}")
-            continue
-        source = source_file.read_text(encoding="utf-8")
-        match = re.search(r"pub\(crate\) fn handles_argv.*?\n}", source, re.S)
-        if match:
-            handled.update(
-                token.strip('"')
-                for token in re.findall(r'b"([a-z0-9.-]+)"', match.group(0))
-            )
-        handled_by_family[family] = handled
+    missing_families = stream_filter_names - filter_families.keys()
+    if missing_families:
+        errors.append(
+            f"filter family catalogs missing: {', '.join(sorted(missing_families))}"
+        )
+    unexpected_families = filter_families.keys() - stream_filter_names
+    if unexpected_families:
+        errors.append(
+            f"unexpected filter family catalogs: {', '.join(sorted(unexpected_families))}"
+        )
 
-    handled_anywhere = set().union(*handled_by_family.values()) if handled_by_family else set()
-
-    for family, expected in FILTER_FAMILIES.items():
-        missing = set(expected) - handled_by_family.get(family, set())
-        if missing:
+    for family, handler_family in stream_filters.items():
+        if handler_family != family:
             errors.append(
-                f"{family} catalog ownership is missing from handles_argv: {', '.join(sorted(missing))}"
+                f"stream filter registry handler mismatch for {family}: "
+                f"expected crate::filters::{family}::handles_argv, "
+                f"found crate::filters::{handler_family}::handles_argv"
             )
+
+    handled_anywhere = (
+        set().union(*filter_families.values()) if filter_families else set()
+    )
 
     # Every auto-wrap command must be handled by a filter family, be a
     # transparent runner, or be exempt.
     uncovered = (
         auto_wrap_set
         - handled_anywhere
-        - TRANSPARENT_RUNNERS
-        - EXEMPT_FROM_FILTER_FAMILY
-        - {"git"}  # git is dispatched by git.rs directly.
+        - filter_family_exemptions
     )
     if uncovered:
         errors.append(
             f"auto-wrap commands with no filter family: {', '.join(sorted(uncovered))}"
         )
 
-    transparent_commands = {
-        runner.split(maxsplit=1)[0] for runner in ("bunx", "npx", "uvx")
-    }
-    wrapper_uncovered = wrapper_set - handled_anywhere - transparent_commands - EXEMPT_FROM_FILTER_FAMILY - {"git"}
+    transparent_commands = {runner.split(maxsplit=1)[0] for runner in transparent_runners}
+    wrapper_uncovered = (
+        wrapper_set - handled_anywhere - transparent_commands - filter_family_exemptions
+    )
     if wrapper_uncovered:
         errors.append(
             f"wrapper commands with no filter family: {', '.join(sorted(wrapper_uncovered))}"
@@ -138,7 +179,16 @@ def check_catalog(
         )
 
     # Every filter family must have regression tests and fixtures.
-    for family in FILTER_FAMILIES:
+    for family in stream_filter_names:
+        source_file = FILTERS_DIR / f"{family}.rs"
+        if not source_file.is_file():
+            errors.append(f"filter family source missing: {source_file.name}")
+        else:
+            wiring_error = check_handler_wiring(
+                family, source_file.read_text(encoding="utf-8")
+            )
+            if wiring_error:
+                errors.append(wiring_error)
         test_file = TESTS_DIR / f"filters_{family}.rs"
         if not test_file.is_file():
             errors.append(f"no regression test file for {family}: {test_file.name}")
@@ -168,13 +218,21 @@ def main() -> int:
         auto_wrap = parse_const(source, "AUTO_WRAP_COMMANDS")
         wrapper = parse_const(source, "WRAPPER_COMMANDS")
         git_subcommands = parse_const(source, "GIT_SUBCOMMANDS")
-    except RuntimeError as exc:
+        transparent_runners = parse_const(source, "TRANSPARENT_RUNNERS")
+        filter_families = parse_filter_families(source)
+        filter_family_exemptions = parse_byte_const(source, "FILTER_FAMILY_EXEMPTIONS")
+        stream_filters = parse_stream_filters(PROCESS.read_text(encoding="utf-8"))
+    except (RuntimeError, ValueError) as exc:
         print(f"catalog audit failed: {exc}", file=sys.stderr)
         return 1
     errors = check_catalog(
         auto_wrap=auto_wrap,
         wrapper=wrapper,
         git_subcommands=git_subcommands,
+        transparent_runners=transparent_runners,
+        filter_families=filter_families,
+        filter_family_exemptions=filter_family_exemptions,
+        stream_filters=stream_filters,
     )
     if errors:
         print("catalog audit failed:", file=sys.stderr)
@@ -183,7 +241,7 @@ def main() -> int:
         return 1
     print(
         f"catalog audit passed: {len(auto_wrap)} auto-wrap, "
-        f"{len(git_subcommands)} git subcommands, {len(FILTER_FAMILIES)} filter families"
+        f"{len(git_subcommands)} git subcommands, {len(filter_families)} filter families"
     )
     return 0
 
