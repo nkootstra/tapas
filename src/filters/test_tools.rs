@@ -1,6 +1,6 @@
 use super::{
-    EvidenceClass, FilterError, FilterOutput, StreamFilterDecision, StreamFilterOutput,
-    append_line, command_basename, find_subslice, strip_ansi,
+    EvidenceClass, FilterError, FilterOutput, StreamFilterDecision, StreamFilterInput,
+    StreamFilterOutput, append_line, command_basename, find_subslice, strip_ansi,
 };
 
 type Matcher = fn(&[u8]) -> bool;
@@ -16,6 +16,9 @@ const PIPE_FILTERS: &[(Matcher, Apply)] = &[
 ];
 
 pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
+    if !crate::catalog::filter_family_handles(argv, crate::catalog::TEST_TOOLS_FILTER_COMMANDS) {
+        return false;
+    }
     let Some(command) = argv.first().copied().map(command_basename) else {
         return false;
     };
@@ -49,17 +52,22 @@ pub fn dispatch_streams_argv(
     _exit_code: i32,
     lossless: bool,
 ) -> Result<StreamFilterOutput, FilterError> {
-    dispatch_streams_decision(argv, stdout, stderr, _exit_code, lossless)
-        .map(|decision| decision.into_output(stdout, stderr))
+    dispatch_streams_decision(StreamFilterInput::new(
+        argv, stdout, stderr, _exit_code, lossless,
+    ))
+    .map(|decision| decision.into_output(stdout, stderr))
 }
 
 pub(crate) fn dispatch_streams_decision(
-    argv: &[&[u8]],
-    stdout: &[u8],
-    stderr: &[u8],
-    _exit_code: i32,
-    lossless: bool,
+    input: StreamFilterInput<'_>,
 ) -> Result<StreamFilterDecision, FilterError> {
+    let StreamFilterInput {
+        argv,
+        stdout,
+        stderr,
+        exit_code: _,
+        lossless,
+    } = input;
     if argv.is_empty() {
         return Err(FilterError::InvalidInput);
     }

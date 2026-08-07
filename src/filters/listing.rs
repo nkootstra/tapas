@@ -1,18 +1,10 @@
 use super::{
-    EvidenceClass, FilterError, FilterOutput, StreamFilterDecision, StreamFilterOutput,
-    command_basename, find_subslice,
+    EvidenceClass, FilterError, FilterOutput, StreamFilterDecision, StreamFilterInput,
+    StreamFilterOutput, command_basename, find_subslice,
 };
 
 pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
-    argv.first()
-        .copied()
-        .map(command_basename)
-        .is_some_and(|command| {
-            matches!(
-                command,
-                b"find" | b"tree" | b"ls" | b"du" | b"wc" | b"env" | b"rg"
-            )
-        })
+    crate::catalog::filter_family_handles(argv, crate::catalog::LISTING_FILTER_COMMANDS)
 }
 
 pub fn matches(input: &[u8]) -> bool {
@@ -59,17 +51,22 @@ pub fn dispatch_streams_argv(
     _exit_code: i32,
     lossless: bool,
 ) -> Result<StreamFilterOutput, FilterError> {
-    dispatch_streams_decision(argv, stdout, stderr, _exit_code, lossless)
-        .map(|decision| decision.into_output(stdout, stderr))
+    dispatch_streams_decision(StreamFilterInput::new(
+        argv, stdout, stderr, _exit_code, lossless,
+    ))
+    .map(|decision| decision.into_output(stdout, stderr))
 }
 
 pub(crate) fn dispatch_streams_decision(
-    argv: &[&[u8]],
-    stdout: &[u8],
-    stderr: &[u8],
-    _exit_code: i32,
-    lossless: bool,
+    input: StreamFilterInput<'_>,
 ) -> Result<StreamFilterDecision, FilterError> {
+    let StreamFilterInput {
+        argv,
+        stdout,
+        stderr,
+        exit_code: _,
+        lossless,
+    } = input;
     if argv.is_empty() {
         return Err(FilterError::InvalidInput);
     }

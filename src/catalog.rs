@@ -186,8 +186,108 @@ pub const STREAM_WATCH_POLICIES: &[&str] = &[
     "vitest_watch",
 ];
 
+// Coarse command ownership for argv-aware stream filters. Commands can belong
+// to more than one family; the process registry preserves the dispatch order.
+pub(crate) const GIT_FILTER_COMMANDS: &[&[u8]] = &[b"git"];
+pub(crate) const TEST_TOOLS_FILTER_COMMANDS: &[&[u8]] = &[
+    b"pytest", b"jest", b"vitest", b"mocha", b"tsc", b"cargo", b"go", b"node", b"npm", b"pnpm",
+    b"yarn", b"bun",
+];
+pub(crate) const LISTING_FILTER_COMMANDS: &[&[u8]] =
+    &[b"find", b"tree", b"ls", b"du", b"wc", b"env", b"rg"];
+pub(crate) const BUILD_FILTER_COMMANDS: &[&[u8]] = &[
+    b"make",
+    b"ninja",
+    b"cargo",
+    b"go",
+    b"zig",
+    b"npm",
+    b"pnpm",
+    b"yarn",
+    b"bun",
+    b"webpack",
+    b"turbo",
+    b"next",
+    b"dotnet",
+    b"gradle",
+    b"gradlew",
+    b"mvn",
+    b"mvnw",
+    b"swift",
+    b"xcodebuild",
+    b"uv",
+    b"uvx",
+    b"poetry",
+    b"npx",
+    b"bunx",
+];
+pub(crate) const PACKAGE_FILTER_COMMANDS: &[&[u8]] = &[
+    b"npm",
+    b"pnpm",
+    b"yarn",
+    b"bun",
+    b"composer",
+    b"pip",
+    b"pip3",
+];
+pub(crate) const INFRA_FILTER_COMMANDS: &[&[u8]] = &[
+    b"curl",
+    b"docker",
+    b"docker-compose",
+    b"kubectl",
+    b"gh",
+    b"acli",
+];
+pub(crate) const DATA_FILTER_COMMANDS: &[&[u8]] = &[
+    b"aws",
+    b"jq",
+    b"pup",
+    b"acli",
+    b"gh",
+    b"sqlite3",
+    b"cat",
+    b"docker",
+    b"docker-compose",
+    b"kubectl",
+    b"ps",
+    b"df",
+    b"psql",
+    b"systemctl",
+    b"lsof",
+    b"npm",
+    b"pnpm",
+    b"yarn",
+    b"brew",
+    b"bun",
+];
+pub(crate) const DIAGNOSTICS_FILTER_COMMANDS: &[&[u8]] = &[
+    b"mypy",
+    b"ruff",
+    b"eslint",
+    b"biome",
+    b"pre-commit",
+    b"prettier",
+    b"terraform",
+    b"tofu",
+];
+#[expect(dead_code, reason = "consumed by scripts/audit_catalog.py")]
+pub(crate) const FILTER_FAMILY_EXEMPTIONS: &[&[u8]] =
+    &[b"bash", b"sh", b"zsh", b"env", b"head", b"tail"];
+
 pub fn command_basename(command: &OsStr) -> Option<&OsStr> {
     Path::new(command).file_name()
+}
+
+pub(crate) fn command_basename_bytes(command: &[u8]) -> &[u8] {
+    command
+        .iter()
+        .rposition(|byte| matches!(byte, b'/' | b'\\'))
+        .map_or(command, |separator| &command[separator + 1..])
+}
+
+pub(crate) fn filter_family_handles(argv: &[&[u8]], commands: &[&[u8]]) -> bool {
+    argv.first()
+        .is_some_and(|command| commands.contains(&command_basename_bytes(command)))
 }
 
 pub fn should_auto_wrap(command: &OsStr) -> bool {
