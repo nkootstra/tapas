@@ -79,6 +79,7 @@ class UsageReportTests(unittest.TestCase):
                         "type": "response_item",
                         "payload": {
                             "type": "function_call",
+                            "name": "exec_command",
                             "arguments": json.dumps({"cmd": "cargo test --locked"}),
                         },
                     }
@@ -95,6 +96,72 @@ class UsageReportTests(unittest.TestCase):
                 usage_report.collect_jsonl(sessions, "codex"),
                 [("codex", "cargo test --locked")],
             )
+
+    def test_jsonl_extraction_ignores_command_text_outside_known_tool_calls(self) -> None:
+        records = [
+            {
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "input": "const example = {'command': 'npm test'};",
+                },
+            },
+            {
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "input": "SELECT '{\"cmd\": \"cargo test\"}' AS example;",
+                },
+            },
+            {
+                "type": "response_item",
+                "payload": {
+                    "type": "function_call",
+                    "name": "database_query",
+                    "arguments": json.dumps({"command": "npm test"}),
+                },
+            },
+        ]
+
+        commands = [
+            command
+            for record in records
+            for command in usage_report.commands_from_json_line(json.dumps(record))
+        ]
+
+        self.assertEqual(commands, [])
+
+    def test_jsonl_extraction_reads_known_shell_tool_envelopes(self) -> None:
+        records = [
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "name": "Bash",
+                            "input": {"command": "git status"},
+                        }
+                    ]
+                },
+            },
+            {
+                "type": "response_item",
+                "payload": {
+                    "type": "custom_tool_call",
+                    "name": "functions.exec",
+                    "input": 'await tools.exec_command({"cmd": "cargo test"})',
+                },
+            },
+        ]
+
+        commands = [
+            command
+            for record in records
+            for command in usage_report.commands_from_json_line(json.dumps(record))
+        ]
+
+        self.assertEqual(commands, ["git status", "cargo test"])
 
     def test_report_identifies_catalog_and_git_subcommand_gaps(self) -> None:
         catalog = usage_report.parse_catalog(
@@ -142,6 +209,103 @@ class UsageReportTests(unittest.TestCase):
         coverage = {record["command"]: record["coverage"] for record in report["commands"]}
         self.assertEqual(coverage["uv"], "mixed")
         self.assertEqual(report["unlisted_commands"], [])
+
+    def test_report_aggregates_effective_commands_and_runner_chains(self) -> None:
+        catalog = usage_report.parse_catalog(
+            """
+            pub const AUTO_WRAP_COMMANDS: &[&str] = &["git"];
+            pub const WRAPPER_COMMANDS: &[&str] = &["git", "npx"];
+            pub const GIT_SUBCOMMANDS: &[&str] = &["status"];
+            pub const TRANSPARENT_RUNNERS: &[&str] = &["npx"];
+            """
+        )
+        rows = usage_report.normalize_rows(
+            [("codex", "git status"), ("codex", "npx pytest -q")]
+        )
+
+        report = usage_report.build_report(rows, catalog)
+
+        self.assertEqual(
+            report["effective_commands"],
+            [
+                {
+                    "command": "git",
+                    "count": 1,
+                    "routing_coverage": "auto-wrap",
+                    "compaction_coverage": "route-dependent",
+                    "runtime_dispatchable_count": 1,
+                    "runner_chains": [],
+                },
+                {
+                    "command": "pytest",
+                    "count": 1,
+                    "routing_coverage": "transparent-runner",
+                    "compaction_coverage": "route-dependent",
+                    "runtime_dispatchable_count": 1,
+                    "runner_chains": [{"chain": ["npx"], "count": 1}],
+                },
+            ],
+        )
+        self.assertEqual(
+            report["runner_chains"],
+            [{"chain": ["npx"], "count": 1, "runtime_dispatchable_count": 1}],
+        )
+        self.assertEqual(report["unlisted_effective_commands"], [])
+
+    def test_runner_reporting_matches_runtime_options_and_stops_after_one_layer(self) -> None:
+        catalog = usage_report.parse_catalog(
+            """
+            pub const AUTO_WRAP_COMMANDS: &[&str] = &[];
+            pub const WRAPPER_COMMANDS: &[&str] = &["npx", "uv"];
+            pub const GIT_SUBCOMMANDS: &[&str] = &[];
+            pub const TRANSPARENT_RUNNERS: &[&str] = &["npx", "uv run"];
+            """
+        )
+        rows = usage_report.normalize_rows(
+            [
+                ("codex", "uv run --project repo --offline -- pytest -q"),
+                ("codex", "npx --future pytest"),
+                ("codex", "npx uv run pytest"),
+            ]
+        )
+
+        report = usage_report.build_report(rows, catalog)
+        effective = {record["command"]: record for record in report["effective_commands"]}
+
+        self.assertEqual(effective["pytest"]["runtime_dispatchable_count"], 1)
+        self.assertEqual(
+            effective["pytest"]["runner_chains"],
+            [{"chain": ["uv run"], "count": 1}],
+        )
+        self.assertEqual(effective["npx"]["routing_coverage"], "wrapper-only")
+        self.assertEqual(effective["npx"]["runtime_dispatchable_count"], 0)
+        self.assertEqual(effective["uv"]["runtime_dispatchable_count"], 0)
+        self.assertEqual(
+            effective["uv"]["runner_chains"],
+            [{"chain": ["npx", "uv run"], "count": 1}],
+        )
+        self.assertIn(
+            {"chain": ["npx"], "count": 1, "runtime_dispatchable_count": 0},
+            report["runner_chains"],
+        )
+
+    def test_runner_reporting_rejects_unsupported_combined_short_flags(self) -> None:
+        catalog = usage_report.parse_catalog(
+            """
+            pub const AUTO_WRAP_COMMANDS: &[&str] = &[];
+            pub const WRAPPER_COMMANDS: &[&str] = &["poetry"];
+            pub const GIT_SUBCOMMANDS: &[&str] = &[];
+            pub const TRANSPARENT_RUNNERS: &[&str] = &["poetry run"];
+            """
+        )
+        rows = usage_report.normalize_rows([("codex", "poetry -qx run pytest")])
+
+        report = usage_report.build_report(rows, catalog)
+
+        self.assertEqual(report["effective_commands"][0]["command"], "poetry")
+        self.assertEqual(
+            report["effective_commands"][0]["runtime_dispatchable_count"], 0
+        )
 
 
 if __name__ == "__main__":

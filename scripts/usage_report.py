@@ -26,6 +26,7 @@ DEFAULT_OPENCODE_DB = pathlib.Path.home() / ".local/share/opencode/opencode.db"
 DEFAULT_CODEX_ROOT = pathlib.Path.home() / ".codex/sessions"
 DEFAULT_CLAUDE_ROOT = pathlib.Path.home() / ".claude/projects"
 COMMAND_KEYS = {"command", "cmd", "shell_command", "command_line"}
+SHELL_TOOL_NAMES = {"bash", "exec_command", "shell", "shell_command"}
 SHELLS = {"bash", "sh", "zsh", "fish"}
 SHELL_BUILTINS = {"cd", "export", "popd", "pushd", "set", "source", "unset"}
 SHELL_KEYWORDS = {
@@ -44,10 +45,23 @@ SHELL_KEYWORDS = {
     "while",
 }
 WRAPPERS = {"smll", "tapas"}
+UV_RUNNER_VALUE_OPTIONS = {
+    "--project", "--directory", "--python", "--package", "--with",
+    "--with-editable", "--with-requirements", "--env-file", "--group", "--extra",
+}
+UVX_VALUE_OPTIONS = {*UV_RUNNER_VALUE_OPTIONS, "--from"}
+UV_BOOLEAN_OPTIONS = {
+    "--isolated", "--active", "--no-sync", "--locked", "--frozen",
+    "--no-project", "--all-extras", "--no-dev", "--no-progress", "--offline",
+}
 
 
 def basename(value: str) -> str:
     return pathlib.PurePosixPath(value.replace("\\", "/")).name
+
+
+def _is_shell_tool(value: Any) -> bool:
+    return isinstance(value, str) and basename(value).rsplit(".", 1)[-1].lower() in SHELL_TOOL_NAMES
 
 
 def _is_assignment(word: str) -> bool:
@@ -187,28 +201,61 @@ def normalize_invocation(command: str) -> list[tuple[str, list[str]]] | None:
     return normalized or None
 
 
-def _embedded_commands(value: str) -> Iterator[str]:
-    """Extract commands embedded in tool-call argument strings."""
+def _commands_from_arguments(value: Any) -> Iterator[str]:
+    """Extract command fields from the arguments of a known tool call."""
+
+    if isinstance(value, dict):
+        for key in COMMAND_KEYS:
+            command = value.get(key)
+            if isinstance(command, str):
+                yield command
+
+
+def _embedded_commands(value: str, *, javascript: bool = False) -> Iterator[str]:
+    """Extract commands embedded in the arguments of a known tool call."""
 
     try:
         parsed = json.loads(value)
     except (TypeError, json.JSONDecodeError):
         parsed = None
     if parsed is not None:
-        yield from _commands_from_object(parsed)
+        yield from _commands_from_arguments(parsed)
         return
-    for match in re.finditer(r"(?:['\"](?:command|cmd)['\"]\s*[:=]\s*)(['\"])(.*?)\1", value):
-        yield match.group(2)
+    if javascript:
+        for match in re.finditer(
+            r"tools\.exec_command\s*\(\s*\{[^{}]*?['\"]?(?:command|cmd)['\"]?\s*:\s*(['\"])(.*?)\1",
+            value,
+            re.DOTALL,
+        ):
+            yield match.group(2).replace(r'\"', '"').replace(r"\n", "\n")
 
 
 def _commands_from_object(value: Any) -> Iterator[str]:
     if isinstance(value, dict):
-        for key, item in value.items():
-            if key in COMMAND_KEYS and isinstance(item, str):
-                yield item
-            elif key in {"arguments", "input", "tool_input"} and isinstance(item, str):
-                yield from _embedded_commands(item)
-            else:
+        record_type = value.get("type")
+        if record_type == "function_call":
+            if not _is_shell_tool(value.get("name")):
+                return
+            arguments = value.get("arguments")
+            if isinstance(arguments, str):
+                yield from _embedded_commands(arguments)
+            elif isinstance(arguments, dict):
+                yield from _commands_from_arguments(arguments)
+            return
+        if record_type == "custom_tool_call":
+            tool_name = value.get("name")
+            tool_input = value.get("input")
+            if tool_name in {"functions.exec", "exec"} and isinstance(tool_input, str):
+                yield from _embedded_commands(tool_input, javascript=True)
+            return
+        if record_type == "tool_use":
+            tool_name = value.get("name")
+            tool_input = value.get("input")
+            if _is_shell_tool(tool_name):
+                yield from _commands_from_arguments(tool_input)
+            return
+        for item in value.values():
+            if isinstance(item, (dict, list)):
                 yield from _commands_from_object(item)
     elif isinstance(value, list):
         for item in value:
@@ -221,10 +268,6 @@ def commands_from_json_line(line: str) -> Iterator[str]:
     except json.JSONDecodeError:
         return
     found = set(_commands_from_object(record))
-    # Codex custom tool calls sometimes contain JavaScript source in `input`,
-    # where the command is encoded as an object literal rather than JSON.
-    for match in re.finditer(r"['\"](?:command|cmd)['\"]\s*:\s*(['\"])(.*?)\1", line):
-        found.add(match.group(2).replace('\\"', '"').replace('\\n', '\n'))
     yield from sorted(found)
 
 
@@ -307,6 +350,175 @@ def first_subcommand(arguments: list[str]) -> str | None:
     return None
 
 
+def _option_kind(argument: str, options: set[str]) -> str | None:
+    if argument in options:
+        return "separate"
+    for option in options:
+        if len(option) > 2 and argument.startswith(option + "="):
+            return "inline"
+        if len(option) == 2 and argument.startswith(option) and len(argument) > 2:
+            return "inline"
+    return None
+
+
+def _matches_boolean_option(argument: str, options: set[str]) -> bool:
+    if argument in options:
+        return True
+    return (
+        len(argument) > 2
+        and argument.startswith("-")
+        and not argument.startswith("--")
+        and all(f"-{flag}" in options for flag in argument[1:])
+    )
+
+
+def _scan_runner_options(
+    arguments: list[str],
+    start: int,
+    *,
+    values: set[str],
+    booleans: set[str],
+    opaque: set[str] = frozenset(),
+    stop: str | None = None,
+) -> int | None:
+    index = start
+    while index < len(arguments):
+        argument = arguments[index]
+        if argument == stop:
+            return index
+        if argument == "--":
+            return index + 1 if stop is None else None
+        if not argument.startswith("-"):
+            return index if stop is None else None
+        if _option_kind(argument, opaque) is not None:
+            return None
+        if _matches_boolean_option(argument, booleans):
+            index += 1
+            continue
+        value_kind = _option_kind(argument, values)
+        if value_kind == "inline":
+            index += 1
+        elif value_kind == "separate" and index + 1 < len(arguments):
+            index += 2
+        else:
+            return None
+    return None
+
+
+def _runner_step(
+    command: str, arguments: list[str], declared: set[str]
+) -> tuple[str, tuple[str, list[str]] | None] | None:
+    runner: str | None = None
+    index: int | None = None
+    if command == "uv" and "uv run" in declared and arguments[:1] == ["run"]:
+        runner = "uv run"
+        index = _scan_runner_options(
+            arguments, 1, values=UV_RUNNER_VALUE_OPTIONS, booleans=UV_BOOLEAN_OPTIONS
+        )
+    elif command == "uvx" and "uvx" in declared:
+        runner = "uvx"
+        index = _scan_runner_options(
+            arguments, 0, values=UVX_VALUE_OPTIONS, booleans=UV_BOOLEAN_OPTIONS
+        )
+    elif command == "poetry" and "poetry run" in declared:
+        runner = "poetry run"
+        index = _scan_runner_options(
+            arguments,
+            0,
+            values={"-C", "--directory", "-P", "--project"},
+            booleans={"--no-interaction", "--no-ansi", "-q", "--quiet"},
+            stop="run",
+        )
+        index = None if index is None else index + 1
+    elif command == "pnpm" and "pnpm exec" in declared and (
+        "exec" in arguments or (arguments and arguments[0].startswith("-"))
+    ):
+        runner = "pnpm exec"
+        index = _scan_runner_options(
+            arguments,
+            0,
+            values={"-C", "--dir", "-F", "--filter", "--workspace-concurrency"},
+            booleans={
+                "-r", "--recursive", "-w", "--workspace-root", "--parallel",
+                "--stream", "--aggregate-output", "--use-stderr",
+            },
+            stop="exec",
+        )
+        index = None if index is None else index + 1
+    elif command == "npx" and "npx" in declared:
+        runner = "npx"
+        index = _scan_runner_options(
+            arguments,
+            0,
+            values={"-p", "--package", "-w", "--workspace", "--allow-scripts"},
+            booleans={
+                "-y", "--yes", "--no", "--workspaces", "--include-workspace-root",
+                "--strict-allow-scripts", "--dangerously-allow-all-scripts",
+            },
+            opaque={"-c", "--call"},
+        )
+    elif command == "bunx" and "bunx" in declared:
+        runner = "bunx"
+        index = _scan_runner_options(
+            arguments,
+            0,
+            values={"--package", "--cwd"},
+            booleans={"--bun", "--no-install", "--silent", "--help", "--version"},
+        )
+    if runner is None:
+        return None
+    if index is None or index >= len(arguments) or arguments[index].startswith("-"):
+        return runner, None
+    return runner, (basename(arguments[index]), arguments[index + 1 :])
+
+
+def _effective_invocation(
+    row: dict[str, Any], transparent_prefixes: list[list[str]]
+) -> dict[str, Any]:
+    command = row["command"]
+    arguments = row["arguments"]
+    declared = {" ".join(prefix) for prefix in transparent_prefixes}
+    runner = _runner_step(command, arguments, declared)
+    if runner is None:
+        return {
+            "command": command,
+            "arguments": arguments,
+            "runner_chain": [],
+            "runtime_dispatchable": True,
+            "runner_credited": False,
+        }
+    runner_name, logical = runner
+    if logical is None:
+        return {
+            "command": command,
+            "arguments": arguments,
+            "runner_chain": [runner_name],
+            "runtime_dispatchable": False,
+            "runner_credited": False,
+        }
+
+    effective_command, effective_tail = logical
+    runner_chain = [runner_name]
+    nested = _runner_step(effective_command, effective_tail, declared)
+    if nested is not None:
+        nested_name, nested_logical = nested
+        runner_chain.append(nested_name)
+        while nested_logical is not None:
+            nested_command, nested_arguments = nested_logical
+            nested = _runner_step(nested_command, nested_arguments, declared)
+            if nested is None:
+                break
+            nested_name, nested_logical = nested
+            runner_chain.append(nested_name)
+    return {
+        "command": effective_command,
+        "arguments": effective_tail,
+        "runner_chain": runner_chain,
+        "runtime_dispatchable": len(runner_chain) == 1,
+        "runner_credited": True,
+    }
+
+
 def build_report(rows: Iterable[dict[str, Any]], catalog: dict[str, set[str]], minimum: int = 1) -> dict[str, Any]:
     rows = list(rows)
     commands = collections.Counter(row["command"] for row in rows)
@@ -323,6 +535,13 @@ def build_report(rows: Iterable[dict[str, Any]], catalog: dict[str, set[str]], m
             for prefix in transparent_prefixes
         ):
             return "transparent-runner"
+        if command in catalog["WRAPPER_COMMANDS"]:
+            return "wrapper-only"
+        return "unlisted"
+
+    def direct_coverage(command: str) -> str:
+        if command in catalog["AUTO_WRAP_COMMANDS"]:
+            return "auto-wrap"
         if command in catalog["WRAPPER_COMMANDS"]:
             return "wrapper-only"
         return "unlisted"
@@ -350,6 +569,66 @@ def build_report(rows: Iterable[dict[str, Any]], catalog: dict[str, set[str]], m
         for subcommand, count in git_subcommands.most_common()
         if count >= minimum
     ]
+    effective_rows = [
+        {**row, **_effective_invocation(row, transparent_prefixes)} for row in rows
+    ]
+    effective_counts = collections.Counter(row["command"] for row in effective_rows)
+    effective_records = []
+    for command, count in effective_counts.most_common():
+        if count < minimum:
+            continue
+        matching = [row for row in effective_rows if row["command"] == command]
+        routing_statuses = {
+            "transparent-runner"
+            if row["runner_credited"]
+            else direct_coverage(row["command"])
+            for row in matching
+        }
+        routing_coverage = (
+            next(iter(routing_statuses)) if len(routing_statuses) == 1 else "mixed"
+        )
+        compaction_statuses = {
+            "not-catalogued" if status == "unlisted" else "route-dependent"
+            for status in routing_statuses
+        }
+        compaction_coverage = (
+            next(iter(compaction_statuses))
+            if len(compaction_statuses) == 1
+            else "mixed"
+        )
+        chains = collections.Counter(
+            tuple(row["runner_chain"]) for row in matching if row["runner_chain"]
+        )
+        effective_records.append(
+            {
+                "command": command,
+                "count": count,
+                "routing_coverage": routing_coverage,
+                "compaction_coverage": compaction_coverage,
+                "runtime_dispatchable_count": sum(
+                    row["runtime_dispatchable"] for row in matching
+                ),
+                "runner_chains": [
+                    {"chain": list(chain), "count": chain_count}
+                    for chain, chain_count in sorted(chains.items())
+                ],
+            }
+        )
+    chain_rows: dict[tuple[str, ...], list[dict[str, Any]]] = collections.defaultdict(list)
+    for row in effective_rows:
+        if row["runner_chain"]:
+            chain_rows[tuple(row["runner_chain"])].append(row)
+    runner_chain_records = [
+        {
+            "chain": list(chain),
+            "count": len(matching),
+            "runtime_dispatchable_count": sum(
+                row["runtime_dispatchable"] for row in matching
+            ),
+        }
+        for chain, matching in sorted(chain_rows.items())
+        if len(matching) >= minimum
+    ]
     return {
         "total_invocations": len(rows),
         "sources": dict(sources),
@@ -357,6 +636,13 @@ def build_report(rows: Iterable[dict[str, Any]], catalog: dict[str, set[str]], m
         "git_subcommands": git_records,
         "unlisted_commands": [record for record in command_records if record["coverage"] == "unlisted"],
         "unlisted_git_subcommands": [record for record in git_records if record["coverage"] == "unlisted"],
+        "effective_commands": effective_records,
+        "unlisted_effective_commands": [
+            record
+            for record in effective_records
+            if record["routing_coverage"] == "unlisted"
+        ],
+        "runner_chains": runner_chain_records,
     }
 
 
@@ -372,6 +658,20 @@ def format_text(report: dict[str, Any]) -> str:
     lines.extend(
         f"  {record['subcommand']}: {record['count']} ({record['coverage']})"
         for record in report["git_subcommands"]
+    )
+    lines.append("Effective commands:")
+    lines.extend(
+        f"  {record['command']}: {record['count']} "
+        f"(routing={record['routing_coverage']}, "
+        f"compaction={record['compaction_coverage']}, "
+        f"runtime-dispatchable={record['runtime_dispatchable_count']})"
+        for record in report["effective_commands"]
+    )
+    lines.append("Runner chains:")
+    lines.extend(
+        f"  {' -> '.join(record['chain'])}: {record['count']} "
+        f"(runtime-dispatchable={record['runtime_dispatchable_count']})"
+        for record in report["runner_chains"]
     )
     return "\n".join(lines) + "\n"
 
