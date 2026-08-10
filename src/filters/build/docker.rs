@@ -3,14 +3,13 @@ use std::collections::BTreeSet;
 use super::find_subslice;
 
 pub(super) fn route(command: &[u8], argv: &[&[u8]]) -> bool {
-    let build = command == b"docker"
+    command == b"docker"
         && (argv.get(1) == Some(&b"build".as_slice())
             || argv.get(1) == Some(&b"buildx".as_slice())
                 && argv.get(2) == Some(&b"build".as_slice())
             || argv.get(1) == Some(&b"compose".as_slice())
                 && argv.get(2) == Some(&b"build".as_slice()))
-        || command == b"docker-compose" && argv.get(1) == Some(&b"build".as_slice());
-    build
+        || command == b"docker-compose" && argv.get(1) == Some(&b"build".as_slice())
 }
 
 pub(super) fn compact(input: &[u8]) -> Option<Vec<u8>> {

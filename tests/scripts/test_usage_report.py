@@ -239,7 +239,7 @@ class UsageReportTests(unittest.TestCase):
     def test_report_aggregates_effective_commands_and_runner_chains(self) -> None:
         catalog = usage_report.parse_catalog(
             """
-            pub const AUTO_WRAP_COMMANDS: &[&str] = &["git"];
+            pub const AUTO_WRAP_COMMANDS: &[&str] = &["git", "pytest"];
             pub const WRAPPER_COMMANDS: &[&str] = &["git", "npx"];
             pub const GIT_SUBCOMMANDS: &[&str] = &["status"];
             pub const TRANSPARENT_RUNNERS: &[&str] = &["npx"];
@@ -282,7 +282,7 @@ class UsageReportTests(unittest.TestCase):
     def test_runner_reporting_matches_runtime_options_and_supports_four_layers(self) -> None:
         catalog = usage_report.parse_catalog(
             """
-            pub const AUTO_WRAP_COMMANDS: &[&str] = &[];
+            pub const AUTO_WRAP_COMMANDS: &[&str] = &["pytest"];
             pub const WRAPPER_COMMANDS: &[&str] = &["npx", "uv"];
             pub const GIT_SUBCOMMANDS: &[&str] = &[];
             pub const TRANSPARENT_RUNNERS: &[&str] = &["npx", "uv run"];
@@ -317,7 +317,7 @@ class UsageReportTests(unittest.TestCase):
     def test_runner_reporting_fails_closed_after_four_layers(self) -> None:
         catalog = usage_report.parse_catalog(
             """
-            pub const AUTO_WRAP_COMMANDS: &[&str] = &[];
+            pub const AUTO_WRAP_COMMANDS: &[&str] = &["pytest"];
             pub const WRAPPER_COMMANDS: &[&str] = &["npx"];
             pub const GIT_SUBCOMMANDS: &[&str] = &[];
             pub const TRANSPARENT_RUNNERS: &[&str] = &["npx"];
@@ -360,6 +360,72 @@ class UsageReportTests(unittest.TestCase):
         self.assertEqual(report["effective_commands"][0]["command"], "poetry")
         self.assertEqual(
             report["effective_commands"][0]["runtime_dispatchable_count"], 0
+        )
+
+    def test_unknown_commands_remain_unlisted_through_transparent_runners(self) -> None:
+        catalog = usage_report.parse_catalog(
+            """
+            pub const AUTO_WRAP_COMMANDS: &[&str] = &[];
+            pub const WRAPPER_COMMANDS: &[&str] = &["npx"];
+            pub const GIT_SUBCOMMANDS: &[&str] = &[];
+            pub const TRANSPARENT_RUNNERS: &[&str] = &["npx"];
+            """
+        )
+        rows = usage_report.normalize_rows(
+            [
+                ("codex", "mystery-tool --help"),
+                ("codex", "npx mystery-tool --help"),
+            ]
+        )
+
+        report = usage_report.build_report(rows, catalog)
+
+        self.assertEqual(
+            report["unlisted_effective_commands"],
+            [
+                {
+                    "command": "mystery-tool",
+                    "count": 2,
+                    "routing_coverage": "unlisted",
+                    "compaction_coverage": "not-catalogued",
+                    "runtime_dispatchable_count": 0,
+                    "runner_chains": [{"chain": ["npx"], "count": 1}],
+                }
+            ],
+        )
+        self.assertEqual(
+            report["runner_chains"],
+            [{"chain": ["npx"], "count": 1, "runtime_dispatchable_count": 0}],
+        )
+
+    def test_pnpm_option_led_direct_invocation_is_not_treated_as_exec(self) -> None:
+        catalog = usage_report.parse_catalog(
+            """
+            pub const AUTO_WRAP_COMMANDS: &[&str] = &["pnpm"];
+            pub const WRAPPER_COMMANDS: &[&str] = &["pnpm"];
+            pub const GIT_SUBCOMMANDS: &[&str] = &[];
+            pub const TRANSPARENT_RUNNERS: &[&str] = &["pnpm exec"];
+            """
+        )
+        rows = usage_report.normalize_rows(
+            [
+                ("codex", "pnpm --recursive test"),
+                ("codex", "pnpm --filter exec test"),
+                ("codex", "pnpm --recursive -- exec pytest"),
+                ("codex", "pnpm --recursive exec pytest"),
+                ("codex", "pnpm --future exec pytest"),
+            ]
+        )
+
+        report = usage_report.build_report(rows, catalog)
+        effective = {record["command"]: record for record in report["effective_commands"]}
+
+        self.assertEqual(effective["pnpm"]["routing_coverage"], "auto-wrap")
+        self.assertEqual(effective["pnpm"]["runtime_dispatchable_count"], 3)
+        self.assertEqual(effective["pytest"]["runtime_dispatchable_count"], 0)
+        self.assertEqual(
+            report["runner_chains"],
+            [{"chain": ["pnpm exec"], "count": 2, "runtime_dispatchable_count": 0}],
         )
 
 

@@ -450,13 +450,52 @@ fn transparent_runner_classification_supports_four_layers_and_fails_closed_after
 }
 
 #[test]
+fn pnpm_is_only_unwrapped_when_exec_is_the_subcommand() {
+    for direct in [
+        &["pnpm", "--version"][..],
+        &["pnpm", "--filter", "app", "test"][..],
+        &["pnpm", "--filter", "exec", "test"][..],
+        &["pnpm", "--", "exec", "vite"][..],
+        &["pnpm", "--future", "--", "exec", "vite"][..],
+    ] {
+        let direct = direct.iter().map(OsString::from).collect::<Vec<_>>();
+        let classified = classify(&direct);
+        assert_eq!(classified.logical_argv, direct.as_slice());
+        assert_ne!(
+            classified.passthrough_reason,
+            Some(PassthroughReason::AmbiguousRunner)
+        );
+    }
+
+    let exec = ["pnpm", "--filter", "app", "exec", "vite", "dev"]
+        .into_iter()
+        .map(OsString::from)
+        .collect::<Vec<_>>();
+    assert_eq!(classify(&exec).logical_argv, &exec[4..]);
+
+    for malformed in [
+        &["pnpm", "exec", "--future", "vite"][..],
+        &["pnpm", "--future", "exec", "vite"][..],
+    ] {
+        let malformed = malformed.iter().map(OsString::from).collect::<Vec<_>>();
+        assert_eq!(
+            classify(&malformed).passthrough_reason,
+            Some(PassthroughReason::AmbiguousRunner)
+        );
+    }
+}
+
+#[test]
 fn lifecycle_policies_inherit_interactive_and_unbounded_commands() {
     for args in [
         &["vite"][..],
         &["vite", "dev"][..],
         &["vite", "serve"][..],
         &["vite", "preview"][..],
+        &["vite", "--host", "0.0.0.0"][..],
+        &["vite", "--config", "vite.config.ts", "preview"][..],
         &["vite", "build", "--watch"][..],
+        &["vite", "--config", "vite.config.ts", "build", "--watch"][..],
         &["vite", "build", "--watch=true"][..],
         &["esbuild", "app.ts", "--watch"][..],
         &["esbuild", "app.ts", "--watch=forever"][..],
@@ -471,6 +510,8 @@ fn lifecycle_policies_inherit_interactive_and_unbounded_commands() {
         &["playwright", "codegen", "example.com"][..],
         &["docker", "run", "alpine"][..],
         &["docker", "compose", "up"][..],
+        &["docker", "compose", "-f", "compose.yml", "up"][..],
+        &["docker", "compose", "--future", "value", "up"][..],
         &["docker", "compose", "up", "--detach=false"][..],
         &["docker", "compose", "up", "--detach", "false"][..],
         &["docker-compose", "up"][..],
@@ -488,9 +529,12 @@ fn lifecycle_policies_inherit_interactive_and_unbounded_commands() {
 
     for args in [
         &["vite", "build"][..],
+        &["vite", "--config", "vite.config.ts", "build"][..],
         &["esbuild", "app.ts", "--outfile=app.js"][..],
         &["playwright", "test"][..],
         &["docker", "compose", "up", "-d"][..],
+        &["docker", "compose", "-f", "compose.yml", "up", "-d"][..],
+        &["docker", "compose", "-f", "compose.yml", "ps"][..],
         &["docker", "compose", "up", "--detach"][..],
         &["docker", "compose", "up", "--detach=true"][..],
         &["docker", "stats", "--no-stream"][..],

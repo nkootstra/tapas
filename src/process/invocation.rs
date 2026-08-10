@@ -57,6 +57,24 @@ pub fn is_supported(argv: &[OsString]) -> bool {
 
 const MAX_RUNNER_LAYERS: usize = 4;
 
+const PNPM_VALUE: &[&[u8]] = &[
+    b"-C",
+    b"--dir",
+    b"-F",
+    b"--filter",
+    b"--workspace-concurrency",
+];
+const PNPM_BOOLEAN: &[&[u8]] = &[
+    b"-r",
+    b"--recursive",
+    b"-w",
+    b"--workspace-root",
+    b"--parallel",
+    b"--stream",
+    b"--aggregate-output",
+    b"--use-stderr",
+];
+
 enum RunnerStep<'a> {
     NotRunner,
     Unwrapped(&'a [OsString]),
@@ -84,32 +102,8 @@ fn unwrap_runner(argv: &[OsString]) -> RunnerStep<'_> {
             &[b"-C", b"--directory", b"-P", b"--project"],
             &[b"--no-interaction", b"--no-ansi", b"-q", b"--quiet"],
         )
-    } else if command == b"pnpm"
-        && argv.len() >= 2
-        && (has_any_arg(argv, &[b"exec"]) || bytes(&argv[1]).starts_with(b"-"))
-    {
-        unwrap_subcommand(
-            argv,
-            1,
-            b"exec",
-            &[
-                b"-C",
-                b"--dir",
-                b"-F",
-                b"--filter",
-                b"--workspace-concurrency",
-            ],
-            &[
-                b"-r",
-                b"--recursive",
-                b"-w",
-                b"--workspace-root",
-                b"--parallel",
-                b"--stream",
-                b"--aggregate-output",
-                b"--use-stderr",
-            ],
-        )
+    } else if command == b"pnpm" && pnpm_exec_candidate(argv) {
+        unwrap_subcommand(argv, 1, b"exec", PNPM_VALUE, PNPM_BOOLEAN)
     } else if command == b"npx" {
         unwrap_direct(
             argv,
@@ -220,10 +214,41 @@ pub fn classify_stream(argv: &[OsString]) -> StreamDecision {
 
 fn inherits_lifecycle(command: &[u8], argv: &[OsString]) -> bool {
     if command == b"vite" {
-        let subcommand = argv.get(1).map(bytes);
-        return subcommand.is_none()
-            || subcommand.is_some_and(|value| is_any(value, &[b"dev", b"serve", b"preview"]))
-            || subcommand == Some(b"build") && long_option_enabled(argv, b"--watch");
+        if has_any_arg(argv, &[b"--help", b"-h", b"--version", b"-v"]) {
+            return false;
+        }
+        return match scan_subcommand(
+            argv,
+            1,
+            &[
+                b"--host",
+                b"--port",
+                b"--open",
+                b"-c",
+                b"--config",
+                b"--base",
+                b"-l",
+                b"--logLevel",
+                b"--configLoader",
+                b"-d",
+                b"--debug",
+                b"-f",
+                b"--filter",
+                b"-m",
+                b"--mode",
+            ],
+            &[
+                b"--https",
+                b"--cors",
+                b"--strictPort",
+                b"--force",
+                b"--clearScreen",
+            ],
+        ) {
+            SubcommandScan::Found(b"build") => long_option_enabled(argv, b"--watch"),
+            SubcommandScan::Found(b"optimize") => false,
+            _ => true,
+        };
     }
     if command == b"esbuild" {
         return long_option_enabled(argv, b"--watch") || long_option_enabled(argv, b"--serve");
@@ -238,20 +263,122 @@ fn inherits_lifecycle(command: &[u8], argv: &[OsString]) -> bool {
         if equals_at(argv, 1, b"run") {
             return true;
         }
-        if equals_at(argv, 1, b"compose") && equals_at(argv, 2, b"up") {
-            return !boolean_option_enabled(argv, b"--detach", Some(b'd')).unwrap_or(false);
+        if equals_at(argv, 1, b"compose") {
+            return compose_inherits_lifecycle(argv, 2);
         }
         if equals_at(argv, 1, b"stats") {
             return !boolean_option_enabled(argv, b"--no-stream", None).unwrap_or(false);
         }
     }
-    if command == b"docker-compose" && equals_at(argv, 1, b"up") {
-        return !boolean_option_enabled(argv, b"--detach", Some(b'd')).unwrap_or(false);
+    if command == b"docker-compose" {
+        return compose_inherits_lifecycle(argv, 1);
     }
     if is_any(command, &[b"bat", b"batcat"]) {
         return option_value(argv, b"--paging").is_some_and(|value| value == b"always");
     }
     command == b"ctest" && option_value(argv, b"--repeat").is_some()
+}
+
+fn pnpm_exec_candidate(argv: &[OsString]) -> bool {
+    let mut index = 1;
+    while index < argv.len() {
+        let argument = bytes(&argv[index]);
+        if argument == b"--" {
+            return false;
+        }
+        if !argument.starts_with(b"-") {
+            return argument == b"exec";
+        }
+        if is_any(argument, PNPM_BOOLEAN) {
+            index += 1;
+        } else if let Some(consumed) = option_consumption(argument, PNPM_VALUE) {
+            index += consumed;
+        } else {
+            return argv[index + 1..]
+                .iter()
+                .map(bytes)
+                .take_while(|argument| *argument != b"--")
+                .any(|argument| argument == b"exec");
+        }
+    }
+    false
+}
+
+fn compose_inherits_lifecycle(argv: &[OsString], start: usize) -> bool {
+    match scan_subcommand(
+        argv,
+        start,
+        &[
+            b"--ansi",
+            b"--env-file",
+            b"-f",
+            b"--file",
+            b"--parallel",
+            b"--profile",
+            b"--progress",
+            b"--project-directory",
+            b"-p",
+            b"--project-name",
+        ],
+        &[b"--all-resources", b"--compatibility", b"--dry-run"],
+    ) {
+        SubcommandScan::Found(b"up") => {
+            !boolean_option_enabled(argv, b"--detach", Some(b'd')).unwrap_or(false)
+        }
+        SubcommandScan::Ambiguous => true,
+        SubcommandScan::Found(_) | SubcommandScan::Missing => false,
+    }
+}
+
+enum SubcommandScan<'a> {
+    Found(&'a [u8]),
+    Missing,
+    Ambiguous,
+}
+
+fn scan_subcommand<'a>(
+    argv: &'a [OsString],
+    mut index: usize,
+    values: &[&[u8]],
+    booleans: &[&[u8]],
+) -> SubcommandScan<'a> {
+    while index < argv.len() {
+        let argument = bytes(&argv[index]);
+        if argument == b"--" {
+            return argv
+                .get(index + 1)
+                .map(bytes)
+                .map_or(SubcommandScan::Missing, SubcommandScan::Found);
+        }
+        if !argument.starts_with(b"-") {
+            return SubcommandScan::Found(argument);
+        }
+        if is_any(argument, booleans) {
+            index += 1;
+        } else if let Some(consumed) = option_consumption(argument, values) {
+            index += consumed;
+        } else {
+            return SubcommandScan::Ambiguous;
+        }
+    }
+    SubcommandScan::Missing
+}
+
+fn option_consumption(argument: &[u8], options: &[&[u8]]) -> Option<usize> {
+    options.iter().find_map(|option| {
+        if argument == *option {
+            Some(2)
+        } else if option.len() > 2
+            && argument
+                .strip_prefix(*option)
+                .is_some_and(|rest| rest.starts_with(b"="))
+            || option.len() == 2 && argument.len() > 2 && argument.starts_with(option)
+        {
+            Some(1)
+        } else {
+            None
+        }
+    })
 }
 
 fn has_enabled_option(argv: &[OsString], options: &[&[u8]]) -> bool {

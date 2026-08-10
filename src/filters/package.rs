@@ -94,6 +94,9 @@ pub(crate) fn dispatch_streams_decision(
     }
 
     let pip_command = matches!(command, b"pip" | b"pip3");
+    if pip_command && exit_code != 0 {
+        return Ok(StreamFilterDecision::Unchanged);
+    }
     let pip_table_route = pip_command && matches!(arg1, b"list" | b"outdated");
     if pip_table_route {
         return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(

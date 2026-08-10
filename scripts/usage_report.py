@@ -54,6 +54,13 @@ UV_BOOLEAN_OPTIONS = {
     "--isolated", "--active", "--no-sync", "--locked", "--frozen",
     "--no-project", "--all-extras", "--no-dev", "--no-progress", "--offline",
 }
+PNPM_RUNNER_VALUE_OPTIONS = {
+    "-C", "--dir", "-F", "--filter", "--workspace-concurrency",
+}
+PNPM_RUNNER_BOOLEAN_OPTIONS = {
+    "-r", "--recursive", "-w", "--workspace-root", "--parallel", "--stream",
+    "--aggregate-output", "--use-stderr",
+}
 MAX_RUNNER_LAYERS = 4
 
 
@@ -373,6 +380,38 @@ def _matches_boolean_option(argument: str, options: set[str]) -> bool:
     )
 
 
+def _pnpm_exec_candidate(arguments: list[str]) -> bool:
+    index = 0
+    while index < len(arguments):
+        argument = arguments[index]
+        if argument == "--":
+            return False
+        if argument == "exec":
+            return True
+        if not argument.startswith("-"):
+            return False
+        if _matches_boolean_option(argument, PNPM_RUNNER_BOOLEAN_OPTIONS):
+            index += 1
+            continue
+        value_kind = _option_kind(argument, PNPM_RUNNER_VALUE_OPTIONS)
+        if value_kind == "inline":
+            index += 1
+            continue
+        if value_kind == "separate":
+            if index + 1 >= len(arguments):
+                return False
+            index += 2
+            continue
+
+        terminator = (
+            arguments.index("--", index + 1)
+            if "--" in arguments[index + 1 :]
+            else len(arguments)
+        )
+        return "exec" in arguments[index + 1 : terminator]
+    return False
+
+
 def _scan_runner_options(
     arguments: list[str],
     start: int,
@@ -431,18 +470,17 @@ def _runner_step(
             stop="run",
         )
         index = None if index is None else index + 1
-    elif command == "pnpm" and "pnpm exec" in declared and (
-        "exec" in arguments or (arguments and arguments[0].startswith("-"))
+    elif (
+        command == "pnpm"
+        and "pnpm exec" in declared
+        and _pnpm_exec_candidate(arguments)
     ):
         runner = "pnpm exec"
         index = _scan_runner_options(
             arguments,
             0,
-            values={"-C", "--dir", "-F", "--filter", "--workspace-concurrency"},
-            booleans={
-                "-r", "--recursive", "-w", "--workspace-root", "--parallel",
-                "--stream", "--aggregate-output", "--use-stderr",
-            },
+            values=PNPM_RUNNER_VALUE_OPTIONS,
+            booleans=PNPM_RUNNER_BOOLEAN_OPTIONS,
             stop="exec",
         )
         index = None if index is None else index + 1
@@ -474,7 +512,9 @@ def _runner_step(
 
 
 def _effective_invocation(
-    row: dict[str, Any], transparent_prefixes: list[list[str]]
+    row: dict[str, Any],
+    transparent_prefixes: list[list[str]],
+    auto_wrap_commands: set[str],
 ) -> dict[str, Any]:
     original_command = row["command"]
     original_arguments = row["arguments"]
@@ -486,12 +526,13 @@ def _effective_invocation(
     for _ in range(MAX_RUNNER_LAYERS):
         runner = _runner_step(command, arguments, declared)
         if runner is None:
+            runtime_dispatchable = command in auto_wrap_commands
             return {
                 "command": command,
                 "arguments": arguments,
                 "runner_chain": runner_chain,
-                "runtime_dispatchable": True,
-                "runner_credited": bool(runner_chain),
+                "runtime_dispatchable": runtime_dispatchable,
+                "runner_credited": bool(runner_chain) and runtime_dispatchable,
             }
         runner_name, logical = runner
         runner_chain.append(runner_name)
@@ -507,12 +548,13 @@ def _effective_invocation(
 
     nested = _runner_step(command, arguments, declared)
     if nested is None:
+        runtime_dispatchable = command in auto_wrap_commands
         return {
             "command": command,
             "arguments": arguments,
             "runner_chain": runner_chain,
-            "runtime_dispatchable": True,
-            "runner_credited": True,
+            "runtime_dispatchable": runtime_dispatchable,
+            "runner_credited": runtime_dispatchable,
         }
 
     runner_chain.append(nested[0])
@@ -583,7 +625,12 @@ def build_report(rows: Iterable[dict[str, Any]], catalog: dict[str, set[str]], m
     effective_rows = []
     effective_by_command: dict[str, list[dict[str, Any]]] = collections.defaultdict(list)
     for row in rows:
-        effective = {**row, **_effective_invocation(row, transparent_prefixes)}
+        effective = {
+            **row,
+            **_effective_invocation(
+                row, transparent_prefixes, catalog["AUTO_WRAP_COMMANDS"]
+            ),
+        }
         effective_rows.append(effective)
         effective_by_command[effective["command"]].append(effective)
     effective_counts = collections.Counter(row["command"] for row in effective_rows)

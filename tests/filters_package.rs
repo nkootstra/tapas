@@ -244,6 +244,38 @@ fn pip_install_summarizes_progress_and_keeps_the_result() {
 }
 
 #[test]
+fn failed_pip_routes_preserve_both_streams_byte_for_byte() {
+    let install_stdout = b"Collecting missing-package==1.0\n";
+    let install_stderr =
+        b"ERROR: Could not find a version that satisfies the requirement missing-package==1.0\n";
+    let install = package::dispatch_streams_argv(
+        &[b"pip", b"install", b"missing-package==1.0"],
+        install_stdout,
+        install_stderr,
+        1,
+        false,
+    )
+    .unwrap();
+    assert_eq!(install.evidence, EvidenceClass::ByteExact);
+    assert_eq!(install.stdout, install_stdout);
+    assert_eq!(install.stderr, install_stderr);
+
+    let list_stdout = concat!(
+        "Package    Version\n",
+        "---------- -------\n",
+        "requests   2.31.0\n",
+    )
+    .as_bytes();
+    let list_stderr = b"ERROR: interrupted while reading installed distributions\n";
+    let list =
+        package::dispatch_streams_argv(&[b"pip3", b"list"], list_stdout, list_stderr, 2, false)
+            .unwrap();
+    assert_eq!(list.evidence, EvidenceClass::ByteExact);
+    assert_eq!(list.stdout, list_stdout);
+    assert_eq!(list.stderr, list_stderr);
+}
+
+#[test]
 fn exact_query_machine_and_lossless_requests_preserve_both_streams() {
     let tree = fixture("npm_ls.txt");
     let stderr = b"diagnostic\n";

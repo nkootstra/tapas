@@ -54,19 +54,18 @@ pub(crate) fn dispatch_streams_decision(
         && exit_code == 0
         && docker::route(command, argv)
         && (stdout.is_empty() != stderr.is_empty())
+        && let Some(compact) = docker::compact(if stdout.is_empty() { stderr } else { stdout })
     {
-        if let Some(compact) = docker::compact(if stdout.is_empty() { stderr } else { stdout }) {
-            let (stdout, stderr) = if stdout.is_empty() {
-                (Vec::new(), compact)
-            } else {
-                (compact, Vec::new())
-            };
-            return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
-                stdout,
-                stderr,
-                EvidenceClass::PotentiallyLossy,
-            )));
-        }
+        let (stdout, stderr) = if stdout.is_empty() {
+            (Vec::new(), compact)
+        } else {
+            (compact, Vec::new())
+        };
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
+            stdout,
+            stderr,
+            EvidenceClass::PotentiallyLossy,
+        )));
     }
     if exit_code == 0 {
         if command == b"vite"

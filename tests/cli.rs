@@ -379,9 +379,33 @@ fn rewrite_and_non_codex_hooks_follow_unambiguous_runner_chains() {
     ]);
     assert_eq!(rewritten.stdout, b"tapas npx uvx bunx uv run vite dev\n");
 
+    for direct in [
+        &["--rewrite", "pnpm", "--version"][..],
+        &["--rewrite", "pnpm", "--filter", "app", "test"][..],
+    ] {
+        let output = tapas(direct);
+        assert!(
+            output.stdout.starts_with(b"tapas pnpm "),
+            "args: {direct:?}"
+        );
+    }
+
+    let pnpm_exec = tapas(&[
+        "--rewrite",
+        "pnpm",
+        "--filter",
+        "app",
+        "exec",
+        "vite",
+        "dev",
+    ]);
+    assert_eq!(pnpm_exec.stdout, b"tapas pnpm --filter app exec vite dev\n");
+
     for args in [
         &["--rewrite", "npx", "unknown-tool"][..],
         &["--rewrite", "npx", "--future", "vite", "dev"][..],
+        &["--rewrite", "pnpm", "exec", "--future", "vite"][..],
+        &["--rewrite", "pnpm", "--future", "exec", "vite"][..],
         &[
             "--rewrite",
             "npx",
