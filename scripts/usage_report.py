@@ -54,6 +54,7 @@ UV_BOOLEAN_OPTIONS = {
     "--isolated", "--active", "--no-sync", "--locked", "--frozen",
     "--no-project", "--all-extras", "--no-dev", "--no-progress", "--offline",
 }
+MAX_RUNNER_LAYERS = 4
 
 
 def basename(value: str) -> str:
@@ -475,47 +476,52 @@ def _runner_step(
 def _effective_invocation(
     row: dict[str, Any], transparent_prefixes: list[list[str]]
 ) -> dict[str, Any]:
-    command = row["command"]
-    arguments = row["arguments"]
+    original_command = row["command"]
+    original_arguments = row["arguments"]
     declared = {" ".join(prefix) for prefix in transparent_prefixes}
-    runner = _runner_step(command, arguments, declared)
-    if runner is None:
+    command = original_command
+    arguments = original_arguments
+    runner_chain: list[str] = []
+
+    for _ in range(MAX_RUNNER_LAYERS):
+        runner = _runner_step(command, arguments, declared)
+        if runner is None:
+            return {
+                "command": command,
+                "arguments": arguments,
+                "runner_chain": runner_chain,
+                "runtime_dispatchable": True,
+                "runner_credited": bool(runner_chain),
+            }
+        runner_name, logical = runner
+        runner_chain.append(runner_name)
+        if logical is None:
+            return {
+                "command": original_command,
+                "arguments": original_arguments,
+                "runner_chain": runner_chain,
+                "runtime_dispatchable": False,
+                "runner_credited": False,
+            }
+        command, arguments = logical
+
+    nested = _runner_step(command, arguments, declared)
+    if nested is None:
         return {
             "command": command,
             "arguments": arguments,
-            "runner_chain": [],
+            "runner_chain": runner_chain,
             "runtime_dispatchable": True,
-            "runner_credited": False,
-        }
-    runner_name, logical = runner
-    if logical is None:
-        return {
-            "command": command,
-            "arguments": arguments,
-            "runner_chain": [runner_name],
-            "runtime_dispatchable": False,
-            "runner_credited": False,
+            "runner_credited": True,
         }
 
-    effective_command, effective_tail = logical
-    runner_chain = [runner_name]
-    nested = _runner_step(effective_command, effective_tail, declared)
-    if nested is not None:
-        nested_name, nested_logical = nested
-        runner_chain.append(nested_name)
-        while nested_logical is not None:
-            nested_command, nested_arguments = nested_logical
-            nested = _runner_step(nested_command, nested_arguments, declared)
-            if nested is None:
-                break
-            nested_name, nested_logical = nested
-            runner_chain.append(nested_name)
+    runner_chain.append(nested[0])
     return {
-        "command": effective_command,
-        "arguments": effective_tail,
+        "command": original_command,
+        "arguments": original_arguments,
         "runner_chain": runner_chain,
-        "runtime_dispatchable": len(runner_chain) == 1,
-        "runner_credited": True,
+        "runtime_dispatchable": False,
+        "runner_credited": False,
     }
 
 

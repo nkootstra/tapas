@@ -252,7 +252,7 @@ class UsageReportTests(unittest.TestCase):
         )
         self.assertEqual(report["unlisted_effective_commands"], [])
 
-    def test_runner_reporting_matches_runtime_options_and_stops_after_one_layer(self) -> None:
+    def test_runner_reporting_matches_runtime_options_and_supports_four_layers(self) -> None:
         catalog = usage_report.parse_catalog(
             """
             pub const AUTO_WRAP_COMMANDS: &[&str] = &[];
@@ -272,20 +272,48 @@ class UsageReportTests(unittest.TestCase):
         report = usage_report.build_report(rows, catalog)
         effective = {record["command"]: record for record in report["effective_commands"]}
 
-        self.assertEqual(effective["pytest"]["runtime_dispatchable_count"], 1)
+        self.assertEqual(effective["pytest"]["runtime_dispatchable_count"], 2)
         self.assertEqual(
             effective["pytest"]["runner_chains"],
-            [{"chain": ["uv run"], "count": 1}],
+            [
+                {"chain": ["npx", "uv run"], "count": 1},
+                {"chain": ["uv run"], "count": 1},
+            ],
         )
         self.assertEqual(effective["npx"]["routing_coverage"], "wrapper-only")
         self.assertEqual(effective["npx"]["runtime_dispatchable_count"], 0)
-        self.assertEqual(effective["uv"]["runtime_dispatchable_count"], 0)
-        self.assertEqual(
-            effective["uv"]["runner_chains"],
-            [{"chain": ["npx", "uv run"], "count": 1}],
-        )
         self.assertIn(
             {"chain": ["npx"], "count": 1, "runtime_dispatchable_count": 0},
+            report["runner_chains"],
+        )
+
+    def test_runner_reporting_fails_closed_after_four_layers(self) -> None:
+        catalog = usage_report.parse_catalog(
+            """
+            pub const AUTO_WRAP_COMMANDS: &[&str] = &[];
+            pub const WRAPPER_COMMANDS: &[&str] = &["npx"];
+            pub const GIT_SUBCOMMANDS: &[&str] = &[];
+            pub const TRANSPARENT_RUNNERS: &[&str] = &["npx"];
+            """
+        )
+        rows = usage_report.normalize_rows(
+            [
+                ("codex", "npx npx npx npx pytest"),
+                ("codex", "npx npx npx npx npx pytest"),
+            ]
+        )
+
+        report = usage_report.build_report(rows, catalog)
+        effective = {record["command"]: record for record in report["effective_commands"]}
+
+        self.assertEqual(effective["pytest"]["runtime_dispatchable_count"], 1)
+        self.assertEqual(effective["npx"]["runtime_dispatchable_count"], 0)
+        self.assertIn(
+            {
+                "chain": ["npx", "npx", "npx", "npx", "npx"],
+                "count": 1,
+                "runtime_dispatchable_count": 0,
+            },
             report["runner_chains"],
         )
 
