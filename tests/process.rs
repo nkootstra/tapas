@@ -426,6 +426,93 @@ fn transparent_runners_and_streaming_commands_are_classified_conservatively() {
 }
 
 #[test]
+fn transparent_runner_classification_supports_four_layers_and_fails_closed_after_that() {
+    let four: Vec<OsString> = ["npx", "uvx", "bunx", "uv", "run", "pytest", "-q"]
+        .into_iter()
+        .map(OsString::from)
+        .collect();
+    let classified = classify(&four);
+    assert_eq!(classified.logical_argv, &four[5..]);
+    assert_eq!(classified.passthrough_reason, None);
+
+    for exact in [
+        &["npx", "--future", "vite", "dev"][..],
+        &["npx", "uvx", "bunx", "uv", "run", "npx", "pytest"][..],
+    ] {
+        let exact = exact.iter().map(OsString::from).collect::<Vec<OsString>>();
+        let classified = classify(&exact);
+        assert_eq!(classified.logical_argv, exact.as_slice());
+        assert_eq!(
+            classified.passthrough_reason,
+            Some(PassthroughReason::AmbiguousRunner)
+        );
+    }
+}
+
+#[test]
+fn lifecycle_policies_inherit_interactive_and_unbounded_commands() {
+    for args in [
+        &["vite"][..],
+        &["vite", "dev"][..],
+        &["vite", "serve"][..],
+        &["vite", "preview"][..],
+        &["vite", "build", "--watch"][..],
+        &["vite", "build", "--watch=true"][..],
+        &["esbuild", "app.ts", "--watch"][..],
+        &["esbuild", "app.ts", "--watch=forever"][..],
+        &["esbuild", "app.ts", "--serve"][..],
+        &["esbuild", "app.ts", "--serve=127.0.0.1:8000"][..],
+        &["playwright", "test", "--ui"][..],
+        &["playwright", "test", "--ui=true"][..],
+        &["playwright", "test", "--debug"][..],
+        &["playwright", "test", "--headed"][..],
+        &["playwright", "show-report"][..],
+        &["playwright", "show-trace", "trace.zip"][..],
+        &["playwright", "codegen", "example.com"][..],
+        &["docker", "run", "alpine"][..],
+        &["docker", "compose", "up"][..],
+        &["docker", "compose", "up", "--detach=false"][..],
+        &["docker", "compose", "up", "--detach", "false"][..],
+        &["docker-compose", "up"][..],
+        &["docker", "stats"][..],
+        &["docker", "stats", "--no-stream=false"][..],
+        &["docker", "stats", "--no-stream", "false"][..],
+        &["bat", "--paging=always", "README.md"][..],
+        &["batcat", "--paging", "always", "README.md"][..],
+        &["ctest", "--repeat=until-fail:3"][..],
+        &["ctest", "--repeat", "until-fail:3"][..],
+    ] {
+        let args = args.iter().map(OsString::from).collect::<Vec<_>>();
+        assert_eq!(classify_stream(&args), StreamDecision::Inherit, "{args:?}");
+    }
+
+    for args in [
+        &["vite", "build"][..],
+        &["esbuild", "app.ts", "--outfile=app.js"][..],
+        &["playwright", "test"][..],
+        &["docker", "compose", "up", "-d"][..],
+        &["docker", "compose", "up", "--detach"][..],
+        &["docker", "compose", "up", "--detach=true"][..],
+        &["docker", "stats", "--no-stream"][..],
+        &["docker", "stats", "--no-stream=true"][..],
+        &["bat", "--paging=auto", "README.md"][..],
+        &["ctest", "--output-on-failure"][..],
+    ] {
+        let args = args.iter().map(OsString::from).collect::<Vec<_>>();
+        assert_eq!(classify_stream(&args), StreamDecision::Capture, "{args:?}");
+    }
+
+    let nested = ["npx", "vite", "dev"]
+        .into_iter()
+        .map(OsString::from)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        classify_stream(classify(&nested).logical_argv),
+        StreamDecision::Inherit
+    );
+}
+
+#[test]
 fn streaming_is_raw_by_default_and_opt_in_deduplicates_each_stream() {
     let command = FakeCommand::new(
         "docker",

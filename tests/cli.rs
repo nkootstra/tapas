@@ -229,6 +229,51 @@ fn filters_report_the_canonical_commands_and_runners() {
 }
 
 #[test]
+fn expanded_catalog_reports_and_rewrites_the_supported_commands() {
+    assert_eq!(tapas::catalog::AUTO_WRAP_COMMANDS.len(), 63);
+    assert_eq!(tapas::catalog::WRAPPER_COMMANDS.len(), 78);
+    let filters = tapas(&["--filters"]);
+    let filters = String::from_utf8(filters.stdout).expect("UTF-8 filters");
+    for command in [
+        "pip",
+        "pip3",
+        "uv",
+        "uvx",
+        "vite",
+        "esbuild",
+        "cmake",
+        "ctest",
+        "playwright",
+        "helm",
+        "grep",
+        "bat",
+        "batcat",
+    ] {
+        assert!(
+            filters.contains(command),
+            "missing {command:?} in {filters:?}"
+        );
+        let (arguments, expected) = if command == "uvx" {
+            (
+                vec!["--rewrite", command, "vite", "--version"],
+                "tapas uvx vite --version\n".to_owned(),
+            )
+        } else {
+            (
+                vec!["--rewrite", command, "--version"],
+                format!("tapas {command} --version\n"),
+            )
+        };
+        let rewritten = tapas(&arguments);
+        assert_eq!(
+            rewritten.stdout,
+            expected.as_bytes(),
+            "command: {command:?}"
+        );
+    }
+}
+
+#[test]
 fn rewrite_wraps_path_qualified_commands_and_shell_escapes_arguments() {
     let output = tapas(&[
         "--rewrite",
@@ -257,6 +302,67 @@ fn rewrite_leaves_unsupported_and_already_wrapped_commands_unwrapped() {
     assert!(wrapped.status.success());
     assert_eq!(wrapped.stdout, b"/opt/tapas git status\n");
     assert!(wrapped.stderr.is_empty());
+}
+
+#[test]
+fn rewrite_and_non_codex_hooks_follow_unambiguous_runner_chains() {
+    let rewritten = tapas(&[
+        "--rewrite",
+        "npx",
+        "uvx",
+        "bunx",
+        "uv",
+        "run",
+        "vite",
+        "dev",
+    ]);
+    assert_eq!(rewritten.stdout, b"tapas npx uvx bunx uv run vite dev\n");
+
+    for args in [
+        &["--rewrite", "npx", "unknown-tool"][..],
+        &["--rewrite", "npx", "--future", "vite", "dev"][..],
+        &[
+            "--rewrite",
+            "npx",
+            "uvx",
+            "bunx",
+            "uv",
+            "run",
+            "npx",
+            "vite",
+        ][..],
+    ] {
+        let output = tapas(args);
+        assert!(!output.stdout.starts_with(b"tapas "), "args: {args:?}");
+    }
+
+    for target in ["claude", "opencode"] {
+        let output = tapas_with_stdin(
+            &["--hook-eval", target],
+            br#"{"tool_input":{"command":"npx vite dev"}}"#,
+            &[],
+        );
+        assert!(output.status.success());
+        assert!(
+            output
+                .stdout
+                .windows(b"npx vite dev".len())
+                .any(|part| part == b"npx vite dev")
+        );
+    }
+
+    for command in ["npx git status", "npx vite dev", "grep needle file"] {
+        let input = format!(
+            "{{\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"cwd\":\"/tmp\",\"tool_input\":{{\"command\":{command:?}}}}}"
+        );
+        let output = tapas_with_stdin(
+            &["--hook-eval", "codex"],
+            input.as_bytes(),
+            &[("PATH", "/usr/bin:/bin")],
+        );
+        assert!(output.status.success());
+        assert!(output.stdout.is_empty(), "command: {command:?}");
+    }
 }
 
 #[test]

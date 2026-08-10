@@ -115,7 +115,7 @@ fn should_wrap(command: &[OsString]) -> bool {
         return false;
     };
     let basename = catalog::command_basename(program);
-    basename != Some(OsStr::new("tapas")) && catalog::should_auto_wrap(program)
+    basename != Some(OsStr::new("tapas")) && crate::process::invocation::is_supported(command)
 }
 
 fn write_shell_command(stdout: &mut dyn Write, command: &[OsString]) -> io::Result<()> {
