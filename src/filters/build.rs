@@ -56,17 +56,14 @@ pub(crate) fn dispatch_streams_decision(
         && (stdout.is_empty() != stderr.is_empty())
     {
         if let Some(compact) = docker::compact(if stdout.is_empty() { stderr } else { stdout }) {
+            let (stdout, stderr) = if stdout.is_empty() {
+                (Vec::new(), compact)
+            } else {
+                (compact, Vec::new())
+            };
             return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
-                if stdout.is_empty() {
-                    Vec::new()
-                } else {
-                    compact.clone()
-                },
-                if stderr.is_empty() {
-                    Vec::new()
-                } else {
-                    compact
-                },
+                stdout,
+                stderr,
                 EvidenceClass::PotentiallyLossy,
             )));
         }

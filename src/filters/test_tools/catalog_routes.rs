@@ -2,23 +2,7 @@ use super::append_line;
 use crate::filters::contains_ignore_ascii_case;
 
 pub(super) fn ctest_route(argv: &[&[u8]]) -> bool {
-    argv.first() == Some(&b"ctest".as_slice()) && !ctest_exact(argv)
-}
-
-pub(super) fn ctest_exact(argv: &[&[u8]]) -> bool {
-    before_terminator(argv).iter().any(|argument| {
-        matches!(
-            *argument,
-            b"-N"
-                | b"--show-only"
-                | b"--print-labels"
-                | b"--output-junit"
-                | b"-D"
-                | b"-M"
-                | b"-T"
-                | b"-S"
-        ) || argument.starts_with(b"--show-only=")
-    })
+    argv.first() == Some(&b"ctest".as_slice())
 }
 
 pub(super) fn matches_ctest(stdout: &[u8], stderr: &[u8]) -> bool {
@@ -55,7 +39,6 @@ pub(super) fn compact_ctest(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
 pub(super) fn playwright_route(argv: &[&[u8]]) -> bool {
     argv.get(1) == Some(&b"test".as_slice())
         && reporter(argv).is_some_and(|reporter| matches!(reporter, b"list" | b"line" | b"dot"))
-        && !before_terminator(argv).contains(&b"--list".as_slice())
 }
 
 pub(super) fn matches_playwright(stdout: &[u8], stderr: &[u8]) -> bool {
@@ -85,7 +68,7 @@ pub(super) fn compact_playwright(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
 }
 
 fn reporter<'a>(argv: &'a [&'a [u8]]) -> Option<&'a [u8]> {
-    let args = before_terminator(argv);
+    let args = crate::invocation_policy::options(argv);
     for (index, argument) in args.iter().enumerate() {
         if *argument == b"--reporter" {
             return args.get(index + 1).copied();
@@ -107,12 +90,4 @@ fn playwright_summary(line: &[u8]) -> bool {
         && words
             .next()
             .is_some_and(|word| matches!(word, b"passed" | b"failed" | b"skipped" | b"flaky"))
-}
-
-fn before_terminator<'a>(argv: &'a [&'a [u8]]) -> &'a [&'a [u8]] {
-    let end = argv
-        .iter()
-        .position(|argument| *argument == b"--")
-        .unwrap_or(argv.len());
-    &argv[..end]
 }

@@ -61,14 +61,16 @@ pub(super) fn cmake_route(argv: &[&[u8]]) -> bool {
 }
 
 pub(super) fn cmake_exact(argv: &[&[u8]]) -> bool {
-    before_terminator(argv).iter().any(|argument| {
-        matches!(*argument, b"-E" | b"-P" | b"--system-information")
-            || argument.starts_with(b"--trace")
-            || argument.starts_with(b"--find-package")
-            || argument.starts_with(b"--graphviz")
-            || argument.starts_with(b"--workflow")
-            || argument.starts_with(b"--list-presets")
-    })
+    crate::invocation_policy::options(argv)
+        .iter()
+        .any(|argument| {
+            matches!(*argument, b"-E" | b"-P" | b"--system-information")
+                || argument.starts_with(b"--trace")
+                || argument.starts_with(b"--find-package")
+                || argument.starts_with(b"--graphviz")
+                || argument.starts_with(b"--workflow")
+                || argument.starts_with(b"--list-presets")
+        })
 }
 
 pub(super) fn matches_cmake(stdout: &[u8], stderr: &[u8]) -> bool {
@@ -103,7 +105,7 @@ pub(super) fn compact_cmake(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
 }
 
 fn has_output_option(argv: &[&[u8]]) -> bool {
-    let args = before_terminator(argv);
+    let args = crate::invocation_policy::options(argv);
     args.iter().enumerate().any(|(index, argument)| {
         argument.starts_with(b"--outfile=")
             || argument.starts_with(b"--outdir=")
@@ -112,22 +114,16 @@ fn has_output_option(argv: &[&[u8]]) -> bool {
 }
 
 fn has_before_terminator(argv: &[&[u8]], options: &[&[u8]]) -> bool {
-    before_terminator(argv).iter().any(|argument| {
-        options.iter().any(|option| {
-            *argument == *option
-                || argument
-                    .strip_prefix(*option)
-                    .is_some_and(|rest| rest.starts_with(b"="))
-        })
-    })
-}
-
-fn before_terminator<'a>(argv: &'a [&'a [u8]]) -> &'a [&'a [u8]] {
-    let end = argv
+    crate::invocation_policy::options(argv)
         .iter()
-        .position(|argument| *argument == b"--")
-        .unwrap_or(argv.len());
-    &argv[..end]
+        .any(|argument| {
+            options.iter().any(|option| {
+                *argument == *option
+                    || argument
+                        .strip_prefix(*option)
+                        .is_some_and(|rest| rest.starts_with(b"="))
+            })
+        })
 }
 
 fn esbuild_size_line(line: &[u8]) -> bool {

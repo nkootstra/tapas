@@ -109,10 +109,6 @@ pub(crate) fn dispatch_streams_decision(
 
 fn bat_is_plain(argv: &[&[u8]]) -> bool {
     argv.len() <= 2
-        && argv
-            .iter()
-            .skip(1)
-            .all(|argument| !argument.starts_with(b"-"))
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]

@@ -146,6 +146,8 @@ def check_behavior_coverage(
     if missing:
         errors.append(f"git subcommands without behavior coverage: {', '.join(sorted(missing))}")
 
+    source_cache: dict[pathlib.Path, str] = {}
+    test_cache: dict[pathlib.Path, set[str]] = {}
     for section, references in contract.items():
         if not isinstance(references, dict):
             continue
@@ -155,8 +157,14 @@ def check_behavior_coverage(
                 continue
             relative, test_name = reference.split("::", 1)
             path = ROOT / relative
-            source = path.read_text(encoding="utf-8") if path.is_file() else ""
-            if not re.search(rf"#\[test\]\s*fn\s+{re.escape(test_name)}\b", source):
+            if path not in source_cache:
+                source = path.read_text(encoding="utf-8") if path.is_file() else ""
+                source_cache[path] = source
+                test_cache[path] = set(
+                    re.findall(r"#\[test\]\s*fn\s+([A-Za-z_][A-Za-z0-9_]*)\b", source)
+                )
+            source = source_cache[path]
+            if test_name not in test_cache[path]:
                 errors.append(f"behavior coverage test not found for {section}.{name}: {reference}")
             if section == "auto_wrap_commands" and name == "*" and (
                 "AUTO_WRAP_COMMANDS" not in source or '"--rewrite"' not in source

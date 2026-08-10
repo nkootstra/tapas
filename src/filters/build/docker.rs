@@ -1,5 +1,7 @@
 use std::collections::BTreeSet;
 
+use super::find_subslice;
+
 pub(super) fn route(command: &[u8], argv: &[&[u8]]) -> bool {
     let build = command == b"docker"
         && (argv.get(1) == Some(&b"build".as_slice())
@@ -9,16 +11,6 @@ pub(super) fn route(command: &[u8], argv: &[&[u8]]) -> bool {
                 && argv.get(2) == Some(&b"build".as_slice()))
         || command == b"docker-compose" && argv.get(1) == Some(&b"build".as_slice());
     build
-        && !before_terminator(argv)
-            .iter()
-            .enumerate()
-            .any(|(index, argument)| {
-                argument
-                    .strip_prefix(b"--progress=")
-                    .is_some_and(|value| value == b"rawjson")
-                    || *argument == b"--progress"
-                        && before_terminator(argv).get(index + 1) == Some(&b"rawjson".as_slice())
-            })
 }
 
 pub(super) fn compact(input: &[u8]) -> Option<Vec<u8>> {
@@ -42,7 +34,7 @@ pub(super) fn compact(input: &[u8]) -> Option<Vec<u8>> {
             completed.insert(id);
             recognized = true;
         }
-        if let Some(marker) = find(line, b"naming to ") {
+        if let Some(marker) = find_subslice(line, b"naming to ") {
             let name = &line[marker + b"naming to ".len()..];
             image = Some(name.strip_suffix(b" done").unwrap_or(name));
             recognized = true;
@@ -58,18 +50,4 @@ pub(super) fn compact(input: &[u8]) -> Option<Vec<u8>> {
         output.push(b'\n');
     }
     Some(output)
-}
-
-fn before_terminator<'a>(argv: &'a [&'a [u8]]) -> &'a [&'a [u8]] {
-    let end = argv
-        .iter()
-        .position(|argument| *argument == b"--")
-        .unwrap_or(argv.len());
-    &argv[..end]
-}
-
-fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack
-        .windows(needle.len())
-        .position(|part| part == needle)
 }

@@ -394,7 +394,7 @@ pub(crate) fn requests_exact_output(argv: &[&[u8]]) -> bool {
     }
 }
 
-fn options<'a>(argv: &'a [&'a [u8]]) -> &'a [&'a [u8]] {
+pub(crate) fn options<'a>(argv: &'a [&'a [u8]]) -> &'a [&'a [u8]] {
     let arguments = argv.get(1..).unwrap_or_default();
     &arguments[..arguments
         .iter()

@@ -11,9 +11,9 @@ pub(super) fn route(command: &[u8], argv: &[&[u8]]) -> bool {
     } else {
         return false;
     };
-    before_terminator(argv)
+    crate::invocation_policy::options(argv)
         .iter()
-        .skip(stats_index + 1)
+        .skip(stats_index)
         .any(|argument| {
             *argument == b"--no-stream"
                 || argument
@@ -34,31 +34,30 @@ pub(super) fn compact(input: &[u8]) -> Option<Vec<u8>> {
     let offset = usize::from(container_id);
     let mut output = Vec::new();
     for line in lines.filter(|line| !line.is_empty()) {
-        let fields = line
+        let mut fields = line
             .split(|byte| byte.is_ascii_whitespace())
-            .filter(|field| !field.is_empty())
-            .collect::<Vec<_>>();
-        if fields.len() < offset + 6 || fields[offset + 3] != b"/" {
+            .filter(|field| !field.is_empty());
+        if offset == 1 {
+            fields.next()?;
+        }
+        let name = fields.next()?;
+        let cpu = fields.next()?;
+        let memory = fields.next()?;
+        if fields.next()? != b"/" {
             return None;
         }
-        output.extend_from_slice(fields[offset]);
+        let memory_limit = fields.next()?;
+        let memory_percent = fields.next()?;
+        output.extend_from_slice(name);
         output.push(b' ');
-        output.extend_from_slice(fields[offset + 1]);
+        output.extend_from_slice(cpu);
         output.push(b' ');
-        output.extend_from_slice(fields[offset + 2]);
+        output.extend_from_slice(memory);
         output.push(b'/');
-        output.extend_from_slice(fields[offset + 4]);
+        output.extend_from_slice(memory_limit);
         output.push(b' ');
-        output.extend_from_slice(fields[offset + 5]);
+        output.extend_from_slice(memory_percent);
         output.push(b'\n');
     }
     (!output.is_empty()).then_some(output)
-}
-
-fn before_terminator<'a>(argv: &'a [&'a [u8]]) -> &'a [&'a [u8]] {
-    let end = argv
-        .iter()
-        .position(|argument| *argument == b"--")
-        .unwrap_or(argv.len());
-    &argv[..end]
 }

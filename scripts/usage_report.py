@@ -528,6 +528,9 @@ def _effective_invocation(
 def build_report(rows: Iterable[dict[str, Any]], catalog: dict[str, set[str]], minimum: int = 1) -> dict[str, Any]:
     rows = list(rows)
     commands = collections.Counter(row["command"] for row in rows)
+    rows_by_command: dict[str, list[dict[str, Any]]] = collections.defaultdict(list)
+    for row in rows:
+        rows_by_command[row["command"]].append(row)
     sources = collections.Counter(row["source"] for row in rows)
     command_records = []
     transparent_prefixes = [runner.split() for runner in catalog["TRANSPARENT_RUNNERS"]]
@@ -560,17 +563,14 @@ def build_report(rows: Iterable[dict[str, Any]], catalog: dict[str, set[str]], m
     for command, count in commands.most_common():
         if count < minimum:
             continue
-        statuses = {
-            coverage_for(row) for row in rows if row["command"] == command
-        }
+        statuses = {coverage_for(row) for row in rows_by_command[command]}
         coverage = next(iter(statuses)) if len(statuses) == 1 else "mixed"
         command_records.append({"command": command, "count": count, "coverage": coverage})
 
-    git_subcommands = collections.Counter(
-        first_subcommand(row["arguments"])
-        for row in rows
-        if row["command"] == "git" and first_subcommand(row["arguments"])
-    )
+    git_subcommands: collections.Counter[str] = collections.Counter()
+    for row in rows_by_command.get("git", []):
+        if subcommand := first_subcommand(row["arguments"]):
+            git_subcommands[subcommand] += 1
     git_records = [
         {
             "subcommand": subcommand,
@@ -580,15 +580,18 @@ def build_report(rows: Iterable[dict[str, Any]], catalog: dict[str, set[str]], m
         for subcommand, count in git_subcommands.most_common()
         if count >= minimum
     ]
-    effective_rows = [
-        {**row, **_effective_invocation(row, transparent_prefixes)} for row in rows
-    ]
+    effective_rows = []
+    effective_by_command: dict[str, list[dict[str, Any]]] = collections.defaultdict(list)
+    for row in rows:
+        effective = {**row, **_effective_invocation(row, transparent_prefixes)}
+        effective_rows.append(effective)
+        effective_by_command[effective["command"]].append(effective)
     effective_counts = collections.Counter(row["command"] for row in effective_rows)
     effective_records = []
     for command, count in effective_counts.most_common():
         if count < minimum:
             continue
-        matching = [row for row in effective_rows if row["command"] == command]
+        matching = effective_by_command[command]
         routing_statuses = {
             "transparent-runner"
             if row["runner_credited"]
@@ -629,20 +632,21 @@ def build_report(rows: Iterable[dict[str, Any]], catalog: dict[str, set[str]], m
                 ],
             }
         )
-    chain_rows: dict[tuple[str, ...], list[dict[str, Any]]] = collections.defaultdict(list)
+    chain_counts: collections.Counter[tuple[str, ...]] = collections.Counter()
+    chain_dispatchable: collections.Counter[tuple[str, ...]] = collections.Counter()
     for row in effective_rows:
         if row["runner_chain"]:
-            chain_rows[tuple(row["runner_chain"])].append(row)
+            chain = tuple(row["runner_chain"])
+            chain_counts[chain] += 1
+            chain_dispatchable[chain] += row["runtime_dispatchable"]
     runner_chain_records = [
         {
             "chain": list(chain),
-            "count": len(matching),
-            "runtime_dispatchable_count": sum(
-                row["runtime_dispatchable"] for row in matching
-            ),
+            "count": count,
+            "runtime_dispatchable_count": chain_dispatchable[chain],
         }
-        for chain, matching in sorted(chain_rows.items())
-        if len(matching) >= minimum
+        for chain, count in sorted(chain_counts.items())
+        if count >= minimum
     ]
     return {
         "total_invocations": len(rows),
