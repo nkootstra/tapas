@@ -370,3 +370,80 @@ fn pipe_dispatch_uses_the_pinned_first_match_order() {
             .any(|window| window == b"Test Suites:")
     );
 }
+
+#[test]
+fn ctest_and_playwright_routes_require_known_finite_human_modes() {
+    let ctest = fixture("ctest_success.txt");
+    let ctest_output = test_tools::dispatch_streams_argv(
+        &[b"ctest", b"--output-on-failure"],
+        &ctest,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(ctest_output.evidence, EvidenceClass::PotentiallyLossy);
+    assert_eq!(
+        ctest_output.stdout,
+        b"100% tests passed, 0 tests failed out of 2\nTotal Test time (real) =   0.03 sec\n"
+    );
+
+    let playwright = fixture("playwright_list_success.txt");
+    for reporter in [b"list".as_slice(), b"line", b"dot"] {
+        let argv = [b"playwright".as_slice(), b"test", b"--reporter", reporter];
+        let output = test_tools::dispatch_streams_argv(&argv, &playwright, b"", 0, false).unwrap();
+        assert_eq!(
+            output.evidence,
+            EvidenceClass::PotentiallyLossy,
+            "{reporter:?}"
+        );
+        assert_eq!(
+            output.stdout,
+            b"Running 2 tests using 2 workers\n2 passed (1.2s)\n"
+        );
+    }
+
+    for argv in [
+        &[b"ctest".as_slice(), b"-N"][..],
+        &[b"ctest".as_slice(), b"--output-junit", b"results.xml"][..],
+        &[b"playwright".as_slice(), b"test"][..],
+        &[b"playwright".as_slice(), b"test", b"--reporter=json"][..],
+        &[b"playwright".as_slice(), b"test", b"--list"][..],
+    ] {
+        let input: &[u8] = if argv[0] == b"ctest" {
+            &ctest
+        } else {
+            &playwright
+        };
+        let output = test_tools::dispatch_streams_argv(argv, input, b"raw\n", 0, false).unwrap();
+        assert_eq!(output.evidence, EvidenceClass::ByteExact, "{argv:?}");
+    }
+
+    let terminator = test_tools::dispatch_streams_argv(
+        &[
+            b"playwright",
+            b"test",
+            b"--reporter=line",
+            b"--",
+            b"--reporter=json",
+        ],
+        &playwright,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(terminator.evidence, EvidenceClass::PotentiallyLossy);
+
+    let failed = b"1) checkout > rejects invalid card\nerror: expected decline\ntrace detail\n";
+    let output = test_tools::dispatch_streams_argv(
+        &[b"playwright", b"test", b"--reporter=line"],
+        b"",
+        failed,
+        1,
+        false,
+    )
+    .unwrap();
+    assert_eq!(output.evidence, EvidenceClass::ByteExact);
+    assert_eq!(output.stderr, failed);
+}

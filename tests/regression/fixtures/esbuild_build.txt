@@ -1,0 +1,4 @@
+
+  dist/app.js  12.3kb
+
+⚡ Done in 8ms

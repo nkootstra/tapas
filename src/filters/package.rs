@@ -43,7 +43,11 @@ pub(crate) fn dispatch_streams_decision(
     if argv.is_empty() {
         return Err(FilterError::InvalidInput);
     }
-    if lossless || crate::invocation_policy::requests_passthrough(argv) {
+    if lossless
+        || std::str::from_utf8(stdout).is_err()
+        || std::str::from_utf8(stderr).is_err()
+        || crate::invocation_policy::requests_passthrough(argv)
+    {
         return Ok(StreamFilterDecision::Unchanged);
     }
 
@@ -115,7 +119,69 @@ pub(crate) fn dispatch_streams_decision(
         ));
     }
 
+    let uv_route = command == b"uv"
+        && (matches!(arg1, b"sync" | b"add" | b"remove" | b"lock" | b"tree")
+            || arg1 == b"pip" && matches!(arg2, b"install" | b"sync" | b"compile"));
+    if exit_code == 0 && uv_route && matches_uv_output(stdout, stderr) {
+        return Ok(StreamFilterDecision::compact_single_stream(
+            stdout,
+            stderr,
+            EvidenceClass::PotentiallyLossy,
+            compact_uv,
+        ));
+    }
+
     Ok(StreamFilterDecision::Unchanged)
+}
+
+fn matches_uv_output(stdout: &[u8], stderr: &[u8]) -> bool {
+    [stdout, stderr].into_iter().any(|input| {
+        input.split(|byte| *byte == b'\n').any(|line| {
+            let line = trim_end(line);
+            [
+                b"Resolved ".as_slice(),
+                b"Prepared ",
+                b"Installed ",
+                b"Uninstalled ",
+                b"Audited ",
+                b"error:",
+                b"warning:",
+            ]
+            .iter()
+            .any(|prefix| line.starts_with(prefix))
+                || matches!(line.first(), Some(b'+' | b'-')) && find_subslice(line, b"==").is_some()
+                || TREE_PREFIXES.iter().any(|prefix| line.starts_with(prefix))
+        })
+    })
+}
+
+fn compact_uv(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
+    let mut output = Vec::new();
+    for input in [stdout, stderr] {
+        for raw in input.split(|byte| *byte == b'\n') {
+            let line = trim_end(raw);
+            if line.is_empty() {
+                continue;
+            }
+            if [
+                b"Resolved ".as_slice(),
+                b"Prepared ",
+                b"Installed ",
+                b"Uninstalled ",
+                b"Audited ",
+                b"error:",
+                b"warning:",
+            ]
+            .iter()
+            .any(|prefix| line.starts_with(prefix))
+                || matches!(line.first(), Some(b'+' | b'-'))
+                || TREE_PREFIXES.iter().any(|prefix| line.starts_with(prefix))
+            {
+                append_line(&mut output, line);
+            }
+        }
+    }
+    output
 }
 
 pub fn matches_pipe(input: &[u8]) -> bool {

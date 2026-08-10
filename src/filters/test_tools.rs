@@ -23,8 +23,10 @@ pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
         return false;
     };
     let arg1 = argv.get(1).copied().unwrap_or_default();
-    matches!(command, b"pytest" | b"jest" | b"vitest" | b"mocha" | b"tsc")
-        || command == b"cargo" && arg1 == b"test"
+    matches!(
+        command,
+        b"pytest" | b"jest" | b"vitest" | b"mocha" | b"tsc" | b"ctest" | b"playwright"
+    ) || command == b"cargo" && arg1 == b"test"
         || command == b"go" && arg1 == b"test"
         || command == b"node" && arg1 == b"--test"
         || matches!(command, b"npm" | b"pnpm" | b"yarn" | b"bun") && arg1 == b"test"
@@ -65,18 +67,47 @@ pub(crate) fn dispatch_streams_decision(
         argv,
         stdout,
         stderr,
-        exit_code: _,
+        exit_code,
         lossless,
     } = input;
     if argv.is_empty() {
         return Err(FilterError::InvalidInput);
     }
-    if lossless || crate::invocation_policy::requests_passthrough(argv) {
+    if lossless
+        || std::str::from_utf8(stdout).is_err()
+        || std::str::from_utf8(stderr).is_err()
+        || crate::invocation_policy::requests_passthrough(argv)
+    {
         return Ok(StreamFilterDecision::Unchanged);
     }
     let command = command_basename(argv[0]);
     let arg1 = argv.get(1).copied().unwrap_or_default();
     let script_test = arg1 == b"test" && matches!(command, b"npm" | b"pnpm" | b"yarn" | b"bun");
+
+    if exit_code == 0 {
+        if command == b"ctest"
+            && catalog_routes::ctest_route(argv)
+            && catalog_routes::matches_ctest(stdout, stderr)
+        {
+            return Ok(StreamFilterDecision::compact_single_stream(
+                stdout,
+                stderr,
+                EvidenceClass::PotentiallyLossy,
+                catalog_routes::compact_ctest,
+            ));
+        }
+        if command == b"playwright"
+            && catalog_routes::playwright_route(argv)
+            && catalog_routes::matches_playwright(stdout, stderr)
+        {
+            return Ok(StreamFilterDecision::compact_single_stream(
+                stdout,
+                stderr,
+                EvidenceClass::PotentiallyLossy,
+                catalog_routes::compact_playwright,
+            ));
+        }
+    }
 
     let compact: Option<Apply> = if command == b"pytest"
         && stream_matches(stdout, stderr, matches_pytest)
@@ -122,6 +153,7 @@ fn stream_matches(stdout: &[u8], stderr: &[u8], matcher: fn(&[u8]) -> bool) -> b
 }
 
 mod cargo;
+mod catalog_routes;
 mod go;
 mod javascript;
 mod jest;

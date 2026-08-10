@@ -20,6 +20,11 @@ const QUERY_SHORT_FLAG_COMMANDS: &[&[u8]] = &[
     b"xcodebuild",
     b"uv",
     b"uvx",
+    b"vite",
+    b"esbuild",
+    b"cmake",
+    b"ctest",
+    b"playwright",
     b"poetry",
     b"npx",
     b"composer",
@@ -228,7 +233,7 @@ pub(crate) fn requests_machine_output(argv: &[&[u8]]) -> bool {
                 )
                 || has_option(arguments, b"--output", b"-o", true)
         }
-        b"npm" | b"pnpm" | b"yarn" | b"bun" | b"composer" | b"pip" | b"pip3" => {
+        b"npm" | b"pnpm" | b"yarn" | b"bun" | b"composer" | b"pip" | b"pip3" | b"uv" | b"uvx" => {
             arguments.iter().any(|argument| {
                 matches!(
                     *argument,
@@ -280,6 +285,31 @@ pub(crate) fn requests_exact_output(argv: &[&[u8]]) -> bool {
     };
     let arguments = options(argv);
     match command {
+        b"pip" | b"pip3" => argv.get(1).is_some_and(|subcommand| {
+            matches!(*subcommand, b"freeze" | b"show" | b"check" | b"inspect")
+        }),
+        b"ctest" => options(argv).iter().any(|argument| {
+            matches!(
+                *argument,
+                b"-N"
+                    | b"--show-only"
+                    | b"--print-labels"
+                    | b"--output-junit"
+                    | b"-D"
+                    | b"-M"
+                    | b"-T"
+                    | b"-S"
+            ) || argument.starts_with(b"--show-only=")
+                || argument.starts_with(b"--output-junit=")
+        }),
+        b"playwright" => {
+            has_any(options(argv), &[b"--list"])
+                || options(argv).iter().any(|argument| {
+                    argument
+                        .strip_prefix(b"--reporter=")
+                        .is_some_and(|reporter| !matches!(reporter, b"list" | b"line" | b"dot"))
+                })
+        }
         b"cat" => arguments.iter().any(|argument| argument.starts_with(b"-")),
         b"find" => has_any(
             arguments,

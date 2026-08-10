@@ -275,6 +275,8 @@ pub(crate) const PACKAGE_FILTER_COMMANDS: &[&[u8]] = &[
     b"composer",
     b"pip",
     b"pip3",
+    b"uv",
+    b"uvx",
 ];
 pub(crate) const INFRA_FILTER_COMMANDS: &[&[u8]] = &[
     b"curl",

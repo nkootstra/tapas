@@ -331,7 +331,7 @@ fn gradle_and_maven_wrappers_match_the_pinned_failure_oracles() {
 }
 
 #[test]
-fn apple_build_and_uv_package_fallbacks_match_the_pinned_smokes() {
+fn apple_build_fallbacks_match_the_pinned_smokes() {
     assert_eq!(
         build::dispatch_streams_argv(
             &[b"swift", b"build"],
@@ -365,47 +365,6 @@ fn apple_build_and_uv_package_fallbacks_match_the_pinned_smokes() {
             )
             .as_bytes()
             .to_vec(),
-            Vec::new(),
-            EvidenceClass::PotentiallyLossy,
-        ),
-    );
-
-    let uv = fixture("uv_pip_install.txt");
-    let uv_expected = concat!(
-        "Installed 5 packages in 23ms\n",
-        " + certifi==2023.11.17\n",
-        " + charset-normalizer==3.3.2\n",
-        " + idna==3.6\n",
-        " + requests==2.31.0\n",
-        " + urllib3==2.1.0\n",
-    );
-    assert_eq!(
-        build::dispatch_streams_argv(
-            &[b"uv", b"pip", b"install", b"-r", b"requirements.txt"],
-            &uv,
-            b"",
-            0,
-            false,
-        )
-        .unwrap(),
-        StreamFilterOutput::new(
-            uv_expected.as_bytes().to_vec(),
-            Vec::new(),
-            EvidenceClass::PotentiallyLossy,
-        ),
-    );
-
-    assert_eq!(
-        build::dispatch_streams_argv(
-            &[b"uvx", b"ruff", b"check"],
-            b"Installed 1 package in 9ms\nAll checks passed!\n",
-            b"",
-            0,
-            false,
-        )
-        .unwrap(),
-        StreamFilterOutput::new(
-            b"ok\n".to_vec(),
             Vec::new(),
             EvidenceClass::PotentiallyLossy,
         ),
@@ -542,6 +501,90 @@ fn build_truncation_notice_names_tapas_raw_mode() {
             .windows(b"rerun with tapas --raw".len())
             .any(|window| window == b"rerun with tapas --raw")
     );
+}
+
+#[test]
+fn direct_vite_esbuild_and_cmake_routes_require_finite_argv_and_known_grammar() {
+    let vite = fixture("vite_build.txt");
+    let direct = build::dispatch_streams_argv(&[b"vite", b"build"], &vite, b"", 0, false).unwrap();
+    assert_eq!(direct.evidence, EvidenceClass::PotentiallyLossy);
+    assert!(
+        direct
+            .stdout
+            .windows(b"assets x10".len())
+            .any(|part| part == b"assets x10")
+    );
+
+    let esbuild = fixture("esbuild_build.txt");
+    for argv in [
+        &[
+            b"esbuild".as_slice(),
+            b"src/app.ts",
+            b"--outfile=dist/app.js",
+        ][..],
+        &[b"esbuild".as_slice(), b"src/app.ts", b"--outdir", b"dist"][..],
+    ] {
+        let output = build::dispatch_streams_argv(argv, &esbuild, b"", 0, false).unwrap();
+        assert_eq!(output.evidence, EvidenceClass::PotentiallyLossy, "{argv:?}");
+        assert_eq!(output.stdout, b"dist/app.js 12.3kb\nDone in 8ms\n");
+    }
+
+    let cmake = fixture("cmake_configure.txt");
+    let configured = build::dispatch_streams_argv(
+        &[b"cmake", b"-S", b".", b"-B", b"build"],
+        &cmake,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(configured.evidence, EvidenceClass::PotentiallyLossy);
+    assert_eq!(configured.stdout, b"-- Configuring done (0.2s)\n-- Generating done (0.1s)\n-- Build files have been written to: /tmp/build\n");
+
+    let built = build::dispatch_streams_argv(
+        &[b"cmake", b"--build", b"build"],
+        b"[ 50%] Building C object app.o\n[100%] Built target app\n",
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(built.evidence, EvidenceClass::PotentiallyLossy);
+    assert_eq!(
+        built.stdout,
+        b"[ 50%] Building C object app.o\n[100%] Built target app\n"
+    );
+
+    let failed = build::dispatch_streams_argv(
+        &[b"esbuild", b"src/app.ts", b"--outfile=dist/app.js"],
+        b"",
+        b"error: Could not resolve './missing'\n",
+        1,
+        false,
+    )
+    .unwrap();
+    assert_eq!(failed.evidence, EvidenceClass::ByteExact);
+    assert_eq!(failed.stderr, b"error: Could not resolve './missing'\n");
+
+    for argv in [
+        &[b"vite".as_slice(), b"dev"][..],
+        &[b"esbuild".as_slice(), b"src/app.ts"][..],
+        &[b"cmake".as_slice(), b"-E", b"env"][..],
+        &[b"cmake".as_slice(), b"--trace", b"-S", b"."][..],
+    ] {
+        let output = build::dispatch_streams_argv(argv, &esbuild, b"opaque\n", 0, false).unwrap();
+        assert_eq!(output.evidence, EvidenceClass::ByteExact, "{argv:?}");
+    }
+
+    let after_terminator = build::dispatch_streams_argv(
+        &[b"esbuild", b"src/app.ts", b"--outfile=x", b"--", b"--watch"],
+        &esbuild,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(after_terminator.evidence, EvidenceClass::PotentiallyLossy);
 }
 
 #[test]
