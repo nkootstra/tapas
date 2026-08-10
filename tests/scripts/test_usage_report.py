@@ -170,6 +170,7 @@ class UsageReportTests(unittest.TestCase):
             pub const WRAPPER_COMMANDS: &[&str] = &["git", "cargo", "node"];
             pub const GIT_SUBCOMMANDS: &[&str] = &["status"];
             pub const TRANSPARENT_RUNNERS: &[&str] = &["npx"];
+            pub const COMPACT_ROUTES: &[&str] = &["git:git_status", "pytest:pytest"];
             """
         )
         rows = usage_report.normalize_rows(
@@ -210,6 +211,31 @@ class UsageReportTests(unittest.TestCase):
         self.assertEqual(coverage["uv"], "mixed")
         self.assertEqual(report["unlisted_commands"], [])
 
+    def test_effective_report_distinguishes_routing_from_compaction(self) -> None:
+        catalog = usage_report.parse_catalog(
+            """
+            pub const AUTO_WRAP_COMMANDS: &[&str] = &["cargo", "vite"];
+            pub const WRAPPER_COMMANDS: &[&str] = &["cargo", "vite"];
+            pub const GIT_SUBCOMMANDS: &[&str] = &[];
+            pub const TRANSPARENT_RUNNERS: &[&str] = &[];
+            pub const COMPACT_ROUTES: &[&str] = &["vite:vite_build"];
+            """
+        )
+        report = usage_report.build_report(
+            usage_report.normalize_rows(
+                [("codex", "cargo build"), ("codex", "vite build")]
+            ),
+            catalog,
+        )
+        coverage = {
+            row["command"]: row["compaction_coverage"]
+            for row in report["effective_commands"]
+        }
+        self.assertEqual(
+            coverage,
+            {"cargo": "route-undeclared", "vite": "catalogued-route"},
+        )
+
     def test_report_aggregates_effective_commands_and_runner_chains(self) -> None:
         catalog = usage_report.parse_catalog(
             """
@@ -217,6 +243,7 @@ class UsageReportTests(unittest.TestCase):
             pub const WRAPPER_COMMANDS: &[&str] = &["git", "npx"];
             pub const GIT_SUBCOMMANDS: &[&str] = &["status"];
             pub const TRANSPARENT_RUNNERS: &[&str] = &["npx"];
+            pub const COMPACT_ROUTES: &[&str] = &["git:git_status", "pytest:pytest"];
             """
         )
         rows = usage_report.normalize_rows(
@@ -232,7 +259,7 @@ class UsageReportTests(unittest.TestCase):
                     "command": "git",
                     "count": 1,
                     "routing_coverage": "auto-wrap",
-                    "compaction_coverage": "route-dependent",
+                    "compaction_coverage": "catalogued-route",
                     "runtime_dispatchable_count": 1,
                     "runner_chains": [],
                 },
@@ -240,7 +267,7 @@ class UsageReportTests(unittest.TestCase):
                     "command": "pytest",
                     "count": 1,
                     "routing_coverage": "transparent-runner",
-                    "compaction_coverage": "route-dependent",
+                    "compaction_coverage": "catalogued-route",
                     "runtime_dispatchable_count": 1,
                     "runner_chains": [{"chain": ["npx"], "count": 1}],
                 },

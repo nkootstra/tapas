@@ -10,6 +10,7 @@ filter family has regression tests, so agent-readable output stays covered.
 from __future__ import annotations
 
 import argparse
+import json
 import pathlib
 import re
 import sys
@@ -23,6 +24,8 @@ FILTERS_DIR = ROOT / "src" / "filters"
 GIT = FILTERS_DIR / "git.rs"
 PROCESS = ROOT / "src" / "process" / "mod.rs"
 TESTS_DIR = ROOT / "tests"
+COVERAGE = TESTS_DIR / "regression" / "coverage.json"
+CASES = TESTS_DIR / "regression" / "cases.json"
 
 
 def parse_const(source: str, name: str) -> list[str]:
@@ -101,6 +104,70 @@ def check_handler_wiring(family: str, source: str) -> str | None:
     if expected not in handler_catalog_constants(source):
         return f"filter family {family} handles_argv does not reference {expected}"
     return None
+
+
+def check_behavior_coverage(
+    *,
+    auto_wrap: list[str],
+    git_subcommands: list[str],
+    compact_routes: list[str],
+    exact_policies: list[str],
+    inherited_policies: list[str],
+    contract: dict[str, dict[str, str]],
+    regression_tags: set[str],
+) -> list[str]:
+    """Require a real test reference or an existing regression-case tag."""
+
+    errors: list[str] = []
+
+    def covered(section: str, name: str, tag_prefix: str) -> bool:
+        return (
+            name in contract.get(section, {})
+            or f"{tag_prefix}:{name}" in regression_tags
+        )
+
+    compact_ids = [route.split(":", 1)[-1] for route in compact_routes]
+    missing = [name for name in compact_ids if not covered("compact_routes", name, "compact_route")]
+    if missing:
+        errors.append(f"compact routes without behavior coverage: {', '.join(sorted(missing))}")
+    missing = [name for name in exact_policies if not covered("exact_output_policies", name, "exact_output_bypass")]
+    if missing:
+        errors.append(f"exact-output policies without behavior coverage: {', '.join(sorted(missing))}")
+    missing = [name for name in inherited_policies if not covered("inherited_stream_policies", name, "stream_watch_policy")]
+    if missing:
+        errors.append(f"inherited/stream policies without behavior coverage: {', '.join(sorted(missing))}")
+
+    auto_contract = contract.get("auto_wrap_commands", {})
+    auto_wildcard = auto_contract.get("*")
+    missing = [name for name in auto_wrap if name not in auto_contract and not auto_wildcard]
+    if missing:
+        errors.append(f"auto-wrap commands without behavior coverage: {', '.join(sorted(missing))}")
+    missing = [name for name in git_subcommands if not covered("git_subcommands", name, "git_subcommand")]
+    if missing:
+        errors.append(f"git subcommands without behavior coverage: {', '.join(sorted(missing))}")
+
+    for section, references in contract.items():
+        if not isinstance(references, dict):
+            continue
+        for name, reference in references.items():
+            if not isinstance(reference, str) or "::" not in reference:
+                errors.append(f"invalid behavior coverage reference for {section}.{name}: {reference!r}")
+                continue
+            relative, test_name = reference.split("::", 1)
+            path = ROOT / relative
+            source = path.read_text(encoding="utf-8") if path.is_file() else ""
+            if not re.search(rf"#\[test\]\s*fn\s+{re.escape(test_name)}\b", source):
+                errors.append(f"behavior coverage test not found for {section}.{name}: {reference}")
+            if section == "auto_wrap_commands" and name == "*" and (
+                "AUTO_WRAP_COMMANDS" not in source or '"--rewrite"' not in source
+            ):
+                errors.append(f"auto-wrap wildcard coverage must iterate AUTO_WRAP_COMMANDS and --rewrite: {reference}")
+    return errors
+
+
+def load_regression_tags(path: pathlib.Path) -> set[str]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return {tag for case in payload.get("cases", []) for tag in case.get("covers", [])}
 
 
 def check_catalog(
@@ -219,10 +286,15 @@ def main() -> int:
         wrapper = parse_const(source, "WRAPPER_COMMANDS")
         git_subcommands = parse_const(source, "GIT_SUBCOMMANDS")
         transparent_runners = parse_const(source, "TRANSPARENT_RUNNERS")
+        compact_routes = parse_const(source, "COMPACT_ROUTES")
+        exact_policies = parse_const(source, "EXACT_OUTPUT_BYPASSES")
+        inherited_policies = parse_const(source, "STREAM_WATCH_POLICIES")
         filter_families = parse_filter_families(source)
         filter_family_exemptions = parse_byte_const(source, "FILTER_FAMILY_EXEMPTIONS")
         stream_filters = parse_stream_filters(PROCESS.read_text(encoding="utf-8"))
-    except (RuntimeError, ValueError) as exc:
+        contract = json.loads(COVERAGE.read_text(encoding="utf-8"))
+        regression_tags = load_regression_tags(CASES)
+    except (RuntimeError, ValueError, OSError, json.JSONDecodeError) as exc:
         print(f"catalog audit failed: {exc}", file=sys.stderr)
         return 1
     errors = check_catalog(
@@ -233,6 +305,17 @@ def main() -> int:
         filter_families=filter_families,
         filter_family_exemptions=filter_family_exemptions,
         stream_filters=stream_filters,
+    )
+    errors.extend(
+        check_behavior_coverage(
+            auto_wrap=auto_wrap,
+            git_subcommands=git_subcommands,
+            compact_routes=compact_routes,
+            exact_policies=exact_policies,
+            inherited_policies=inherited_policies,
+            contract=contract,
+            regression_tags=regression_tags,
+        )
     )
     if errors:
         print("catalog audit failed:", file=sys.stderr)

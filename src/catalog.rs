@@ -185,15 +185,42 @@ pub const PIPE_DETECTORS: &[&str] = &[
 ];
 pub const TRANSPARENT_RUNNERS: &[&str] =
     &["bunx", "npx", "pnpm exec", "poetry run", "uv run", "uvx"];
+pub const COMPACT_ROUTES: &[&str] = &[
+    "pip/pip3:pip_install",
+    "pip/pip3:pip_table",
+    "uv:uv_project",
+    "uv:uv_pip",
+    "vite:vite_build",
+    "esbuild:esbuild_file_build",
+    "cmake:cmake_configure",
+    "cmake:cmake_build",
+    "ctest:ctest_finite",
+    "playwright:playwright_test",
+    "helm:helm_read",
+    "grep:grep_multifile",
+    "bat/batcat:bat_plain",
+    "docker/docker-compose:docker_buildkit",
+    "docker/docker-compose:docker_stats_finite",
+];
 pub const EXACT_OUTPUT_BYPASSES: &[&str] = &[
     "ambiguous_runner",
+    "bat_output_shaping_exact",
+    "cmake_special_mode_exact",
+    "ctest_discovery_dashboard_exact",
+    "docker_machine_exact",
     "find_exact_output",
+    "frontend_machine_exact",
     "git_alternate_format",
+    "grep_output_shaping_exact",
+    "helm_machine_mutation_exact",
     "lossless_or_raw",
     "ls_exact_output",
     "machine_output",
+    "pip_query_or_machine_exact",
+    "playwright_machine_custom_list_exact",
     "query",
     "tree_exact_output",
+    "uv_query_or_machine_exact",
 ];
 pub const STREAM_WATCH_POLICIES: &[&str] = &[
     "bat_forced_paging_inherit",

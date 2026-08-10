@@ -531,6 +531,11 @@ def build_report(rows: Iterable[dict[str, Any]], catalog: dict[str, set[str]], m
     sources = collections.Counter(row["source"] for row in rows)
     command_records = []
     transparent_prefixes = [runner.split() for runner in catalog["TRANSPARENT_RUNNERS"]]
+    compact_commands = {
+        command
+        for route in catalog.get("COMPACT_ROUTES", set())
+        for command in route.split(":", 1)[0].split("/")
+    }
 
     def coverage_for(row: dict[str, Any]) -> str:
         command = row["command"]
@@ -594,7 +599,11 @@ def build_report(rows: Iterable[dict[str, Any]], catalog: dict[str, set[str]], m
             next(iter(routing_statuses)) if len(routing_statuses) == 1 else "mixed"
         )
         compaction_statuses = {
-            "not-catalogued" if status == "unlisted" else "route-dependent"
+            "catalogued-route"
+            if command in compact_commands
+            else "not-catalogued"
+            if status == "unlisted"
+            else "route-undeclared"
             for status in routing_statuses
         }
         compaction_coverage = (

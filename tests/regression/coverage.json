@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "compact_routes": {
+    "pip_install": "tests/filters_package.rs::pip_install_summarizes_progress_and_keeps_the_result",
+    "pip_table": "tests/filters_package.rs::pip_list_and_outdated_tables_preserve_every_row_fact",
+    "uv_project": "tests/filters_package.rs::uv_package_routes_compact_only_recognized_human_output",
+    "uv_pip": "tests/filters_package.rs::uv_package_routes_compact_only_recognized_human_output",
+    "vite_build": "tests/filters_build.rs::direct_vite_esbuild_and_cmake_routes_require_finite_argv_and_known_grammar",
+    "esbuild_file_build": "tests/filters_build.rs::direct_vite_esbuild_and_cmake_routes_require_finite_argv_and_known_grammar",
+    "cmake_configure": "tests/filters_build.rs::direct_vite_esbuild_and_cmake_routes_require_finite_argv_and_known_grammar",
+    "cmake_build": "tests/filters_build.rs::direct_vite_esbuild_and_cmake_routes_require_finite_argv_and_known_grammar",
+    "ctest_finite": "tests/filters_test_tools.rs::ctest_and_playwright_routes_require_known_finite_human_modes",
+    "playwright_test": "tests/filters_test_tools.rs::ctest_and_playwright_routes_require_known_finite_human_modes",
+    "helm_read": "tests/filters_infra.rs::helm_human_read_routes_compact_and_exact_forms_fail_closed",
+    "grep_multifile": "tests/filters_listing.rs::grep_compacts_only_large_path_prefixed_multi_file_human_matches",
+    "bat_plain": "tests/filters_data.rs::bat_and_batcat_share_only_the_plain_cat_compaction_contract",
+    "docker_buildkit": "tests/filters_build.rs::docker_buildkit_routes_compact_only_successful_recognized_human_progress",
+    "docker_stats_finite": "tests/filters_infra.rs::finite_docker_stats_compacts_only_the_default_human_table"
+  },
+  "exact_output_policies": {
+    "bat_output_shaping_exact": "tests/filters_data.rs::bat_and_batcat_share_only_the_plain_cat_compaction_contract",
+    "cmake_special_mode_exact": "tests/filters_build.rs::direct_vite_esbuild_and_cmake_routes_require_finite_argv_and_known_grammar",
+    "ctest_discovery_dashboard_exact": "tests/filters_test_tools.rs::ctest_and_playwright_routes_require_known_finite_human_modes",
+    "docker_machine_exact": "tests/filters_infra.rs::finite_docker_stats_compacts_only_the_default_human_table",
+    "frontend_machine_exact": "tests/filters_build.rs::direct_vite_esbuild_and_cmake_routes_require_finite_argv_and_known_grammar",
+    "grep_output_shaping_exact": "tests/filters_listing.rs::grep_compacts_only_large_path_prefixed_multi_file_human_matches",
+    "helm_machine_mutation_exact": "tests/filters_infra.rs::helm_human_read_routes_compact_and_exact_forms_fail_closed",
+    "pip_query_or_machine_exact": "tests/filters_package.rs::pip_exact_subcommands_and_option_terminators_follow_policy_boundaries",
+    "playwright_machine_custom_list_exact": "tests/filters_test_tools.rs::ctest_and_playwright_routes_require_known_finite_human_modes",
+    "uv_query_or_machine_exact": "tests/filters_package.rs::uv_package_routes_compact_only_recognized_human_output"
+  },
+  "inherited_stream_policies": {
+    "bat_forced_paging_inherit": "tests/process.rs::lifecycle_policies_inherit_interactive_and_unbounded_commands",
+    "ctest_repeat_inherit": "tests/process.rs::lifecycle_policies_inherit_interactive_and_unbounded_commands",
+    "docker_compose_up_inherit": "tests/process.rs::lifecycle_policies_inherit_interactive_and_unbounded_commands",
+    "docker_run_inherit": "tests/process.rs::lifecycle_policies_inherit_interactive_and_unbounded_commands",
+    "docker_stats_stream_inherit": "tests/process.rs::lifecycle_policies_inherit_interactive_and_unbounded_commands",
+    "esbuild_watch_serve_inherit": "tests/process.rs::lifecycle_policies_inherit_interactive_and_unbounded_commands",
+    "playwright_interactive_inherit": "tests/process.rs::lifecycle_policies_inherit_interactive_and_unbounded_commands",
+    "vite_lifecycle_inherit": "tests/process.rs::lifecycle_policies_inherit_interactive_and_unbounded_commands"
+  },
+  "auto_wrap_commands": {
+    "*": "tests/cli.rs::all_auto_wrap_commands_rewrite_directly"
+  },
+  "git_subcommands": {
+    "config": "tests/filters_git.rs::argv_release_and_audit_commands_keep_their_actionable_rows",
+    "remote": "tests/filters_git.rs::argv_release_and_audit_commands_keep_their_actionable_rows",
+    "shortlog": "tests/filters_git.rs::argv_release_and_audit_commands_keep_their_actionable_rows",
+    "tag": "tests/filters_git.rs::argv_release_and_audit_commands_keep_their_actionable_rows",
+    "worktree": "tests/filters_git.rs::argv_release_and_audit_commands_keep_their_actionable_rows"
+  }
+}

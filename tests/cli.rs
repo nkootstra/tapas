@@ -224,6 +224,45 @@ fn filters_report_the_canonical_commands_and_runners() {
             "missing {runner:?} in {filters:?}"
         );
     }
+    for (heading, entries) in [
+        (
+            "Compact routes:",
+            &[
+                "pip_install",
+                "uv_project",
+                "vite_build",
+                "playwright_test",
+                "helm_read",
+                "grep_multifile",
+                "docker_buildkit",
+            ][..],
+        ),
+        (
+            "Exact-output policies:",
+            &[
+                "machine_output",
+                "pip_query_or_machine_exact",
+                "grep_output_shaping_exact",
+                "docker_machine_exact",
+            ][..],
+        ),
+        (
+            "Inherited/stream policies:",
+            &[
+                "vite_lifecycle_inherit",
+                "playwright_interactive_inherit",
+                "docker_stats_stream_inherit",
+            ][..],
+        ),
+    ] {
+        assert!(
+            filters.contains(heading),
+            "missing {heading:?} in {filters:?}"
+        );
+        for entry in entries {
+            assert!(filters.contains(entry), "missing {entry:?} in {filters:?}");
+        }
+    }
     assert!(!filters.contains("smll"));
     assert!(output.stderr.is_empty());
 }
@@ -269,6 +308,28 @@ fn expanded_catalog_reports_and_rewrites_the_supported_commands() {
             rewritten.stdout,
             expected.as_bytes(),
             "command: {command:?}"
+        );
+    }
+}
+
+#[test]
+fn all_auto_wrap_commands_rewrite_directly() {
+    for command in tapas::catalog::AUTO_WRAP_COMMANDS {
+        let arguments = if matches!(*command, "bunx" | "uvx") {
+            vec!["--rewrite", command, "vite", "--version"]
+        } else if *command == "pnpm" {
+            vec!["--rewrite", command, "install"]
+        } else {
+            vec!["--rewrite", command, "--version"]
+        };
+        let output = tapas(&arguments);
+        assert!(output.status.success(), "command: {command:?}");
+        assert!(
+            output
+                .stdout
+                .starts_with(format!("tapas {command} ").as_bytes()),
+            "command: {command:?}, output: {:?}",
+            String::from_utf8_lossy(&output.stdout)
         );
     }
 }

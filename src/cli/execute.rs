@@ -70,6 +70,24 @@ fn write_filters(stdout: &mut dyn Write) -> io::Result<i32> {
         "Transparent runners: {}",
         catalog::TRANSPARENT_RUNNERS.join("|")
     )?;
+    writeln!(stdout)?;
+    writeln!(
+        stdout,
+        "Compact routes: {}",
+        catalog::COMPACT_ROUTES.join("|")
+    )?;
+    writeln!(stdout)?;
+    writeln!(
+        stdout,
+        "Exact-output policies: {}",
+        catalog::EXACT_OUTPUT_BYPASSES.join("|")
+    )?;
+    writeln!(stdout)?;
+    writeln!(
+        stdout,
+        "Inherited/stream policies: {}",
+        catalog::STREAM_WATCH_POLICIES.join("|")
+    )?;
     Ok(0)
 }
 
