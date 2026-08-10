@@ -1,0 +1,6 @@
+#1 [internal] load build definition from Dockerfile
+#1 DONE 0.0s
+#2 [2/2] RUN false
+#2 0.100 process "/bin/sh -c false" did not complete successfully: exit code: 1
+#2 ERROR: process "/bin/sh -c false" did not complete successfully: exit code: 1
+ERROR: failed to solve: process "/bin/sh -c false" did not complete successfully: exit code: 1

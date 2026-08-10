@@ -50,6 +50,27 @@ pub(crate) fn dispatch_streams_decision(
     if exit_code != 0 && !stderr.is_empty() && !recognized_failure {
         return Ok(StreamFilterDecision::Unchanged);
     }
+    if matches!(command, b"docker" | b"docker-compose")
+        && exit_code == 0
+        && docker::route(command, argv)
+        && (stdout.is_empty() != stderr.is_empty())
+    {
+        if let Some(compact) = docker::compact(if stdout.is_empty() { stderr } else { stdout }) {
+            return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
+                if stdout.is_empty() {
+                    Vec::new()
+                } else {
+                    compact.clone()
+                },
+                if stderr.is_empty() {
+                    Vec::new()
+                } else {
+                    compact
+                },
+                EvidenceClass::PotentiallyLossy,
+            )));
+        }
+    }
     if exit_code == 0 {
         if command == b"vite"
             && catalog_routes::vite_route(argv)
@@ -179,6 +200,7 @@ pub(crate) fn has_package_prelude(input: &[u8]) -> bool {
 
 mod apple;
 mod catalog_routes;
+mod docker;
 mod dotnet;
 mod exact;
 mod frontend;

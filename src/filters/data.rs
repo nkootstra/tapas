@@ -73,6 +73,21 @@ pub(crate) fn dispatch_streams_decision(
         )));
     }
 
+    if matches!(command, b"bat" | b"batcat")
+        && exit_code == 0
+        && stderr.is_empty()
+        && stdout.len() > 512
+        && std::str::from_utf8(stdout).is_ok()
+        && bat_is_plain(argv)
+        && let Some(compact) = compact_cat(stdout, argv)
+    {
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
+            compact,
+            Vec::new(),
+            EvidenceClass::PotentiallyLossy,
+        )));
+    }
+
     if command == b"sqlite3" && matches_sqlite_table(stdout) {
         return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
             compact_sqlite_table(stdout),
@@ -90,6 +105,14 @@ pub(crate) fn dispatch_streams_decision(
     }
 
     Ok(StreamFilterDecision::Unchanged)
+}
+
+fn bat_is_plain(argv: &[&[u8]]) -> bool {
+    argv.len() <= 2
+        && argv
+            .iter()
+            .skip(1)
+            .all(|argument| !argument.starts_with(b"-"))
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]

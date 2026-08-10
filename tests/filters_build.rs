@@ -588,6 +588,71 @@ fn direct_vite_esbuild_and_cmake_routes_require_finite_argv_and_known_grammar() 
 }
 
 #[test]
+fn docker_buildkit_routes_compact_only_successful_recognized_human_progress() {
+    let success = fixture("docker_buildkit_success.txt");
+    for argv in [
+        &[b"docker".as_slice(), b"build", b"."][..],
+        &[b"docker".as_slice(), b"buildx", b"build", b"."][..],
+        &[b"docker".as_slice(), b"compose", b"build"][..],
+        &[b"docker-compose".as_slice(), b"build"][..],
+    ] {
+        let output = build::dispatch_streams_argv(argv, &success, b"", 0, false).unwrap();
+        assert_eq!(output.evidence, EvidenceClass::PotentiallyLossy, "{argv:?}");
+        assert_eq!(
+            output.stdout,
+            b"BuildKit: 5 steps completed\nimage: docker.io/library/demo:latest\n"
+        );
+    }
+
+    let stderr_only =
+        build::dispatch_streams_argv(&[b"docker", b"build", b"."], b"", &success, 0, false)
+            .unwrap();
+    assert!(stderr_only.stdout.is_empty());
+    assert_eq!(
+        stderr_only.stderr,
+        b"BuildKit: 5 steps completed\nimage: docker.io/library/demo:latest\n"
+    );
+    assert_eq!(stderr_only.evidence, EvidenceClass::PotentiallyLossy);
+
+    let failure = fixture("docker_buildkit_failure.txt");
+    let raw = build::dispatch_streams_argv(&[b"docker", b"build", b"."], &failure, b"", 1, false)
+        .unwrap();
+    assert_eq!(raw.evidence, EvidenceClass::ByteExact);
+    assert_eq!(raw.stdout, failure);
+
+    let rawjson = fixture("docker_buildkit_rawjson.txt");
+    let output = build::dispatch_streams_argv(
+        &[b"docker", b"build", b"--progress=rawjson", b"."],
+        &rawjson,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(output.evidence, EvidenceClass::ByteExact);
+
+    let output = build::dispatch_streams_argv(
+        &[b"docker", b"build", b"--progress", b"rawjson", b"."],
+        &rawjson,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(output.evidence, EvidenceClass::ByteExact);
+
+    let terminated = build::dispatch_streams_argv(
+        &[b"docker", b"build", b".", b"--", b"--progress=rawjson"],
+        &success,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(terminated.evidence, EvidenceClass::PotentiallyLossy);
+}
+
+#[test]
 fn large_build_fixtures_match_the_pinned_wrapper_oracles() {
     let cargo_expected = concat!(
         "warning: unused import: `std::collections::HashMap`\n",

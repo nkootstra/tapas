@@ -44,6 +44,7 @@ const QUERY_SHORT_FLAG_COMMANDS: &[&[u8]] = &[
     b"kubectl",
     b"gh",
     b"acli",
+    b"helm",
     b"pytest",
     b"jq",
 ];
@@ -148,8 +149,18 @@ pub(crate) fn requests_machine_output(argv: &[&[u8]]) -> bool {
                     ],
                 )
         }
+        b"helm" => {
+            has_option(arguments, b"--output", b"-o", true)
+                || argv.get(1).is_some_and(|subcommand| *subcommand == b"get")
+        }
         b"docker" | b"docker-compose" => {
             has_option(arguments, b"--format", b"", false)
+                || arguments
+                    .iter()
+                    .any(|argument| *argument == b"--progress=rawjson")
+                || arguments
+                    .windows(2)
+                    .any(|pair| pair[0] == b"--progress" && pair[1] == b"rawjson")
                 || has_any(arguments, &[b"-q", b"--quiet", b"--no-trunc"])
                 || command == b"docker-compose" && equals_at(argv, 1, b"config")
                 || command == b"docker" && equals_at(argv, 1, b"inspect")
@@ -310,7 +321,37 @@ pub(crate) fn requests_exact_output(argv: &[&[u8]]) -> bool {
                         .is_some_and(|reporter| !matches!(reporter, b"list" | b"line" | b"dot"))
                 })
         }
-        b"cat" => arguments.iter().any(|argument| argument.starts_with(b"-")),
+        b"cat" | b"bat" | b"batcat" => arguments.iter().any(|argument| argument.starts_with(b"-")),
+        b"grep" => arguments.iter().any(|argument| {
+            matches!(
+                *argument,
+                b"-c"
+                    | b"--count"
+                    | b"-l"
+                    | b"--files-with-matches"
+                    | b"-L"
+                    | b"--files-without-match"
+                    | b"-o"
+                    | b"--only-matching"
+                    | b"-q"
+                    | b"--quiet"
+                    | b"-b"
+                    | b"--byte-offset"
+                    | b"-z"
+                    | b"--null-data"
+                    | b"-Z"
+                    | b"--null"
+                    | b"-a"
+                    | b"--text"
+                    | b"-I"
+                    | b"--binary-files"
+            ) || argument.starts_with(b"-A")
+                || argument.starts_with(b"-B")
+                || argument.starts_with(b"-C")
+                || argument.starts_with(b"--after-context")
+                || argument.starts_with(b"--before-context")
+                || argument.starts_with(b"--context")
+        }),
         b"find" => has_any(
             arguments,
             &[

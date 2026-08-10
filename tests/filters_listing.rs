@@ -42,6 +42,88 @@ fn tree_pipe_filter_matches_the_pinned_oracle() {
 }
 
 #[test]
+fn grep_compacts_only_large_path_prefixed_multi_file_human_matches() {
+    let input = fixture("grep_multifile.txt");
+    let output = listing::dispatch_streams_argv(
+        &[b"grep", b"-nH", b"needle", b"src/a.rs", b"src/b.rs"],
+        &input,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(output.evidence, EvidenceClass::PotentiallyLossy);
+    for needle in [
+        b"src/a.rs:0: needle alpha\n".as_slice(),
+        b"src/a.rs: ... 12 more matches\n",
+        b"src/b.rs: ... 12 more matches\n",
+    ] {
+        assert!(
+            output
+                .stdout
+                .windows(needle.len())
+                .any(|part| part == needle)
+        );
+    }
+
+    for argv in [
+        &[
+            b"grep".as_slice(),
+            b"-c",
+            b"needle",
+            b"src/a.rs",
+            b"src/b.rs",
+        ][..],
+        &[
+            b"grep".as_slice(),
+            b"-o",
+            b"needle",
+            b"src/a.rs",
+            b"src/b.rs",
+        ][..],
+        &[
+            b"grep".as_slice(),
+            b"-A",
+            b"2",
+            b"needle",
+            b"src/a.rs",
+            b"src/b.rs",
+        ][..],
+        &[b"grep".as_slice(), b"needle", b"src/a.rs"][..],
+    ] {
+        let exact = listing::dispatch_streams_argv(argv, &input, b"", 0, false).unwrap();
+        assert_eq!(exact.evidence, EvidenceClass::ByteExact, "{argv:?}");
+    }
+
+    let no_match = listing::dispatch_streams_argv(
+        &[b"grep", b"needle", b"src/a.rs", b"src/b.rs"],
+        b"",
+        b"",
+        1,
+        false,
+    )
+    .unwrap();
+    assert_eq!(no_match.evidence, EvidenceClass::ByteExact);
+
+    let terminated = listing::dispatch_streams_argv(
+        &[
+            b"grep",
+            b"needle",
+            b"src/a.rs",
+            b"src/b.rs",
+            b"--",
+            b"--count",
+        ],
+        &input,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(terminated.evidence, EvidenceClass::PotentiallyLossy);
+}
+
+#[test]
 fn ls_pipe_filter_matches_the_pinned_oracle() {
     let input = fixture("ls_la.txt");
     let expected = b"filters/\nmain.zig\npipeline.zig\nutil.zig\n";

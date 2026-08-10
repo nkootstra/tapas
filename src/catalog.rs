@@ -252,6 +252,8 @@ pub(crate) const BUILD_FILTER_COMMANDS: &[&[u8]] = &[
     b"vite",
     b"esbuild",
     b"cmake",
+    b"docker",
+    b"docker-compose",
     b"turbo",
     b"next",
     b"dotnet",
@@ -308,6 +310,8 @@ pub(crate) const DATA_FILTER_COMMANDS: &[&[u8]] = &[
     b"yarn",
     b"brew",
     b"bun",
+    b"bat",
+    b"batcat",
 ];
 pub(crate) const DIAGNOSTICS_FILTER_COMMANDS: &[&[u8]] = &[
     b"mypy",

@@ -64,7 +64,7 @@ pub(crate) fn dispatch_streams_decision(
         argv,
         stdout,
         stderr,
-        exit_code: _,
+        exit_code,
         lossless,
     } = input;
     if argv.is_empty() {
@@ -74,6 +74,19 @@ pub(crate) fn dispatch_streams_decision(
         return Ok(StreamFilterDecision::Unchanged);
     }
     let command = command_basename(argv[0]);
+    if command == b"grep"
+        && exit_code == 0
+        && stderr.is_empty()
+        && std::str::from_utf8(stdout).is_ok()
+        && grep::route(argv)
+        && let Some(stdout) = grep::compact(stdout)
+    {
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
+            stdout,
+            Vec::new(),
+            EvidenceClass::PotentiallyLossy,
+        )));
+    }
     if command == b"find" {
         if matches_find_plain(stdout) {
             return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
@@ -157,6 +170,7 @@ pub(crate) fn dispatch_streams_decision(
 
 mod du;
 mod find;
+mod grep;
 mod ls;
 mod pipe;
 mod rg;

@@ -331,6 +331,39 @@ fn cat_data_small_unknown_and_exact_invocations_are_byte_exact() {
 }
 
 #[test]
+fn bat_and_batcat_share_only_the_plain_cat_compaction_contract() {
+    let input = fixture("bat_code.rs");
+    assert!(input.len() > 512);
+
+    for argv in [
+        &[b"bat".as_slice(), b"src/lib.rs"][..],
+        &[b"batcat".as_slice(), b"src/lib.rs"][..],
+        &[b"bat".as_slice()][..],
+    ] {
+        let output = data::dispatch_streams_argv(argv, &input, b"", 0, false).unwrap();
+        assert_eq!(output.evidence, EvidenceClass::PotentiallyLossy, "{argv:?}");
+        if argv.len() == 2 {
+            assert!(
+                output
+                    .stdout
+                    .windows(b"// ... (".len())
+                    .any(|part| part == b"// ... (")
+            );
+        }
+    }
+
+    for argv in [
+        &[b"bat".as_slice(), b"--plain", b"src/lib.rs"][..],
+        &[b"bat".as_slice(), b"-n", b"src/lib.rs"][..],
+        &[b"batcat".as_slice(), b"--style=plain", b"src/lib.rs"][..],
+        &[b"bat".as_slice(), b"one.rs", b"two.rs"][..],
+    ] {
+        let output = data::dispatch_streams_argv(argv, &input, b"", 0, false).unwrap();
+        assert_eq!(output.evidence, EvidenceClass::ByteExact, "{argv:?}");
+    }
+}
+
+#[test]
 fn lossless_and_invalid_argv_are_preserved_or_rejected() {
     let stdout = b"A   B   C\n\xff   y   z\nq   r   s\n";
     assert_eq!(
