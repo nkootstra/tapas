@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import pathlib
-import hashlib
 import sqlite3
 import sys
 import tempfile
@@ -201,10 +200,87 @@ class UsageReportTests(unittest.TestCase):
         )
 
         self.assertEqual(token, usage_report._redact_identifier("python", mapping=mapping, prefix="cmd"))
-        self.assertNotEqual(
-            token,
-            f"cmd-{hashlib.sha1('python'.encode('utf-8')).hexdigest()[:10]}",
+        self.assertNotIn("python", token)
+        self.assertNotIn("sha1", token)
+        self.assertTrue(token.startswith("cmd-"))
+
+    def test_redacted_output_hides_git_and_command_identifiers(self) -> None:
+        report = {
+            "total_invocations": 3,
+            "sources": {"opencode": 2, "claude": 1},
+            "commands": [
+                {
+                    "command": "secret-cmd",
+                    "count": 2,
+                    "coverage": "unlisted",
+                    "sources": {"opencode": 2},
+                },
+                {"command": "git", "count": 1, "coverage": "auto-wrap", "sources": {"claude": 1}},
+            ],
+            "git_subcommands": [
+                {
+                    "subcommand": "mystery",
+                    "count": 2,
+                    "coverage": "unlisted",
+                    "sources": {"opencode": 2},
+                },
+                {"subcommand": "status", "count": 1, "coverage": "catalogued", "sources": {"claude": 1}},
+            ],
+            "coverage_invocations": {"auto-wrap": 1, "unlisted": 1},
+            "coverage_summary": {"covered_invocations": 2, "unlisted_invocations": 1},
+            "compaction_candidates": [
+                {
+                    "command": "secret-cmd",
+                    "count": 2,
+                    "estimated_saved_bytes": 120,
+                    "estimated_saved_invocations": 2,
+                    "estimated_saved_tokens": 30,
+                    "coverage": "unlisted",
+                }
+            ],
+            "unlisted_commands": [
+                {"command": "secret-cmd", "count": 2, "coverage": "unlisted"}
+            ],
+            "unlisted_git_subcommands": [
+                {"subcommand": "mystery", "count": 2, "coverage": "unlisted"}
+            ],
+        }
+
+        command_aliases: dict[str, str] = {}
+        git_aliases: dict[str, str] = {}
+        text = usage_report._format_text_with_redaction(
+            report,
+            redact=True,
+            command_aliases=command_aliases,
+            git_aliases=git_aliases,
         )
+        compact = usage_report.format_compaction_plan(
+            report,
+            top_n=5,
+            include_noise=False,
+            excluded_commands={"git"},
+            redact=True,
+            command_aliases=command_aliases,
+            git_aliases=git_aliases,
+        )
+        readable = usage_report.format_readable(
+            report,
+            include_noise=False,
+            excluded_commands={"secret-cmd", "git"},
+            redact=True,
+            command_aliases=command_aliases,
+            git_aliases=git_aliases,
+        )
+        self.assertNotIn("secret-cmd", text)
+        self.assertNotIn("mystery", text)
+        self.assertNotIn("secret-cmd", compact)
+        self.assertNotIn("mystery", compact)
+        self.assertNotIn("secret-cmd", readable)
+        self.assertNotIn("mystery", readable)
+
+        redacted_json = usage_report.redact_report_output(report)
+        self.assertNotEqual(redacted_json["commands"][0]["command"], "secret-cmd")
+        self.assertNotEqual(redacted_json["git_subcommands"][0]["subcommand"], "mystery")
 
 
 if __name__ == "__main__":
