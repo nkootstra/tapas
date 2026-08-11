@@ -25,18 +25,11 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Require title-preserving squash merges
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Require a release-intent merge title
         run: |
           set -euo pipefail
-          settings="$(gh api "repos/${GITHUB_REPOSITORY}")"
-          jq -e '
-            .allow_squash_merge == true and
-            .allow_merge_commit == false and
-            .allow_rebase_merge == false and
-            .squash_merge_commit_title == "PR_TITLE"
-          ' <<< "$settings" > /dev/null
+          subject="$(git log -1 --format=%s)"
+          python3 scripts/release_policy.py validate-title "$subject"
 
       - name: Resolve the requested release version
         id: policy

@@ -70,7 +70,7 @@ class ReleaseAutomationContractTests(unittest.TestCase):
         self.assertIn("github.event.pull_request.merge_commit_sha", workflow)
         self.assertIn('test "$PR_AUTHOR" = "${APP_SLUG}[bot]"', workflow)
 
-    def test_release_policy_fails_closed_when_squash_titles_can_drift(self) -> None:
+    def test_release_policy_validates_the_actual_merge_title(self) -> None:
         workflow = (ROOT / ".github/workflows/release-plz.yml").read_text(
             encoding="utf-8"
         )
@@ -78,9 +78,9 @@ class ReleaseAutomationContractTests(unittest.TestCase):
             encoding="utf-8"
         )
 
-        self.assertIn('.squash_merge_commit_title == "PR_TITLE"', workflow)
-        self.assertIn(".allow_merge_commit == false", workflow)
-        self.assertIn(".allow_rebase_merge == false", workflow)
+        self.assertIn('subject="$(git log -1 --format=%s)"', workflow)
+        self.assertIn('release_policy.py validate-title "$subject"', workflow)
+        self.assertNotIn('gh api "repos/${GITHUB_REPOSITORY}"', workflow)
         self.assertIn("Always use the pull request title", guide)
 
     def test_title_workflow_validates_inline_without_checking_out_pr_code(self) -> None:
