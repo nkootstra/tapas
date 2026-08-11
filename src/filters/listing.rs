@@ -9,7 +9,8 @@ const TEXT_FILTER_COMMANDS: &[&[u8]] = &[
     b"xargs",
 ];
 const TEXT_FILTER_NO_COMPACTION_COMMANDS: &[&[u8]] = &[
-    b"base64", b"grep", b"nl", b"python", b"python3", b"sed", b"sort",
+    b"base64", b"grep", b"nl", b"python", b"python3", b"sed", b"sort", b"strings", b"which",
+    b"xargs",
 ];
 
 pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
