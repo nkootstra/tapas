@@ -26,12 +26,19 @@ jobs:
       - name: Verify the release tag signature
         if: github.ref_type == 'tag'
         env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          git fetch --no-tags --force origin \
+            "refs/heads/${DEFAULT_BRANCH}:refs/remotes/origin/trusted-release-policy"
+          git show \
+            "refs/remotes/origin/trusted-release-policy:.github/release-signers" \
+            > "$RUNNER_TEMP/release-signers"
           git fetch --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
-          git config --local gpg.ssh.allowedSignersFile ".github/release-signers"
+          git config --local gpg.ssh.allowedSignersFile \
+            "$RUNNER_TEMP/release-signers"
           git verify-tag "$TAG"
           test "$(git rev-list -n 1 "$TAG")" = "$GITHUB_SHA"
 

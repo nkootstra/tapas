@@ -103,6 +103,16 @@ class ReleaseAutomationContractTests(unittest.TestCase):
         self.assertIn("git verify-tag", publisher)
         self.assertIn(".github/release-signers", ci)
         self.assertIn(".github/release-signers", publisher)
+        self.assertIn("github.event.repository.default_branch", ci)
+        self.assertIn(
+            'refs/remotes/origin/trusted-release-policy:.github/release-signers',
+            ci,
+        )
+        self.assertIn('$RUNNER_TEMP/release-signers', ci)
+        self.assertNotIn(
+            'gpg.ssh.allowedSignersFile ".github/release-signers"',
+            ci,
+        )
         self.assertIn("github.event.repository.default_branch", publisher)
 
     def test_operator_guide_names_every_required_setting_without_private_material(self) -> None:
