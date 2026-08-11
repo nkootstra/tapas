@@ -161,14 +161,11 @@ Windows stable binaries are not published yet because the current runtime uses U
 
 Use `--version 0.3.0` to install a specific tagged Unix release.
 
-Stable releases are tag-driven. Update `Cargo.toml`, merge the version change, then create and push a matching tag:
+Stable releases are prepared from pull request titles. Use `major:`, `minor:`, or `patch:` to select the next version, or `skip:` for changes that should not appear in a release. Release-plz opens or updates a release pull request containing `Cargo.toml`, `Cargo.lock`, and `CHANGELOG.md`; merging that pull request creates a signed tag automatically.
 
-```sh
-git tag -s v0.3.0 -m "Release v0.3.0"
-git push origin v0.3.0
-```
+The signed tag triggers the existing checked-artifact pipeline. It verifies the tag and package version, builds each supported target, and publishes the GitHub Release only after CI succeeds. See [GitHub App release automation](docs/github-app-release-automation.md) for setup, credential rotation, and recovery.
 
-The tag determines whether the release is a patch, minor, or major version; ordinary merges to `main` do not publish stable releases.
+Merging ordinary pull requests updates the pending release PR; merging the release PR publishes the selected version.
 
 To test a pull request before it is merged, install the exact build for its current head commit:
 

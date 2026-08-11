@@ -22,6 +22,25 @@ jobs:
       contents: write
     timeout-minutes: 15
     steps:
+      - name: Check out the trusted release policy
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Verify the release tag signature
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          TAG: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          git fetch --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
+          git config --local gpg.ssh.allowedSignersFile ".github/release-signers"
+          git verify-tag "$TAG"
+          test "$(git rev-list -n 1 "$TAG")" = "$SOURCE_SHA"
+
       - name: Download the verified target artifacts
         env:
           GH_TOKEN: ${{ github.token }}

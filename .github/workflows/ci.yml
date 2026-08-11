@@ -23,6 +23,18 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
+      - name: Verify the release tag signature
+        if: github.ref_type == 'tag'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          git fetch --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
+          git config --local gpg.ssh.allowedSignersFile ".github/release-signers"
+          git verify-tag "$TAG"
+          test "$(git rev-list -n 1 "$TAG")" = "$GITHUB_SHA"
+
       - name: Install formatting and linting components
         run: rustup component add rustfmt clippy
 
