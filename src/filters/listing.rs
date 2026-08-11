@@ -173,13 +173,13 @@ pub(crate) fn dispatch_streams_decision(
         let compacted_stdout = compact_text_stream(stdout);
         let compacted_stderr = compact_text_stream(stderr);
         if compacted_stdout == stdout && compacted_stderr == stderr {
-            Ok(StreamFilterDecision::Unchanged)
+            return Ok(StreamFilterDecision::Unchanged);
         } else {
-            Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
+            return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
                 compacted_stdout,
                 compacted_stderr,
                 EvidenceClass::PotentiallyLossy,
-            )))
+            )));
         }
     }
     Ok(StreamFilterDecision::Unchanged)
