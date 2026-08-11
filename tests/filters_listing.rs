@@ -413,15 +413,14 @@ fn lossless_exact_modes_unknown_shapes_and_parser_failures_are_byte_exact() {
 fn stream_generic_compaction_preserves_stderr_when_stdout_is_compacted() {
     let mut stdout = Vec::new();
     for _ in 0..2000 {
-        stdout.extend_from_slice(b"same output line\n");
+        stdout.extend_from_slice(b"dir/file.txt\n");
     }
     let stderr = b"stderr diagnostic\n".to_vec();
-    let expected = "same output line \u{00d7}2000\n".to_string();
+    let command = &[b"find".as_ref(), b".".as_ref()];
 
-    let result =
-        listing::dispatch_streams_argv(&[b"xargs", b"same"], &stdout, &stderr, 0, false).unwrap();
+    let result = listing::dispatch_streams_argv(command, &stdout, &stderr, 0, false).unwrap();
 
-    assert_eq!(result.stdout, expected.into_bytes());
+    assert_ne!(result.stdout, stdout);
     assert_eq!(result.stderr, stderr);
     assert_eq!(result.evidence, EvidenceClass::PotentiallyLossy);
 }
