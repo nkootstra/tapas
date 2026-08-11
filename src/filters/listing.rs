@@ -171,53 +171,32 @@ pub(crate) fn dispatch_streams_decision(
             )));
         }
 
-        let has_stdout = !stdout.is_empty();
-        let has_stderr = !stderr.is_empty();
-
-        match (has_stdout, has_stderr) {
-            (true, true) => {
-                let compacted_stdout = compact_text_stream(stdout);
-                if compacted_stdout != stdout {
-                    return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
-                        compacted_stdout,
-                        stderr.to_vec(),
-                        EvidenceClass::PotentiallyLossy,
-                    )));
-                }
-                let compacted_stderr = compact_text_stream(stderr);
-                if compacted_stderr == stderr {
-                    return Ok(StreamFilterDecision::Unchanged);
-                }
-                return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
-                    stdout.to_vec(),
-                    compacted_stderr,
-                    EvidenceClass::PotentiallyLossy,
-                )));
-            }
-            (true, false) => {
-                let compacted_stdout = compact_text_stream(stdout);
-                if compacted_stdout == stdout {
-                    return Ok(StreamFilterDecision::Unchanged);
-                }
-                return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
-                    compacted_stdout,
-                    Vec::new(),
-                    EvidenceClass::PotentiallyLossy,
-                )));
-            }
-            (false, true) => {
-                let compacted_stderr = compact_text_stream(stderr);
-                if compacted_stderr == stderr {
-                    return Ok(StreamFilterDecision::Unchanged);
-                }
-                return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
-                    Vec::new(),
-                    compacted_stderr,
-                    EvidenceClass::PotentiallyLossy,
-                )));
-            }
-            (false, false) => {}
+        let compacted_stdout = if stdout.is_empty() {
+            Vec::new()
+        } else {
+            compact_text_stream(stdout)
+        };
+        let compacted_stderr = if stderr.is_empty() {
+            Vec::new()
+        } else {
+            compact_text_stream(stderr)
+        };
+        if compacted_stdout == stdout && compacted_stderr == stderr {
+            return Ok(StreamFilterDecision::Unchanged);
         }
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
+            if stdout.is_empty() {
+                Vec::new()
+            } else {
+                compacted_stdout
+            },
+            if stderr.is_empty() {
+                Vec::new()
+            } else {
+                compacted_stderr
+            },
+            EvidenceClass::PotentiallyLossy,
+        )));
     }
     Ok(StreamFilterDecision::Unchanged)
 }
