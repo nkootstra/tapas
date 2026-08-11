@@ -419,7 +419,7 @@ fn stream_generic_compaction_preserves_stderr_when_stdout_is_compacted() {
     let expected = "same output line \u{00d7}2000\n".to_string();
 
     let result =
-        listing::dispatch_streams_argv(&[b"base64", b"same"], &stdout, &stderr, 0, false).unwrap();
+        listing::dispatch_streams_argv(&[b"xargs", b"same"], &stdout, &stderr, 0, false).unwrap();
 
     assert_eq!(result.stdout, expected.into_bytes());
     assert_eq!(result.stderr, stderr);
