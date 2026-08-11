@@ -4,6 +4,7 @@ use std::io::{self, Read, Write};
 mod execute;
 mod invocation;
 pub(crate) mod spec;
+mod compaction;
 
 pub fn main_entry() -> i32 {
     let args: Vec<OsString> = std::env::args_os().skip(1).collect();

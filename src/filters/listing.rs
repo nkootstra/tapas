@@ -1,7 +1,8 @@
 use super::{
     EvidenceClass, FilterError, FilterOutput, StreamFilterDecision, StreamFilterInput,
-    StreamFilterOutput, command_basename, find_subslice,
+    StreamFilterOutput, command_basename,
 };
+use crate::filters::generic;
 
 pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
     crate::catalog::filter_family_handles(argv, crate::catalog::LISTING_FILTER_COMMANDS)
@@ -152,7 +153,32 @@ pub(crate) fn dispatch_streams_decision(
             )));
         }
     }
+    if is_text_filter_command(command)
+        && (generic::matches(stdout) || generic::matches(stderr))
+    {
+        return Ok(StreamFilterDecision::compact_single_stream(
+            stdout,
+            stderr,
+            EvidenceClass::PotentiallyLossy,
+            compact_text_output,
+        ));
+    }
     Ok(StreamFilterDecision::Unchanged)
+}
+
+fn is_text_filter_command(command: &[u8]) -> bool {
+    crate::catalog::TEXT_FILTER_COMMANDS.contains(&command)
+}
+
+fn compact_text_output(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
+    let input = if !stdout.is_empty() { stdout } else { stderr };
+    if !generic::matches(input) {
+        return input.to_vec();
+    }
+    generic::apply_matched(input)
+        .ok()
+        .map(|output| output.bytes)
+        .unwrap_or_else(|| input.to_vec())
 }
 
 mod du;

@@ -24,6 +24,7 @@ pub struct RunOptions {
 #[derive(Debug)]
 pub struct RunReport {
     pub exit_code: i32,
+    pub command: String,
     pub input_bytes: usize,
     pub displayed_bytes: usize,
     pub diagnostic_bytes: usize,
@@ -31,6 +32,7 @@ pub struct RunReport {
     pub evidence: EvidenceClass,
     pub capture_complete: bool,
     pub capture_overflowed: bool,
+    pub changed: bool,
 }
 
 pub fn run(
@@ -41,6 +43,7 @@ pub fn run(
 ) -> io::Result<RunReport> {
     let invocation = classify(argv);
     let logical = invocation.logical_argv;
+    let command = command_name(logical);
     let lossless = crate::environment::flag_on("TAPAS_LOSSLESS");
     // Keep the outer runner visible for lifecycle decisions. A transparent
     // runner can hide a development/watch command after argv unwrapping.
@@ -57,6 +60,7 @@ pub fn run(
         let diagnostic_bytes = write_incomplete_diagnostic(streamed.incomplete, stderr)?;
         let report = RunReport {
             exit_code: streamed.exit_code,
+            command: command.clone(),
             input_bytes: streamed.input_bytes,
             displayed_bytes: streamed.displayed_bytes + diagnostic_bytes,
             diagnostic_bytes,
@@ -64,6 +68,7 @@ pub fn run(
             evidence: EvidenceClass::FactComplete,
             capture_complete: !streamed.incomplete,
             capture_overflowed: false,
+            changed: streamed.filter_name != "passthrough",
         };
         return return_report(report, stderr, options.explain);
     }
@@ -76,6 +81,7 @@ pub fn run(
     if unfiltered && unix::outputs_are_tty() {
         let report = RunReport {
             exit_code: capture::run_inherited(argv)?,
+            command: command.clone(),
             input_bytes: 0,
             displayed_bytes: 0,
             diagnostic_bytes: 0,
@@ -83,6 +89,7 @@ pub fn run(
             evidence: EvidenceClass::ByteExact,
             capture_complete: true,
             capture_overflowed: false,
+            changed: false,
         };
         return return_report(report, stderr, options.explain);
     }
@@ -102,6 +109,7 @@ pub fn run(
         let diagnostic_bytes = write_incomplete_diagnostic(captured.incomplete, stderr)?;
         let report = RunReport {
             exit_code: captured.exit_code,
+            command: command.clone(),
             input_bytes: captured.input_bytes,
             displayed_bytes: captured.input_bytes + diagnostic_bytes,
             diagnostic_bytes,
@@ -109,6 +117,7 @@ pub fn run(
             evidence: EvidenceClass::ByteExact,
             capture_complete: !captured.incomplete,
             capture_overflowed: captured.overflowed,
+            changed: false,
         };
         return return_report(report, stderr, options.explain);
     }
@@ -119,6 +128,7 @@ pub fn run(
         let diagnostic_bytes = write_incomplete_diagnostic(true, stderr)?;
         let report = RunReport {
             exit_code: captured.exit_code,
+            command: command.clone(),
             input_bytes: captured.input_bytes,
             displayed_bytes: captured.input_bytes + diagnostic_bytes,
             diagnostic_bytes,
@@ -126,6 +136,7 @@ pub fn run(
             evidence: EvidenceClass::ByteExact,
             capture_complete: false,
             capture_overflowed: false,
+            changed: false,
         };
         return return_report(report, stderr, options.explain);
     }
@@ -142,10 +153,8 @@ pub fn run(
         logical
     };
     let filtered = filter_captured_output(filter_argv, &captured, lossless);
-    let changed =
-        filtered.stdout.as_ref() != captured.stdout || filtered.stderr.as_ref() != captured.stderr;
     let failure_fell_open =
-        captured.exit_code != 0 && changed && filtered.evidence == EvidenceClass::PotentiallyLossy;
+        captured.exit_code != 0 && filtered.changed && filtered.evidence == EvidenceClass::PotentiallyLossy;
     let visible_stdout = if failure_fell_open {
         captured.stdout.as_slice()
     } else {
@@ -173,11 +182,13 @@ pub fn run(
     };
     let report = RunReport {
         exit_code: captured.exit_code,
+        command: command.clone(),
         input_bytes: captured.input_bytes,
         displayed_bytes: visible_stdout.len() + visible_stderr.len() + diagnostic_bytes,
         diagnostic_bytes,
         filter_name,
         evidence,
+        changed: filtered.changed && !failure_fell_open,
         capture_complete: true,
         capture_overflowed: false,
     };
@@ -189,6 +200,7 @@ struct FilteredStreams<'a> {
     stderr: Cow<'a, [u8]>,
     filter_name: &'static str,
     evidence: EvidenceClass,
+    changed: bool,
 }
 
 type StreamMatcher = fn(&[&[u8]]) -> bool;
@@ -291,6 +303,7 @@ fn filter_captured_output<'a>(
                     stderr: Cow::Owned(output.stderr),
                     filter_name: filter.name,
                     evidence: output.evidence,
+                    changed: true,
                 };
             }
             Ok(StreamFilterDecision::Unchanged)
@@ -329,6 +342,7 @@ fn filter_captured_output<'a>(
         stderr: Cow::Borrowed(&captured.stderr),
         filter_name: result.filter_name,
         evidence: result.evidence,
+        changed: result.filter_name != "passthrough",
     }
 }
 
@@ -338,6 +352,7 @@ fn passthrough_streams(captured: &capture::CapturedOutput) -> FilteredStreams<'_
         stderr: Cow::Borrowed(&captured.stderr),
         filter_name: "passthrough",
         evidence: EvidenceClass::ByteExact,
+        changed: false,
     }
 }
 
@@ -387,6 +402,12 @@ fn return_report(
         write_explain(&report, stderr)?;
     }
     Ok(report)
+}
+
+fn command_name(argv: &[OsString]) -> String {
+    argv.first()
+        .and_then(|program| crate::catalog::command_basename(program))
+        .map_or_else(String::new, |program| program.to_string_lossy().into_owned())
 }
 
 fn write_explain(report: &RunReport, stderr: &mut dyn Write) -> io::Result<()> {

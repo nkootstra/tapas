@@ -28,6 +28,10 @@ class UsageReportTests(unittest.TestCase):
             usage_report.normalize_invocation("cd project && git diff"),
             [("git", ["diff"])],
         )
+        self.assertEqual(
+            usage_report.normalize_invocation("{ grep foo; }"),
+            [("grep", ["foo"])],
+        )
 
     def test_normalization_reads_compound_commands_without_splitting_quoted_text(self) -> None:
         self.assertEqual(
@@ -125,6 +129,50 @@ class UsageReportTests(unittest.TestCase):
         self.assertEqual(git_counts["status"], 2)
         self.assertEqual(report["unlisted_git_subcommands"][0]["subcommand"], "remote")
         self.assertEqual(report["commands"][0]["coverage"], "auto-wrap")
+
+    def test_report_includes_compaction_candidates_with_estimated_savings(self) -> None:
+        catalog = usage_report.parse_catalog(
+            """
+            pub const AUTO_WRAP_COMMANDS: &[&str] = &["git", "cargo"];
+            pub const WRAPPER_COMMANDS: &[&str] = &["git", "cargo"];
+            pub const GIT_SUBCOMMANDS: &[&str] = &["status"];
+            pub const TRANSPARENT_RUNNERS: &[&str] = &[];
+            """
+        )
+        rows = usage_report.normalize_rows(
+            [
+                ("opencode", "unlisted-a task"),
+                ("opencode", "unlisted-a report"),
+                ("opencode", "unlisted-b task"),
+                ("opencode", "git status"),
+            ]
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "compaction.jsonl"
+            path.write_text(
+                "\n".join(
+                    [
+                        "{\"command\":\"unlisted-a\",\"raw_bytes\":1000,\"displayed_bytes\":100,\"changed\":true}",
+                        "{\"command\":\"unlisted-a\",\"raw_bytes\":500,\"diagnostic_bytes\":20,\"displayed_bytes\":50,\"changed\":false}",
+                        "{\"command\":\"unlisted-b\",\"raw_bytes\":300,\"displayed_bytes\":120,\"changed\":true}",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            report = usage_report.build_report(
+                rows,
+                catalog,
+                1,
+                compaction_metrics=usage_report.load_compaction_metrics(path),
+            )
+
+        candidates = report["compaction_candidates"]
+        self.assertEqual(candidates[0]["command"], "unlisted-a")
+        self.assertEqual(candidates[0]["estimated_saved_bytes"], 900)
+        self.assertEqual(candidates[0]["estimated_saved_tokens"], 225)
+        self.assertEqual(candidates[1]["command"], "unlisted-b")
+        self.assertEqual(candidates[1]["estimated_saved_bytes"], 180)
 
     def test_transparent_runner_requires_the_declared_subcommand(self) -> None:
         catalog = usage_report.parse_catalog(
