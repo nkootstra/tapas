@@ -1,10 +1,12 @@
 use std::collections::BTreeMap;
 
 pub(super) fn route(argv: &[&[u8]]) -> bool {
-    let args = crate::invocation_policy::options(argv);
     let mut positionals = 0usize;
-    for argument in args {
-        if argument.starts_with(b"--") {
+    let mut after_terminator = false;
+    for argument in argv.get(1..).unwrap_or_default() {
+        if !after_terminator && *argument == b"--" {
+            after_terminator = true;
+        } else if !after_terminator && argument.starts_with(b"--") {
             if !matches!(
                 *argument,
                 b"--extended-regexp"
@@ -19,16 +21,19 @@ pub(super) fn route(argv: &[&[u8]]) -> bool {
             ) {
                 return false;
             }
-        } else if argument.starts_with(b"-") && argument.len() > 1 {
+        } else if !after_terminator && argument.starts_with(b"-") && argument.len() > 1 {
             if !argument[1..].iter().all(|flag| b"EFGinvwHx".contains(flag)) {
                 return false;
             }
         } else {
+            // The compact output format also uses ':' between the filename and
+            // match. Without escaping, a target containing ':' is ambiguous.
+            // Keep such invocations byte-exact instead of guessing the path.
+            if positionals > 0 && argument.contains(&b':') {
+                return false;
+            }
             positionals += 1;
         }
-    }
-    if let Some(terminator) = argv.iter().position(|argument| *argument == b"--") {
-        positionals += argv.len().saturating_sub(terminator + 1);
     }
     positionals >= 3
 }

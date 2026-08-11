@@ -121,6 +121,36 @@ fn grep_compacts_only_large_path_prefixed_multi_file_human_matches() {
     )
     .unwrap();
     assert_eq!(terminated.evidence, EvidenceClass::PotentiallyLossy);
+
+    let colon_path_input = (0..10)
+        .flat_map(|line| {
+            [
+                format!("src/a:part.rs:{line}: needle alpha\n"),
+                format!("src/b.rs:{line}: needle beta\n"),
+            ]
+        })
+        .collect::<String>()
+        .into_bytes();
+    let colon_path = listing::dispatch_streams_argv(
+        &[b"grep", b"-nH", b"needle", b"src/a:part.rs", b"src/b.rs"],
+        &colon_path_input,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(colon_path.evidence, EvidenceClass::ByteExact);
+    assert_eq!(colon_path.stdout, colon_path_input);
+
+    let colon_pattern = listing::dispatch_streams_argv(
+        &[b"grep", b"-nH", b"needle: alpha", b"src/a.rs", b"src/b.rs"],
+        &input,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(colon_pattern.evidence, EvidenceClass::PotentiallyLossy);
 }
 
 #[test]
