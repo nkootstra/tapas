@@ -1,10 +1,11 @@
 use std::ffi::OsString;
-use std::fs;
 use std::io::Write;
 use std::os::unix::ffi::OsStringExt;
 use std::os::unix::fs::PermissionsExt;
 use std::process::{Command, Output, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+mod common;
 
 fn tapas(args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_tapas"))
@@ -257,6 +258,36 @@ fn rewrite_leaves_unsupported_and_already_wrapped_commands_unwrapped() {
     assert!(wrapped.status.success());
     assert_eq!(wrapped.stdout, b"/opt/tapas git status\n");
     assert!(wrapped.stderr.is_empty());
+}
+
+#[test]
+fn compaction_metrics_are_recorded_when_path_is_set() {
+    let directory = common::unique_temp_dir(&std::env::temp_dir(), "tapas-compaction-metrics-test");
+    let command = directory.join("metrics-cmd");
+    let metrics_path = directory.join("metrics.jsonl");
+    std::fs::write(&command, "#!/bin/sh\nprintf 'filtered\\n'").expect("write fake command");
+    let mut permissions = std::fs::metadata(&command)
+        .expect("read fake command metadata")
+        .permissions();
+    permissions.set_mode(0o755);
+    std::fs::set_permissions(&command, permissions).expect("make fake command executable");
+    let command_path = command.to_str().expect("UTF-8 command path");
+
+    let output = tapas_with_stdin(
+        &[command_path, "arg"],
+        b"",
+        &[(
+            "TAPAS_COMPACTION_METRICS_PATH",
+            metrics_path.to_str().expect("UTF-8 metrics path"),
+        )],
+    );
+    assert!(output.status.success());
+    assert_eq!(output.stdout, b"filtered\n");
+
+    let metrics = std::fs::read_to_string(&metrics_path).expect("read metrics log");
+    assert!(metrics.contains("\"command\":\"metrics-cmd\""));
+    assert!(metrics.contains("\"filter_name\":\"passthrough\""));
+    assert!(metrics.contains("\"changed\":false"));
 }
 
 #[test]
