@@ -1,0 +1,9 @@
+Test project /tmp/build
+    Start 1: unit
+1/2 Test #1: unit .............................   Passed    0.01 sec
+    Start 2: api
+2/2 Test #2: api ..............................   Passed    0.02 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Total Test time (real) =   0.03 sec

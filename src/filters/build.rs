@@ -34,19 +34,73 @@ pub(crate) fn dispatch_streams_decision(
     if argv.is_empty() {
         return Err(FilterError::InvalidInput);
     }
-    if lossless || crate::invocation_policy::requests_passthrough(argv) {
+    if lossless
+        || std::str::from_utf8(stdout).is_err()
+        || std::str::from_utf8(stderr).is_err()
+        || crate::invocation_policy::requests_passthrough(argv)
+    {
         return Ok(StreamFilterDecision::Unchanged);
     }
 
     let command = command_basename(argv[0]);
     let arg1 = argv.get(1).copied().unwrap_or_default();
-    let runner_package_prelude = matches!(
-        command,
-        b"uv" | b"uvx" | b"poetry" | b"pnpm" | b"npx" | b"bunx"
-    ) && (has_package_prelude(stdout) || has_package_prelude(stderr));
+    let runner_package_prelude = matches!(command, b"poetry" | b"pnpm" | b"npx" | b"bunx")
+        && (has_package_prelude(stdout) || has_package_prelude(stderr));
     let recognized_failure = has_recognized_failure(stdout) || has_recognized_failure(stderr);
     if exit_code != 0 && !stderr.is_empty() && !recognized_failure {
         return Ok(StreamFilterDecision::Unchanged);
+    }
+    if matches!(command, b"docker" | b"docker-compose")
+        && exit_code == 0
+        && docker::route(command, argv)
+        && (stdout.is_empty() != stderr.is_empty())
+        && let Some(compact) = docker::compact(if stdout.is_empty() { stderr } else { stdout })
+    {
+        let (stdout, stderr) = if stdout.is_empty() {
+            (Vec::new(), compact)
+        } else {
+            (compact, Vec::new())
+        };
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
+            stdout,
+            stderr,
+            EvidenceClass::PotentiallyLossy,
+        )));
+    }
+    if exit_code == 0 {
+        if command == b"vite"
+            && catalog_routes::vite_route(argv)
+            && catalog_routes::matches_vite(stdout, stderr)
+        {
+            return Ok(StreamFilterDecision::compact_single_stream(
+                stdout,
+                stderr,
+                EvidenceClass::PotentiallyLossy,
+                compact_build_output,
+            ));
+        }
+        if command == b"esbuild"
+            && catalog_routes::esbuild_route(argv)
+            && catalog_routes::matches_esbuild(stdout, stderr)
+        {
+            return Ok(StreamFilterDecision::compact_single_stream(
+                stdout,
+                stderr,
+                EvidenceClass::PotentiallyLossy,
+                catalog_routes::compact_esbuild,
+            ));
+        }
+        if command == b"cmake"
+            && catalog_routes::cmake_route(argv)
+            && catalog_routes::matches_cmake(stdout, stderr)
+        {
+            return Ok(StreamFilterDecision::compact_single_stream(
+                stdout,
+                stderr,
+                EvidenceClass::PotentiallyLossy,
+                catalog_routes::compact_cmake,
+            ));
+        }
     }
     let generic_build_route = matches!(command, b"make" | b"ninja")
         || command == b"cargo" && matches!(arg1, b"build" | b"check" | b"clippy")
@@ -111,7 +165,7 @@ pub(crate) fn dispatch_streams_decision(
             compact_apple_build,
         ));
     }
-    if matches!(command, b"uv" | b"uvx") || runner_package_prelude {
+    if runner_package_prelude {
         return Ok(StreamFilterDecision::compact_single_stream(
             stdout,
             stderr,
@@ -141,6 +195,8 @@ pub(crate) fn has_package_prelude(input: &[u8]) -> bool {
 }
 
 mod apple;
+mod catalog_routes;
+mod docker;
 mod dotnet;
 mod exact;
 mod frontend;

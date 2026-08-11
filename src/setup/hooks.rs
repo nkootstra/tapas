@@ -127,14 +127,11 @@ pub(super) fn eligible(command: &[u8]) -> bool {
     let Some(words) = shell_words(command) else {
         return false;
     };
-    let first = &words[0];
-    let basename = first
-        .iter()
-        .rposition(|byte| *byte == b'/')
-        .map_or(first.as_slice(), |slash| &first[slash + 1..]);
-    crate::catalog::AUTO_WRAP_COMMANDS
-        .iter()
-        .any(|candidate| candidate.as_bytes() == basename)
+    let argv = words
+        .into_iter()
+        .map(OsString::from_vec)
+        .collect::<Vec<_>>();
+    crate::process::invocation::is_supported(&argv)
 }
 
 pub(super) fn codex_read_only(command: &[u8]) -> bool {
@@ -464,10 +461,10 @@ fn toml_hook_conflict(input: &[u8]) -> bool {
     false
 }
 use super::{Target, Value, json};
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io::{self, Write};
-use std::os::unix::ffi::OsStrExt;
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};

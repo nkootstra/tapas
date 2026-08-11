@@ -401,6 +401,146 @@ fn exact_lossless_failures_and_unknown_shapes_are_byte_exact() {
     assert!(infra::dispatch_streams_argv(&[], stdout, stderr, 0, false).is_err());
 }
 
+#[test]
+fn helm_human_read_routes_compact_and_exact_forms_fail_closed() {
+    let list = fixture("helm_list.txt");
+    let compact = infra::dispatch_streams_argv(&[b"helm", b"list"], &list, b"", 0, false).unwrap();
+    assert_eq!(compact.evidence, EvidenceClass::PotentiallyLossy);
+    assert_eq!(
+        compact.stdout,
+        b"api default r3 deployed api-1.2.3 1.2.3\nworker jobs r1 failed worker-0.4.0 0.4.0\n"
+    );
+
+    let status = fixture("helm_status.txt");
+    let compact =
+        infra::dispatch_streams_argv(&[b"helm", b"status", b"api"], &status, b"", 0, false)
+            .unwrap();
+    assert_eq!(compact.evidence, EvidenceClass::PotentiallyLossy);
+    assert_eq!(compact.stdout, b"NAME: api\nNAMESPACE: default\nSTATUS: deployed\nREVISION: 3\nNOTES:\nVisit https://example.test\n");
+
+    let history = fixture("helm_history.txt");
+    let compact =
+        infra::dispatch_streams_argv(&[b"helm", b"history", b"api"], &history, b"", 0, false)
+            .unwrap();
+    assert_eq!(compact.evidence, EvidenceClass::PotentiallyLossy);
+    assert_eq!(compact.stdout, b"r1 superseded api-1.0.0 1.0.0 Install complete\nr2 deployed api-1.2.3 1.2.3 Upgrade complete\n");
+
+    let terminated = infra::dispatch_streams_argv(
+        &[b"helm", b"list", b"--", b"--output=json"],
+        &list,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(terminated.evidence, EvidenceClass::ByteExact);
+
+    for argv in [
+        &[b"helm".as_slice(), b"list", b"--output=json"][..],
+        &[b"helm".as_slice(), b"get", b"manifest", b"api"][..],
+        &[b"helm".as_slice(), b"status", b"api", b"--show-resources"][..],
+        &[b"helm".as_slice(), b"upgrade", b"api", b"chart"][..],
+        &[b"helm".as_slice(), b"unknown"][..],
+    ] {
+        let output = infra::dispatch_streams_argv(argv, &list, b"", 0, false).unwrap();
+        assert_eq!(output.evidence, EvidenceClass::ByteExact, "{argv:?}");
+    }
+}
+
+#[test]
+fn finite_docker_stats_compacts_only_the_default_human_table() {
+    let stats = fixture("docker_stats.txt");
+    for argv in [
+        &[b"docker".as_slice(), b"stats", b"--no-stream"][..],
+        &[b"docker".as_slice(), b"compose", b"stats", b"--no-stream"][..],
+        &[
+            b"docker".as_slice(),
+            b"compose",
+            b"--file",
+            b"compose.yml",
+            b"stats",
+            b"--no-stream",
+        ][..],
+        &[b"docker-compose".as_slice(), b"stats", b"--no-stream"][..],
+        &[
+            b"docker-compose".as_slice(),
+            b"--project-name",
+            b"demo",
+            b"--file",
+            b"compose.yml",
+            b"stats",
+            b"--no-stream",
+        ][..],
+        &[
+            b"docker-compose".as_slice(),
+            b"--project-name=demo",
+            b"-fcompose.yml",
+            b"stats",
+            b"--no-stream",
+        ][..],
+        &[
+            b"docker".as_slice(),
+            b"stats",
+            b"--no-stream",
+            b"--",
+            b"--format=json",
+        ][..],
+    ] {
+        let output = infra::dispatch_streams_argv(argv, &stats, b"", 0, false).unwrap();
+        assert_eq!(output.evidence, EvidenceClass::PotentiallyLossy, "{argv:?}");
+        assert_eq!(
+            output.stdout,
+            b"api 1.25% 120MiB/2GiB 5.86%\nworker 0.10% 64MiB/2GiB 3.12%\n"
+        );
+    }
+
+    for argv in [
+        &[
+            b"docker".as_slice(),
+            b"stats",
+            b"--no-stream",
+            b"--format",
+            b"{{json .}}",
+        ][..],
+        &[b"docker".as_slice(), b"stats"][..],
+        &[
+            b"docker".as_slice(),
+            b"compose",
+            b"--",
+            b"stats",
+            b"--no-stream",
+        ][..],
+        &[
+            b"docker".as_slice(),
+            b"compose",
+            b"--future",
+            b"value",
+            b"stats",
+            b"--no-stream",
+        ][..],
+        &[
+            b"docker-compose".as_slice(),
+            b"--file",
+            b"stats",
+            b"--no-stream",
+        ][..],
+        &[b"docker-compose".as_slice(), b"--file"][..],
+    ] {
+        let output = infra::dispatch_streams_argv(argv, &stats, b"", 0, false).unwrap();
+        assert_eq!(output.evidence, EvidenceClass::ByteExact, "{argv:?}");
+    }
+
+    let failed = infra::dispatch_streams_argv(
+        &[b"docker", b"stats", b"--no-stream"],
+        &stats,
+        b"",
+        1,
+        false,
+    )
+    .unwrap();
+    assert_eq!(failed.evidence, EvidenceClass::ByteExact);
+}
+
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {
     haystack
         .windows(needle.len())

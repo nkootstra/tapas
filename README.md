@@ -32,6 +32,18 @@ Inspect the static command and runner catalogs:
 tapas --filters
 ```
 
+The default catalog includes package workflows (`pip`, `pip3`, `uv`, and
+`uvx`), frontend and native builds (`vite`, `esbuild`, `cmake`, and `ctest`),
+Playwright tests, Helm reads, multi-file human `grep` output, plain `bat` and
+`batcat` output, and recognized Docker BuildKit and finite stats output.
+`tapas --filters` reports the compact routes as well as exact-output and
+inherited/stream policies from the same catalog used at runtime.
+
+These routes are deliberately conservative. Machine formats, custom or
+ambiguous output, malformed data, and unsupported option combinations remain
+byte-exact. Interactive, watched, paged, or otherwise unbounded commands
+inherit the terminal instead of being buffered.
+
 Force exact output when needed:
 
 ```sh
@@ -108,6 +120,11 @@ Setup preserves the original bytes, ordering, formatting, number spellings, esca
 Running `--setup codex` from a development build points Codex at that exact executable. If it replaces a different Tapas-owned hook, Tapas prints a warning naming the active development version and executable path.
 
 The Claude integration writes `~/.claude/settings.json` and provides rewrite guidance without granting command permission. The Codex integration writes `${CODEX_HOME:-$HOME/.codex}/hooks.json`; after setup, open `/hooks` to review and trust the exact hook that was added. Review other matching hooks from every active user, project, profile, and plugin layer at the same time. Codex requires an allow decision when a hook supplies updated input, so Tapas limits Codex rewrites to unqualified, local read-only command forms resolved through absolute executable search paths outside the session workspace. The executable and all its path ancestors must not be group- or world-writable; unsafe candidates are skipped in favor of a later trusted candidate. Tapas disables supported tools' configuration-driven helper execution before running them. Mutating flags, commands that run project code, network tools, shell operators, substitutions, multiline commands, unsupported commands, and already wrapped commands are left untouched.
+
+Claude and OpenCode can recognize supported commands through as many as four
+declared transparent runner layers (for example `npx`, `pnpm exec`, `uv run`,
+or `uvx`). Ambiguous chains and a fifth runner layer are left unchanged.
+Codex keeps its narrower read-only allowlist.
 
 The OpenCode integration installs a dependency-free stable V1 plugin at `${XDG_CONFIG_HOME:-$HOME/.config}/opencode/plugins/tapas.js`. The plugin invokes the absolute Tapas executable without a shell, changes only eligible Bash command text, preserves every other tool argument, and fails open to the original command if evaluation fails. OpenCode V2 beta is not supported.
 
@@ -201,6 +218,21 @@ cargo build --locked
 python3 scripts/parity.py --binary target/debug/tapas --tool tapas
 ```
 
+Exercise supported tools against live output in disposable temporary projects:
+
+```sh
+cargo build --locked
+python3 scripts/smoke-supported-commands.py \
+  --binary target/debug/tapas \
+  --require-all
+```
+
+The live smoke suite verifies that compact routes reduce output while retaining
+named facts, and that machine-readable and failed-command routes remain
+byte-exact. Tool groups whose dependencies are unavailable are skipped unless
+`--require-all` is set. Docker and Helm cases require a running Docker daemon;
+the Helm case creates and removes a temporary Kind cluster.
+
 Run the pinned real-harness contracts with Node.js 22 or newer. These tests use
 aimock locally and do not require provider credentials:
 
@@ -219,9 +251,13 @@ python3 scripts/usage_report.py --format json --minimum 5
 ```
 
 The usage report reads session history without modifying it and highlights
-commands or Git subcommands that are used but not covered by the catalog.
+commands or Git subcommands that are used but not covered by the catalog. Its
+additive effective-command fields distinguish runtime routing coverage from a
+declared compact route, and report transparent runner chains up to the same
+four-layer runtime limit. A catalogued command without a declared compact
+route is reported separately from an unlisted command.
 
-The command catalog in `src/catalog.rs` is tapas-owned and audited for internal consistency: every auto-wrap command must be backed by a filter family, every git subcommand must have a dispatch arm, and every filter family must have regression tests. The regression corpus under `tests/regression/` is static test data, grown alongside new filters.
+The command catalog in `src/catalog.rs` is tapas-owned and audited for internal consistency: every auto-wrap command must be backed by a filter family and behavior test, every git subcommand must have a dispatch arm and behavior coverage, and every declared compact, exact-output, and inherited/stream policy must point to meaningful test or regression coverage. The regression corpus under `tests/regression/` is static test data, grown alongside new filters.
 
 ## Current scope
 

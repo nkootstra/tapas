@@ -1,0 +1,8 @@
+NAME: api
+LAST DEPLOYED: Sun Aug 10 12:00:00 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 3
+TEST SUITE: None
+NOTES:
+Visit https://example.test

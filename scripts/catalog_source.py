@@ -17,7 +17,7 @@ def parse_string_const(source: str, name: str) -> list[str]:
 
 
 def parse_catalog(source: str) -> dict[str, set[str]]:
-    return {
+    catalog = {
         name: set(parse_string_const(source, name))
         for name in (
             "AUTO_WRAP_COMMANDS",
@@ -26,6 +26,13 @@ def parse_catalog(source: str) -> dict[str, set[str]]:
             "TRANSPARENT_RUNNERS",
         )
     }
+    try:
+        catalog["COMPACT_ROUTES"] = set(parse_string_const(source, "COMPACT_ROUTES"))
+    except ValueError:
+        # Older/synthetic catalogs remain readable, but report no declared
+        # compaction coverage.
+        catalog["COMPACT_ROUTES"] = set()
+    return catalog
 
 
 def parse_byte_const(source: str, name: str) -> set[str]:

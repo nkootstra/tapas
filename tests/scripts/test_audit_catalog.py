@@ -13,6 +13,33 @@ import catalog_source  # noqa: E402
 
 
 class CatalogAuditTests(unittest.TestCase):
+    def test_behavior_coverage_reports_each_missing_catalog_contract(self) -> None:
+        errors = audit_catalog.check_behavior_coverage(
+            auto_wrap=["cargo"],
+            git_subcommands=["status"],
+            compact_routes=["cargo:cargo_build"],
+            exact_policies=["machine_output"],
+            inherited_policies=["cargo_watch_inherit"],
+            contract={
+                "auto_wrap_commands": {},
+                "git_subcommands": {},
+                "compact_routes": {},
+                "exact_output_policies": {},
+                "inherited_stream_policies": {},
+            },
+            regression_tags=set(),
+        )
+        self.assertEqual(
+            [
+                "compact routes without behavior coverage: cargo_build",
+                "exact-output policies without behavior coverage: machine_output",
+                "inherited/stream policies without behavior coverage: cargo_watch_inherit",
+                "auto-wrap commands without behavior coverage: cargo",
+                "git subcommands without behavior coverage: status",
+            ],
+            errors,
+        )
+
     def test_real_catalog_and_git_dispatch_parse_as_owned(self) -> None:
         source = audit_catalog.CATALOG.read_text(encoding="utf-8")
         self.assertIn("sqlite3", audit_catalog.parse_const(source, "AUTO_WRAP_COMMANDS"))

@@ -224,8 +224,114 @@ fn filters_report_the_canonical_commands_and_runners() {
             "missing {runner:?} in {filters:?}"
         );
     }
+    for (heading, entries) in [
+        (
+            "Compact routes:",
+            &[
+                "pip_install",
+                "uv_project",
+                "vite_build",
+                "playwright_test",
+                "helm_read",
+                "grep_multifile",
+                "docker_buildkit",
+            ][..],
+        ),
+        (
+            "Exact-output policies:",
+            &[
+                "machine_output",
+                "pip_query_or_machine_exact",
+                "grep_output_shaping_exact",
+                "docker_machine_exact",
+            ][..],
+        ),
+        (
+            "Inherited/stream policies:",
+            &[
+                "vite_lifecycle_inherit",
+                "playwright_interactive_inherit",
+                "docker_stats_stream_inherit",
+            ][..],
+        ),
+    ] {
+        assert!(
+            filters.contains(heading),
+            "missing {heading:?} in {filters:?}"
+        );
+        for entry in entries {
+            assert!(filters.contains(entry), "missing {entry:?} in {filters:?}");
+        }
+    }
     assert!(!filters.contains("smll"));
     assert!(output.stderr.is_empty());
+}
+
+#[test]
+fn expanded_catalog_reports_and_rewrites_the_supported_commands() {
+    assert_eq!(tapas::catalog::AUTO_WRAP_COMMANDS.len(), 63);
+    assert_eq!(tapas::catalog::WRAPPER_COMMANDS.len(), 78);
+    let filters = tapas(&["--filters"]);
+    let filters = String::from_utf8(filters.stdout).expect("UTF-8 filters");
+    for command in [
+        "pip",
+        "pip3",
+        "uv",
+        "uvx",
+        "vite",
+        "esbuild",
+        "cmake",
+        "ctest",
+        "playwright",
+        "helm",
+        "grep",
+        "bat",
+        "batcat",
+    ] {
+        assert!(
+            filters.contains(command),
+            "missing {command:?} in {filters:?}"
+        );
+        let (arguments, expected) = if command == "uvx" {
+            (
+                vec!["--rewrite", command, "vite", "--version"],
+                "tapas uvx vite --version\n".to_owned(),
+            )
+        } else {
+            (
+                vec!["--rewrite", command, "--version"],
+                format!("tapas {command} --version\n"),
+            )
+        };
+        let rewritten = tapas(&arguments);
+        assert_eq!(
+            rewritten.stdout,
+            expected.as_bytes(),
+            "command: {command:?}"
+        );
+    }
+}
+
+#[test]
+fn all_auto_wrap_commands_rewrite_directly() {
+    for command in tapas::catalog::AUTO_WRAP_COMMANDS {
+        let arguments = if matches!(*command, "bunx" | "uvx") {
+            vec!["--rewrite", command, "vite", "--version"]
+        } else if *command == "pnpm" {
+            vec!["--rewrite", command, "install"]
+        } else {
+            vec!["--rewrite", command, "--version"]
+        };
+        let output = tapas(&arguments);
+        assert!(output.status.success(), "command: {command:?}");
+        assert!(
+            output
+                .stdout
+                .starts_with(format!("tapas {command} ").as_bytes()),
+            "command: {command:?}, output: {:?}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+    }
 }
 
 #[test]
@@ -257,6 +363,91 @@ fn rewrite_leaves_unsupported_and_already_wrapped_commands_unwrapped() {
     assert!(wrapped.status.success());
     assert_eq!(wrapped.stdout, b"/opt/tapas git status\n");
     assert!(wrapped.stderr.is_empty());
+}
+
+#[test]
+fn rewrite_and_non_codex_hooks_follow_unambiguous_runner_chains() {
+    let rewritten = tapas(&[
+        "--rewrite",
+        "npx",
+        "uvx",
+        "bunx",
+        "uv",
+        "run",
+        "vite",
+        "dev",
+    ]);
+    assert_eq!(rewritten.stdout, b"tapas npx uvx bunx uv run vite dev\n");
+
+    for direct in [
+        &["--rewrite", "pnpm", "--version"][..],
+        &["--rewrite", "pnpm", "--filter", "app", "test"][..],
+    ] {
+        let output = tapas(direct);
+        assert!(
+            output.stdout.starts_with(b"tapas pnpm "),
+            "args: {direct:?}"
+        );
+    }
+
+    let pnpm_exec = tapas(&[
+        "--rewrite",
+        "pnpm",
+        "--filter",
+        "app",
+        "exec",
+        "vite",
+        "dev",
+    ]);
+    assert_eq!(pnpm_exec.stdout, b"tapas pnpm --filter app exec vite dev\n");
+
+    for args in [
+        &["--rewrite", "npx", "unknown-tool"][..],
+        &["--rewrite", "npx", "--future", "vite", "dev"][..],
+        &["--rewrite", "pnpm", "exec", "--future", "vite"][..],
+        &["--rewrite", "pnpm", "--future", "exec", "vite"][..],
+        &[
+            "--rewrite",
+            "npx",
+            "uvx",
+            "bunx",
+            "uv",
+            "run",
+            "npx",
+            "vite",
+        ][..],
+    ] {
+        let output = tapas(args);
+        assert!(!output.stdout.starts_with(b"tapas "), "args: {args:?}");
+    }
+
+    for target in ["claude", "opencode"] {
+        let output = tapas_with_stdin(
+            &["--hook-eval", target],
+            br#"{"tool_input":{"command":"npx vite dev"}}"#,
+            &[],
+        );
+        assert!(output.status.success());
+        assert!(
+            output
+                .stdout
+                .windows(b"npx vite dev".len())
+                .any(|part| part == b"npx vite dev")
+        );
+    }
+
+    for command in ["npx git status", "npx vite dev", "grep needle file"] {
+        let input = format!(
+            "{{\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"cwd\":\"/tmp\",\"tool_input\":{{\"command\":{command:?}}}}}"
+        );
+        let output = tapas_with_stdin(
+            &["--hook-eval", "codex"],
+            input.as_bytes(),
+            &[("PATH", "/usr/bin:/bin")],
+        );
+        assert!(output.status.success());
+        assert!(output.stdout.is_empty(), "command: {command:?}");
+    }
 }
 
 #[test]

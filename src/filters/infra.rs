@@ -41,6 +41,32 @@ pub(crate) fn dispatch_streams_decision(
     let arg2 = argv.get(2).copied().unwrap_or_default();
     let arg3 = argv.get(3).copied().unwrap_or_default();
 
+    if command == b"helm"
+        && exit_code == 0
+        && stderr.is_empty()
+        && std::str::from_utf8(stdout).is_ok()
+        && let Some(stdout) = helm::compact(argv, stdout)
+    {
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
+            stdout,
+            Vec::new(),
+            EvidenceClass::PotentiallyLossy,
+        )));
+    }
+    if matches!(command, b"docker" | b"docker-compose")
+        && exit_code == 0
+        && stderr.is_empty()
+        && std::str::from_utf8(stdout).is_ok()
+        && stats::route(command, argv)
+        && let Some(stdout) = stats::compact(stdout)
+    {
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
+            stdout,
+            Vec::new(),
+            EvidenceClass::PotentiallyLossy,
+        )));
+    }
+
     if exit_code != 0 && !stderr.is_empty() {
         return Ok(StreamFilterDecision::Unchanged);
     }
@@ -134,7 +160,9 @@ mod atlassian;
 mod containers;
 mod curl;
 mod github;
+mod helm;
 mod logs;
+mod stats;
 mod table;
 
 use atlassian::compact_acli;

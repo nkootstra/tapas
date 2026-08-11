@@ -244,6 +244,38 @@ fn pip_install_summarizes_progress_and_keeps_the_result() {
 }
 
 #[test]
+fn failed_pip_routes_preserve_both_streams_byte_for_byte() {
+    let install_stdout = b"Collecting missing-package==1.0\n";
+    let install_stderr =
+        b"ERROR: Could not find a version that satisfies the requirement missing-package==1.0\n";
+    let install = package::dispatch_streams_argv(
+        &[b"pip", b"install", b"missing-package==1.0"],
+        install_stdout,
+        install_stderr,
+        1,
+        false,
+    )
+    .unwrap();
+    assert_eq!(install.evidence, EvidenceClass::ByteExact);
+    assert_eq!(install.stdout, install_stdout);
+    assert_eq!(install.stderr, install_stderr);
+
+    let list_stdout = concat!(
+        "Package    Version\n",
+        "---------- -------\n",
+        "requests   2.31.0\n",
+    )
+    .as_bytes();
+    let list_stderr = b"ERROR: interrupted while reading installed distributions\n";
+    let list =
+        package::dispatch_streams_argv(&[b"pip3", b"list"], list_stdout, list_stderr, 2, false)
+            .unwrap();
+    assert_eq!(list.evidence, EvidenceClass::ByteExact);
+    assert_eq!(list.stdout, list_stdout);
+    assert_eq!(list.stderr, list_stderr);
+}
+
+#[test]
 fn exact_query_machine_and_lossless_requests_preserve_both_streams() {
     let tree = fixture("npm_ls.txt");
     let stderr = b"diagnostic\n";
@@ -372,4 +404,77 @@ fn package_truncation_notice_names_tapas_raw_mode() {
             .windows(b"(tapas: omitted 1 relevant lines; rerun with tapas --raw)".len())
             .any(|window| window == b"(tapas: omitted 1 relevant lines; rerun with tapas --raw)")
     );
+}
+
+#[test]
+fn uv_package_routes_compact_only_recognized_human_output() {
+    let input = b"Resolved 5 packages in 20ms\nPrepared 2 packages in 10ms\nInstalled 2 packages in 4ms\n + flask==3.0.0\n + click==8.1.7\n";
+    for argv in [
+        &[b"uv".as_slice(), b"sync"][..],
+        &[b"uv".as_slice(), b"add", b"flask"][..],
+        &[b"uv".as_slice(), b"remove", b"flask"][..],
+        &[b"uv".as_slice(), b"lock"][..],
+        &[b"uv".as_slice(), b"tree"][..],
+        &[b"uv".as_slice(), b"pip", b"install", b"flask"][..],
+        &[b"uv".as_slice(), b"pip", b"sync", b"requirements.txt"][..],
+        &[b"uv".as_slice(), b"pip", b"compile", b"requirements.in"][..],
+    ] {
+        let output = package::dispatch_streams_argv(argv, input, b"", 0, false).unwrap();
+        assert_eq!(output.evidence, EvidenceClass::PotentiallyLossy, "{argv:?}");
+        assert!(output.stdout.starts_with(b"Resolved 5 packages in 20ms\n"));
+    }
+
+    for argv in [
+        &[b"uv".as_slice(), b"sync", b"--json"][..],
+        &[b"uv".as_slice(), b"sync", b"--", b"--json"][..],
+        &[b"uvx".as_slice(), b"ruff"][..],
+    ] {
+        let output = package::dispatch_streams_argv(argv, input, b"", 0, false).unwrap();
+        if argv.get(2) == Some(&b"--".as_slice()) {
+            assert_eq!(output.evidence, EvidenceClass::PotentiallyLossy);
+        } else {
+            assert_eq!(output.evidence, EvidenceClass::ByteExact, "{argv:?}");
+        }
+    }
+}
+
+#[test]
+fn pip_exact_subcommands_and_option_terminators_follow_policy_boundaries() {
+    let input = b"Collecting demo==1.0\nSuccessfully installed demo-1.0\n";
+    for argv in [
+        &[b"pip".as_slice(), b"freeze"][..],
+        &[b"pip3".as_slice(), b"show", b"demo"][..],
+        &[b"pip".as_slice(), b"check"][..],
+        &[b"pip".as_slice(), b"inspect"][..],
+        &[b"pip".as_slice(), b"list", b"--format=json"][..],
+    ] {
+        let output =
+            package::dispatch_streams_argv(argv, input, b"diagnostic\n", 0, false).unwrap();
+        assert_eq!(output.evidence, EvidenceClass::ByteExact, "{argv:?}");
+    }
+
+    let after_terminator = package::dispatch_streams_argv(
+        &[b"pip", b"install", b"demo", b"--", b"--format=json"],
+        input,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(after_terminator.evidence, EvidenceClass::PotentiallyLossy);
+
+    let malformed = package::dispatch_streams_argv(
+        &[b"uv", b"sync"],
+        b"Resolved 1 package\n\xff",
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(malformed.evidence, EvidenceClass::ByteExact);
+
+    let failed = b"error: failed to resolve dependencies\nCaused by: registry unavailable\n";
+    let output = package::dispatch_streams_argv(&[b"uv", b"sync"], b"", failed, 1, false).unwrap();
+    assert_eq!(output.evidence, EvidenceClass::ByteExact);
+    assert_eq!(output.stderr, failed);
 }

@@ -1,0 +1,4 @@
+-- The C compiler identification is AppleClang 15
+-- Configuring done (0.2s)
+-- Generating done (0.1s)
+-- Build files have been written to: /tmp/build
