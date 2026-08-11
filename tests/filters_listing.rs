@@ -408,3 +408,46 @@ fn lossless_exact_modes_unknown_shapes_and_parser_failures_are_byte_exact() {
         Err(tapas::filters::FilterError::InvalidInput),
     );
 }
+
+#[test]
+fn stream_generic_compaction_preserves_stderr_when_stdout_is_compacted() {
+    let mut stdout = Vec::new();
+    for _ in 0..2000 {
+        stdout.extend_from_slice(b"same output line\n");
+    }
+    let stderr = b"stderr diagnostic\n".to_vec();
+
+    let result = listing::dispatch_streams_argv(
+        &[b"xargs", b"cmd"],
+        &stdout,
+        &stderr,
+        0,
+        false,
+    )
+    .unwrap();
+
+    assert_eq!(result.stdout, b"same output line ×2000\n".to_vec());
+    assert_eq!(result.stderr, stderr);
+    assert_eq!(result.evidence, EvidenceClass::PotentiallyLossy);
+}
+
+#[test]
+fn machine_like_text_filter_commands_keep_generic_output_byte_exact() {
+    let mut stdout = Vec::new();
+    for _ in 0..2000 {
+        stdout.extend_from_slice(b"same output line\n");
+    }
+
+    let result = listing::dispatch_streams_argv(
+        &[b"sort", b"file"],
+        &stdout,
+        b"stderr diagnostic\n",
+        0,
+        false,
+    )
+    .unwrap();
+
+    assert_eq!(result.stdout, stdout);
+    assert_eq!(result.stderr, b"stderr diagnostic\n".to_vec());
+    assert_eq!(result.evidence, EvidenceClass::ByteExact);
+}

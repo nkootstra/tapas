@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import hashlib
 import sqlite3
 import sys
 import tempfile
@@ -190,6 +191,20 @@ class UsageReportTests(unittest.TestCase):
         coverage = {record["command"]: record["coverage"] for record in report["commands"]}
         self.assertEqual(coverage["uv"], "mixed")
         self.assertEqual(report["unlisted_commands"], [])
+
+    def test_salted_redaction_is_deterministic_per_run(self) -> None:
+        mapping: dict[str, str] = {}
+        token = usage_report._redact_identifier(
+            "python",
+            mapping=mapping,
+            prefix="cmd",
+        )
+
+        self.assertEqual(token, usage_report._redact_identifier("python", mapping=mapping, prefix="cmd"))
+        self.assertNotEqual(
+            token,
+            f"cmd-{hashlib.sha1('python'.encode('utf-8')).hexdigest()[:10]}",
+        )
 
 
 if __name__ == "__main__":
