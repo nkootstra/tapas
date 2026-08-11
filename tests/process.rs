@@ -33,6 +33,13 @@ impl FakeCommand {
         Self { directory, path }
     }
 
+    fn symlink(name: &str, target: &str) -> Self {
+        let directory = common::unique_temp_dir(&std::env::temp_dir(), "tapas-process-test");
+        let path = directory.join(name);
+        std::os::unix::fs::symlink(target, &path).expect("create fake command symlink");
+        Self { directory, path }
+    }
+
     fn path(&self) -> &Path {
         &self.path
     }
@@ -704,22 +711,24 @@ fn successful_unrecognized_git_output_remains_a_byte_exact_passthrough() {
     assert_eq!(stderr, b"custom stderr\n");
 }
 
-#[cfg(not(target_env = "musl"))]
 #[test]
 fn bare_git_output_remains_composable_with_content_filters() {
-    let git = FakeCommand::new(
-        "git",
-        b"#!/bin/sh\ni=0\nwhile [ \"$i\" -lt 600 ]; do\n  printf 'bare output\\n'\n  i=$((i + 1))\ndone\n",
-    );
-    let args = [git.path().as_os_str().to_owned()];
+    let git = FakeCommand::symlink("git", "/bin/sh");
+    let args = [
+        git.path().as_os_str().to_owned(),
+        OsString::from("-c"),
+        OsString::from(
+            "i=0; while [ \"$i\" -lt 600 ]; do printf 'bare output\\n'; i=$((i + 1)); done",
+        ),
+    ];
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
 
     let report =
         run(&args, &mut stdout, &mut stderr, RunOptions::default()).expect("run bare Git command");
 
-    assert_eq!(report.filter_name, "generic");
-    assert_eq!(report.evidence, tapas::filters::EvidenceClass::FactComplete);
+    assert_eq!(report.filter_name, "passthrough");
+    assert_eq!(report.evidence, tapas::filters::EvidenceClass::ByteExact);
     assert_eq!(stdout, "bare output ×600\n".as_bytes());
     assert!(stderr.is_empty());
 }
