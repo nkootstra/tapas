@@ -23,7 +23,7 @@ Configure pull request merging under **Settings → General → Pull Requests**:
 3. Set the default squash commit title to **Pull request title**. Always use the pull request title so the validated `major:`, `minor:`, `patch:`, or `skip:` prefix reaches `main`.
 4. Protect `main` with **Require a pull request before merging**, **Require conversation resolution before merging**, and **Require linear history**. Apply the rule to administrators. A solo-maintainer repository can require zero approving reviews while still requiring the pull-request path.
 
-The release workflow checks these settings before calculating a version and fails closed if they drift. The equivalent GitHub CLI command is:
+These repository settings are required setup and ensure the pull request title becomes the commit subject on `main`. The workflow does not inspect the repository merge settings at runtime. Instead, before calculating a version, it validates the actual merged commit subject and fails closed unless that subject starts with `major:`, `minor:`, `patch:`, or `skip:`. The equivalent GitHub CLI command for configuring the required merge settings is:
 
 ```sh
 gh api --method PATCH repos/nkootstra/tapas \

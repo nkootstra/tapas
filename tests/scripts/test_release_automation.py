@@ -82,6 +82,18 @@ class ReleaseAutomationContractTests(unittest.TestCase):
         self.assertIn('release_policy.py validate-title "$subject"', workflow)
         self.assertNotIn('gh api "repos/${GITHUB_REPOSITORY}"', workflow)
         self.assertIn("Always use the pull request title", guide)
+        self.assertIn("These repository settings are required setup", guide)
+        self.assertIn(
+            "The workflow does not inspect the repository merge settings at runtime",
+            guide,
+        )
+        self.assertIn("it validates the actual merged commit subject", guide)
+        self.assertIn("fails closed unless that subject starts with", guide)
+        self.assertNotIn(
+            "The release workflow checks these settings before calculating a version",
+            guide,
+        )
+        self.assertIn("gh api --method PATCH repos/nkootstra/tapas", guide)
 
     def test_title_workflow_validates_inline_without_checking_out_pr_code(self) -> None:
         workflow = (ROOT / ".github/workflows/pr-title.yml").read_text(
