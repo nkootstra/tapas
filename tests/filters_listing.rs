@@ -416,7 +416,7 @@ fn stream_generic_compaction_preserves_stderr_when_stdout_is_compacted() {
         stdout.extend_from_slice(b"same output line\n");
     }
     let stderr = b"stderr diagnostic\n".to_vec();
-    let expected = format!("same output line \u{00d7}2000\n");
+    let expected = "same output line \u{00d7}2000\n".to_string();
 
     let result =
         listing::dispatch_streams_argv(&[b"xargs", b"cmd"], &stdout, &stderr, 0, false).unwrap();
