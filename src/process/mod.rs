@@ -340,12 +340,14 @@ fn filter_captured_output<'a>(
             evidence: EvidenceClass::ByteExact,
         }
     };
+    let output_changed = result.bytes.as_ref() != captured.stdout;
+
     FilteredStreams {
         stdout: result.bytes,
         stderr: Cow::Borrowed(&captured.stderr),
         filter_name: result.filter_name,
         evidence: result.evidence,
-        changed: result.bytes.as_ref() != captured.stdout,
+        changed: output_changed,
     }
 }
 
