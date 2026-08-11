@@ -433,8 +433,8 @@ fn machine_like_text_filter_commands_keep_generic_output_byte_exact() {
         stdout.extend_from_slice(b"same output line\n");
     }
     let commands = [
+        [b"base64".as_ref(), b"file".as_ref()],
         [b"sort".as_ref(), b"file".as_ref()],
-        [b"xargs".as_ref(), b"cmd".as_ref()],
         [b"strings".as_ref(), b"file".as_ref()],
         [b"which".as_ref(), b"bash".as_ref()],
     ];
