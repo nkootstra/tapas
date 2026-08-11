@@ -170,9 +170,10 @@ class DistributionTests(unittest.TestCase):
         self.assertIn("contents: write", release)
         self.assertIn('gh api "repos/${REPOSITORY}/commits/${TAG}" --jq .sha', release)
         self.assertIn('test "$tag_sha" = "$SOURCE_SHA"', release)
+        self.assertIn("git verify-tag", release)
         self.assertIn("pull_request_target", cleanup)
         self.assertNotIn("actions/checkout", publisher)
-        self.assertNotIn("actions/checkout", release)
+        self.assertIn("actions/checkout", release)
         self.assertNotIn("actions/checkout", cleanup)
 
     def test_pr_release_is_keyed_by_head_commit(self) -> None:

@@ -1,0 +1,232 @@
+name: Release automation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [closed]
+
+permissions: {}
+
+jobs:
+  policy:
+    name: Resolve release intent
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.policy.outputs.version }}
+    steps:
+      - name: Check out the complete release history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Require title-preserving squash merges
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          settings="$(gh api "repos/${GITHUB_REPOSITORY}")"
+          jq -e '
+            .allow_squash_merge == true and
+            .allow_merge_commit == false and
+            .allow_rebase_merge == false and
+            .squash_merge_commit_title == "PR_TITLE"
+          ' <<< "$settings" > /dev/null
+
+      - name: Resolve the requested release version
+        id: policy
+        run: |
+          set -euo pipefail
+          current_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*')"
+          desired_version="$(git log --format=%s "${current_tag}..HEAD" |
+            python3 scripts/release_policy.py next-version --current "$current_tag")"
+          echo "version=$desired_version" >> "$GITHUB_OUTPUT"
+
+  release:
+    name: Create the signed release tag
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.type == 'Bot' &&
+      startsWith(github.event.pull_request.head.ref, 'release-plz-') &&
+      startsWith(github.event.pull_request.title, 'skip: prepare v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Create the release App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
+      - name: Verify release pull request provenance
+        env:
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+          PR_HEAD: ${{ github.event.pull_request.head.ref }}
+          PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          test "$PR_AUTHOR" = "${APP_SLUG}[bot]"
+          test "$PR_BASE" = "main"
+          test "$PR_HEAD_REPOSITORY" = "$GITHUB_REPOSITORY"
+          [[ "$PR_HEAD" =~ ^release-plz-[A-Za-z0-9._/-]+$ ]]
+          [[ "$PR_TITLE" =~ ^skip:\ prepare\ v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$MERGE_SHA" =~ ^[0-9a-f]{40}$ ]]
+
+      - name: Check out the complete release history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Configure the signed release identity
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          signing_key="${RUNNER_TEMP}/tapas-release-signing-key"
+          install -m 600 /dev/null "$signing_key"
+          printf '%s\n' "$RELEASE_SIGNING_KEY" > "$signing_key"
+          git config --local user.name "Niels Kootstra"
+          git config --local user.email "545768+nkootstra@users.noreply.github.com"
+          git config --local gpg.format ssh
+          git config --local user.signingkey "$signing_key"
+          git config --local gpg.ssh.allowedSignersFile ".github/release-signers"
+          git config --local commit.gpgSign true
+          git config --local tag.gpgSign true
+
+      - name: Create the signed release tag
+        id: release-plz
+        uses: release-plz/action@2eb1d8bcb770b4c48ccfaad919734b38b51958c9 # v0.5.131
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+        with:
+          command: release
+          # This pins the release-plz CLI, not the Tapas package version.
+          version: "0.3.160"
+
+      - name: Verify every created release tag
+        if: steps.release-plz.outputs.releases_created == 'true'
+        env:
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          RELEASES: ${{ steps.release-plz.outputs.releases }}
+        run: |
+          set -euo pipefail
+          jq -er '.[].tag' <<< "$RELEASES" |
+            while IFS= read -r tag; do
+              [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+              git fetch --force origin "refs/tags/${tag}:refs/tags/${tag}"
+              git verify-tag "$tag"
+              test "$(git rev-list -n 1 "$tag")" = "$MERGE_SHA"
+            done
+
+  prepare:
+    name: Prepare the release pull request
+    needs: policy
+    if: needs.policy.outputs.version != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    concurrency:
+      group: release-plz-pr-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: Create the release App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
+      - name: Check out the complete release history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Configure the signed release identity
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          signing_key="${RUNNER_TEMP}/tapas-release-signing-key"
+          install -m 600 /dev/null "$signing_key"
+          printf '%s\n' "$RELEASE_SIGNING_KEY" > "$signing_key"
+          git config --local user.name "Niels Kootstra"
+          git config --local user.email "545768+nkootstra@users.noreply.github.com"
+          git config --local gpg.format ssh
+          git config --local user.signingkey "$signing_key"
+          git config --local gpg.ssh.allowedSignersFile ".github/release-signers"
+          git config --local commit.gpgSign true
+          git config --local tag.gpgSign true
+
+      - name: Prepare the release pull request
+        id: release-plz
+        uses: release-plz/action@2eb1d8bcb770b4c48ccfaad919734b38b51958c9 # v0.5.131
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+        with:
+          command: release-pr
+          # This pins the release-plz CLI, not the Tapas package version.
+          version: "0.3.160"
+
+      - name: Apply literal SemVer to the release PR
+        if: steps.release-plz.outputs.prs_created == 'true'
+        env:
+          DESIRED_VERSION: ${{ needs.policy.outputs.version }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          RELEASE_PR: ${{ steps.release-plz.outputs.pr }}
+        run: |
+          set -euo pipefail
+          created_version="$(jq -r '.releases[0].version // empty' <<< "$RELEASE_PR")"
+          branch="$(jq -r '.head_branch // empty' <<< "$RELEASE_PR")"
+          number="$(jq -r '.number // empty' <<< "$RELEASE_PR")"
+
+          [[ "$DESIRED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$created_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$branch" =~ ^release-plz-[A-Za-z0-9._/-]+$ ]]
+          [[ "$number" =~ ^[0-9]+$ ]]
+          if [ "$created_version" = "$DESIRED_VERSION" ]; then
+            exit 0
+          fi
+
+          git fetch origin "refs/heads/${branch}:refs/remotes/origin/${branch}"
+          git switch --detach "refs/remotes/origin/${branch}"
+          release-plz set-version "$DESIRED_VERSION"
+          git diff --check
+          git add Cargo.toml Cargo.lock CHANGELOG.md
+          git commit -S -m "skip: normalize release version to v${DESIRED_VERSION}"
+          git push origin "HEAD:refs/heads/${branch}"
+
+          body_file="${RUNNER_TEMP}/release-pr-body.md"
+          gh pr view "$number" --json body --jq .body > "$body_file"
+          python3 - "$body_file" "$created_version" "$DESIRED_VERSION" <<'PY'
+          import pathlib, sys
+          path = pathlib.Path(sys.argv[1])
+          old, new = sys.argv[2:]
+          body = path.read_text(encoding="utf-8")
+          if old not in body:
+              raise SystemExit(f"release PR body does not contain version {old}")
+          path.write_text(body.replace(old, new), encoding="utf-8")
+          PY
+          gh pr edit "$number" \
+            --title "skip: prepare v${DESIRED_VERSION}" \
+            --body-file "$body_file"

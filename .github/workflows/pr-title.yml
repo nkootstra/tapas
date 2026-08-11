@@ -1,0 +1,29 @@
+name: PR title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Release intent
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Validate the pull request title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          python3 - <<'PY'
+          import os, re
+          title = os.environ["PR_TITLE"]
+          pattern = r"^(major|minor|patch|skip): [^\r\n]*\S[^\r\n]*$"
+          if re.fullmatch(pattern, title) is None:
+              raise SystemExit(
+                  "pull request titles must start with major:, minor:, patch:, "
+                  "or skip: followed by a description"
+              )
+          PY
