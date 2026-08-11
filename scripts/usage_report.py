@@ -552,8 +552,10 @@ def _format_text_with_redaction(
     *,
     redact: bool = False,
     command_aliases: dict[str, str] | None = None,
+    git_aliases: dict[str, str] | None = None,
 ) -> str:
     command_aliases = command_aliases or {}
+    git_aliases = git_aliases or {}
     lines = [f"Total invocations: {report['total_invocations']}", "Sources:"]
     lines.extend(f"  {source}: {count}" for source, count in sorted(report["sources"].items()))
     lines.append("Commands:")
@@ -563,7 +565,7 @@ def _format_text_with_redaction(
     )
     lines.append("Git subcommands:")
     lines.extend(
-        f"  {record['subcommand']}: {record['count']} ({record['coverage']})"
+        f"  {_redact_identifier(record['subcommand'], mapping=git_aliases, prefix='git') if redact else record['subcommand']}: {record['count']} ({record['coverage']})"
         for record in report["git_subcommands"]
     )
     return "\n".join(lines) + "\n"
@@ -583,9 +585,11 @@ def format_compaction_plan(
     excluded_commands: set[str] | frozenset[str],
     redact: bool = False,
     command_aliases: dict[str, str] | None = None,
+    git_aliases: dict[str, str] | None = None,
 ) -> str:
     excluded_commands = {value.lower() for value in excluded_commands}
     command_aliases = command_aliases or {}
+    git_aliases = git_aliases or {}
     total_invocations = report["total_invocations"]
     covered_invocations = report["coverage_summary"]["covered_invocations"]
     unlisted_invocations = report["coverage_summary"]["unlisted_invocations"]
@@ -663,7 +667,9 @@ def format_compaction_plan(
     lines.append("Unlisted git subcommands:")
     if unlisted_git:
         for record in sorted(unlisted_git, key=lambda item: (-item["count"], item["subcommand"])):
-            lines.append(f"  {record['subcommand']}: {record['count']}")
+            lines.append(
+                f"  {_redact_identifier(record['subcommand'], mapping=git_aliases, prefix='git') if redact else record['subcommand']}: {record['count']}"
+            )
     else:
         lines.append("  (none)")
     lines.append(
@@ -859,6 +865,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(output_report, indent=2, sort_keys=True))
     elif args.format == "compact":
         command_aliases: dict[str, str] = {}
+        git_aliases: dict[str, str] = {}
         print(
             format_compaction_plan(
                 report,
@@ -867,6 +874,7 @@ def main(argv: list[str] | None = None) -> int:
                 excluded_commands=excluded_commands,
                 redact=args.redact_output,
                 command_aliases=command_aliases,
+                git_aliases=git_aliases,
             ),
             end="",
         )
@@ -885,7 +893,17 @@ def main(argv: list[str] | None = None) -> int:
             end="",
         )
     else:
-        print(_format_text_with_redaction(report, redact=args.redact_output), end="")
+        command_aliases: dict[str, str] = {}
+        git_aliases: dict[str, str] = {}
+        print(
+            _format_text_with_redaction(
+                report,
+                redact=args.redact_output,
+                command_aliases=command_aliases,
+                git_aliases=git_aliases,
+            ),
+            end="",
+        )
     return 0
 
 

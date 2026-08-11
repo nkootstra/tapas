@@ -345,7 +345,7 @@ fn filter_captured_output<'a>(
         stderr: Cow::Borrowed(&captured.stderr),
         filter_name: result.filter_name,
         evidence: result.evidence,
-        changed: result.filter_name != "passthrough",
+        changed: result.bytes.as_ref() != captured.stdout,
     }
 }
 
