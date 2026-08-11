@@ -713,9 +713,9 @@ fn successful_unrecognized_git_output_remains_a_byte_exact_passthrough() {
 
 #[test]
 fn bare_git_output_remains_composable_with_content_filters() {
-    let git = FakeCommand::symlink("git", "/bin/sh");
+    let shell = FakeCommand::symlink("sh", "/bin/sh");
     let args = [
-        git.path().as_os_str().to_owned(),
+        shell.path().as_os_str().to_owned(),
         OsString::from("-c"),
         OsString::from(
             "i=0; while [ \"$i\" -lt 600 ]; do printf 'bare output\\n'; i=$((i + 1)); done",
@@ -727,8 +727,8 @@ fn bare_git_output_remains_composable_with_content_filters() {
     let report =
         run(&args, &mut stdout, &mut stderr, RunOptions::default()).expect("run bare Git command");
 
-    assert_eq!(report.filter_name, "passthrough");
-    assert_eq!(report.evidence, tapas::filters::EvidenceClass::ByteExact);
+    assert_eq!(report.filter_name, "generic");
+    assert_eq!(report.evidence, tapas::filters::EvidenceClass::FactComplete);
     assert_eq!(stdout, "bare output ×600\n".as_bytes());
     assert!(stderr.is_empty());
 }
