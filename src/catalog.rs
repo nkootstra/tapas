@@ -213,36 +213,12 @@ pub(crate) const TEST_TOOLS_FILTER_COMMANDS: &[&[u8]] = &[
     b"pytest", b"jest", b"vitest", b"mocha", b"tsc", b"cargo", b"go", b"node", b"npm", b"pnpm",
     b"yarn", b"bun",
 ];
-pub(crate) const LISTING_FILTER_COMMANDS: &[&[u8]] =
-    &[
-        b"base64",
-        b"find",
-        b"grep",
-        b"ls",
-        b"nl",
-        b"rg",
-        b"sed",
-        b"sort",
-        b"strings",
-        b"tree",
-        b"du",
-        b"wc",
-        b"env",
-        b"which",
-        b"xargs",
-        b"python",
-        b"python3",
-    ];
+pub(crate) const LISTING_FILTER_COMMANDS: &[&[u8]] = &[
+    b"base64", b"find", b"grep", b"ls", b"nl", b"rg", b"sed", b"sort", b"strings", b"tree", b"du",
+    b"wc", b"env", b"which", b"xargs", b"python", b"python3",
+];
 pub(crate) const TEXT_FILTER_COMMANDS: &[&[u8]] = &[
-    b"base64",
-    b"grep",
-    b"nl",
-    b"python",
-    b"python3",
-    b"sed",
-    b"sort",
-    b"strings",
-    b"which",
+    b"base64", b"grep", b"nl", b"python", b"python3", b"sed", b"sort", b"strings", b"which",
     b"xargs",
 ];
 pub(crate) const BUILD_FILTER_COMMANDS: &[&[u8]] = &[

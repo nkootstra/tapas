@@ -153,8 +153,9 @@ pub fn run(
         logical
     };
     let filtered = filter_captured_output(filter_argv, &captured, lossless);
-    let failure_fell_open =
-        captured.exit_code != 0 && filtered.changed && filtered.evidence == EvidenceClass::PotentiallyLossy;
+    let failure_fell_open = captured.exit_code != 0
+        && filtered.changed
+        && filtered.evidence == EvidenceClass::PotentiallyLossy;
     let visible_stdout = if failure_fell_open {
         captured.stdout.as_slice()
     } else {
@@ -407,7 +408,9 @@ fn return_report(
 fn command_name(argv: &[OsString]) -> String {
     argv.first()
         .and_then(|program| crate::catalog::command_basename(program))
-        .map_or_else(String::new, |program| program.to_string_lossy().into_owned())
+        .map_or_else(String::new, |program| {
+            program.to_string_lossy().into_owned()
+        })
 }
 
 fn write_explain(report: &RunReport, stderr: &mut dyn Write) -> io::Result<()> {
