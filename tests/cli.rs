@@ -1,4 +1,5 @@
 use std::ffi::OsString;
+use std::fs;
 use std::io::Write;
 use std::os::unix::ffi::OsStringExt;
 use std::os::unix::fs::PermissionsExt;
