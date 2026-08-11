@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import collections
 import hashlib
+import secrets
 import json
 import pathlib
 import re
@@ -48,6 +49,7 @@ SHELL_KEYWORDS = {
 }
 WRAPPERS = {"smll", "tapas"}
 COMMAND_NOISE_WORDS = {"[", "]", "{", "}", "(", ")", "EOF"}
+_REDACT_SALT = secrets.token_hex(16)
 
 
 def basename(value: str) -> str:
@@ -540,7 +542,7 @@ def _redact_identifier(
 ) -> str:
     if value in mapping:
         return mapping[value]
-    token = f"{prefix}-{hashlib.sha1(value.encode('utf-8')).hexdigest()[:10]}"
+    token = f"{prefix}-{hashlib.sha1(f'{_REDACT_SALT}:{value}'.encode('utf-8')).hexdigest()[:10]}"
     mapping[value] = token
     return token
 

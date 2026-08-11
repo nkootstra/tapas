@@ -8,6 +8,15 @@ const TEXT_FILTER_COMMANDS: &[&[u8]] = &[
     b"base64", b"grep", b"nl", b"python", b"python3", b"sed", b"sort", b"strings", b"which",
     b"xargs",
 ];
+const TEXT_FILTER_NO_COMPACTION_COMMANDS: &[&[u8]] = &[
+    b"base64",
+    b"grep",
+    b"nl",
+    b"python",
+    b"python3",
+    b"sed",
+    b"sort",
+];
 
 pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
     crate::catalog::filter_family_handles(argv, crate::catalog::LISTING_FILTER_COMMANDS)
@@ -159,12 +168,25 @@ pub(crate) fn dispatch_streams_decision(
         }
     }
     if is_text_filter_command(command) && (generic::matches(stdout) || generic::matches(stderr)) {
-        return Ok(StreamFilterDecision::compact_single_stream(
-            stdout,
-            stderr,
-            EvidenceClass::PotentiallyLossy,
-            compact_text_output,
-        ));
+        if is_machine_text_filter_command(command) {
+            return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
+                stdout.to_vec(),
+                stderr.to_vec(),
+                EvidenceClass::ByteExact,
+            )));
+        }
+
+        let compacted_stdout = compact_text_stream(stdout);
+        let compacted_stderr = compact_text_stream(stderr);
+        if compacted_stdout == stdout && compacted_stderr == stderr {
+            Ok(StreamFilterDecision::Unchanged)
+        } else {
+            Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
+                compacted_stdout,
+                compacted_stderr,
+                EvidenceClass::PotentiallyLossy,
+            )))
+        }
     }
     Ok(StreamFilterDecision::Unchanged)
 }
@@ -173,8 +195,11 @@ fn is_text_filter_command(command: &[u8]) -> bool {
     TEXT_FILTER_COMMANDS.contains(&command)
 }
 
-fn compact_text_output(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
-    let input = if !stdout.is_empty() { stdout } else { stderr };
+fn is_machine_text_filter_command(command: &[u8]) -> bool {
+    TEXT_FILTER_NO_COMPACTION_COMMANDS.contains(&command)
+}
+
+fn compact_text_stream(input: &[u8]) -> Vec<u8> {
     if !generic::matches(input) {
         return input.to_vec();
     }

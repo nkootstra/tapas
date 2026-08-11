@@ -299,12 +299,14 @@ fn filter_captured_output<'a>(
         }
         match (filter.apply)(input) {
             Ok(StreamFilterDecision::Applied(output)) => {
+                let changed =
+                    output.stdout.as_slice() != captured.stdout || output.stderr.as_slice() != captured.stderr;
                 return FilteredStreams {
                     stdout: Cow::Owned(output.stdout),
                     stderr: Cow::Owned(output.stderr),
                     filter_name: filter.name,
                     evidence: output.evidence,
-                    changed: true,
+                    changed,
                 };
             }
             Ok(StreamFilterDecision::Unchanged)
