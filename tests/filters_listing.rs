@@ -418,14 +418,8 @@ fn stream_generic_compaction_preserves_stderr_when_stdout_is_compacted() {
     let stderr = b"stderr diagnostic\n".to_vec();
     let expected = format!("same output line \u{00d7}2000\n");
 
-    let result = listing::dispatch_streams_argv(
-        &[b"xargs", b"cmd"],
-        &stdout,
-        &stderr,
-        0,
-        false,
-    )
-    .unwrap();
+    let result =
+        listing::dispatch_streams_argv(&[b"xargs", b"cmd"], &stdout, &stderr, 0, false).unwrap();
 
     assert_eq!(result.stdout, expected.into_bytes());
     assert_eq!(result.stderr, stderr);
