@@ -542,7 +542,7 @@ def _redact_identifier(
 ) -> str:
     if value in mapping:
         return mapping[value]
-    token = f"{prefix}-{hashlib.sha1(f'{_REDACT_SALT}:{value}'.encode('utf-8')).hexdigest()[:10]}"
+    token = f"{prefix}-{hashlib.blake2b(f'{_REDACT_SALT}:{value}'.encode('utf-8'), digest_size=8).hexdigest()}"
     mapping[value] = token
     return token
 
@@ -695,7 +695,14 @@ def format_readable(
     if excluded_commands and not include_noise:
         lines.append(
             "Excluded by default (use --include-noise to show): "
-            + ", ".join(sorted(excluded_commands))
+            + ", ".join(
+                sorted(
+                    _redact_identifier(command, mapping=command_aliases, prefix="cmd")
+                    if redact
+                    else command
+                    for command in excluded_commands
+                )
+            )
         )
     lines.append("Commands not covered by catalog:")
     unlisted = sorted(

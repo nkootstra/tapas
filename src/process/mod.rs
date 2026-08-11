@@ -68,7 +68,8 @@ pub fn run(
             evidence: EvidenceClass::FactComplete,
             capture_complete: !streamed.incomplete,
             capture_overflowed: false,
-            changed: streamed.filter_name != "passthrough",
+            changed: streamed.filter_name != "passthrough"
+                && streamed.displayed_bytes < streamed.input_bytes,
         };
         return return_report(report, stderr, options.explain);
     }
