@@ -416,6 +416,7 @@ fn stream_generic_compaction_preserves_stderr_when_stdout_is_compacted() {
         stdout.extend_from_slice(b"same output line\n");
     }
     let stderr = b"stderr diagnostic\n".to_vec();
+    let expected = format!("same output line \u{00d7}2000\n");
 
     let result = listing::dispatch_streams_argv(
         &[b"xargs", b"cmd"],
@@ -426,7 +427,7 @@ fn stream_generic_compaction_preserves_stderr_when_stdout_is_compacted() {
     )
     .unwrap();
 
-    assert_eq!(result.stdout, b"same output line ×2000\n".to_vec());
+    assert_eq!(result.stdout, expected.into_bytes());
     assert_eq!(result.stderr, stderr);
     assert_eq!(result.evidence, EvidenceClass::PotentiallyLossy);
 }
