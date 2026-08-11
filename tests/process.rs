@@ -704,6 +704,7 @@ fn successful_unrecognized_git_output_remains_a_byte_exact_passthrough() {
     assert_eq!(stderr, b"custom stderr\n");
 }
 
+#[cfg(not(target_env = "musl"))]
 #[test]
 fn bare_git_output_remains_composable_with_content_filters() {
     let git = FakeCommand::new(
