@@ -153,9 +153,7 @@ pub(crate) fn dispatch_streams_decision(
             )));
         }
     }
-    if is_text_filter_command(command)
-        && (generic::matches(stdout) || generic::matches(stderr))
-    {
+    if is_text_filter_command(command) && (generic::matches(stdout) || generic::matches(stderr)) {
         return Ok(StreamFilterDecision::compact_single_stream(
             stdout,
             stderr,
