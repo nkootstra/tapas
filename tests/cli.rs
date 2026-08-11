@@ -254,7 +254,7 @@ fn rewrite_leaves_unsupported_and_already_wrapped_commands_unwrapped() {
     let wrapped = tapas(&["--rewrite", "/opt/tapas", "git", "status"]);
 
     assert!(unsupported.status.success());
-    assert_eq!(unsupported.stdout, b"python script.py\n");
+    assert_eq!(unsupported.stdout, b"tapas python script.py\n");
     assert!(unsupported.stderr.is_empty());
     assert!(wrapped.status.success());
     assert_eq!(wrapped.stdout, b"/opt/tapas git status\n");
