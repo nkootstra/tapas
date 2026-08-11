@@ -4,6 +4,11 @@ use super::{
 };
 use crate::filters::generic;
 
+const TEXT_FILTER_COMMANDS: &[&[u8]] = &[
+    b"base64", b"grep", b"nl", b"python", b"python3", b"sed", b"sort", b"strings", b"which",
+    b"xargs",
+];
+
 pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
     crate::catalog::filter_family_handles(argv, crate::catalog::LISTING_FILTER_COMMANDS)
 }
@@ -165,7 +170,7 @@ pub(crate) fn dispatch_streams_decision(
 }
 
 fn is_text_filter_command(command: &[u8]) -> bool {
-    crate::catalog::TEXT_FILTER_COMMANDS.contains(&command)
+    TEXT_FILTER_COMMANDS.contains(&command)
 }
 
 fn compact_text_output(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
