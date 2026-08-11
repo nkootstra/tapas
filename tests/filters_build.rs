@@ -515,6 +515,40 @@ fn direct_vite_esbuild_and_cmake_routes_require_finite_argv_and_known_grammar() 
             .any(|part| part == b"assets x10")
     );
 
+    let vite_eight = concat!(
+        "vite v8.2.1 building client environment for production...\n",
+        "transforming...\n",
+        "\u{2713} 4 modules transformed.\n",
+        "rendering chunks...\n",
+        "computing gzip size...\n",
+        "dist/index.html 0.09 kB \u{2502} gzip: 0.10 kB\n",
+        "dist/assets/index.js 0.77 kB \u{2502} gzip: 0.45 kB\n",
+        "\u{2713} built in 26ms\n",
+    );
+    let current =
+        build::dispatch_streams_argv(&[b"vite", b"build"], vite_eight.as_bytes(), b"", 0, false)
+            .unwrap();
+    assert_eq!(current.evidence, EvidenceClass::PotentiallyLossy);
+    assert!(current.stdout.len() < vite_eight.len());
+    assert!(
+        current
+            .stdout
+            .windows(b"vite v8.2.1".len())
+            .any(|part| part == b"vite v8.2.1")
+    );
+    assert!(
+        current
+            .stdout
+            .windows(b"assets x2".len())
+            .any(|part| part == b"assets x2")
+    );
+    assert!(
+        current
+            .stdout
+            .windows(b"built in 26ms".len())
+            .any(|part| part == b"built in 26ms")
+    );
+
     let esbuild = fixture("esbuild_build.txt");
     for argv in [
         &[

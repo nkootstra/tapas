@@ -218,6 +218,21 @@ cargo build --locked
 python3 scripts/parity.py --binary target/debug/tapas --tool tapas
 ```
 
+Exercise supported tools against live output in disposable temporary projects:
+
+```sh
+cargo build --locked
+python3 scripts/smoke-supported-commands.py \
+  --binary target/debug/tapas \
+  --require-all
+```
+
+The live smoke suite verifies that compact routes reduce output while retaining
+named facts, and that machine-readable and failed-command routes remain
+byte-exact. Tool groups whose dependencies are unavailable are skipped unless
+`--require-all` is set. Docker and Helm cases require a running Docker daemon;
+the Helm case creates and removes a temporary Kind cluster.
+
 Run the pinned real-harness contracts with Node.js 22 or newer. These tests use
 aimock locally and do not require provider credentials:
 

@@ -49,6 +49,38 @@ const QUERY_SHORT_FLAG_COMMANDS: &[&[u8]] = &[
     b"jq",
 ];
 
+pub(crate) const COMPOSE_VALUE_OPTIONS: &[&[u8]] = &[
+    b"--ansi",
+    b"--env-file",
+    b"-f",
+    b"--file",
+    b"--parallel",
+    b"--profile",
+    b"--progress",
+    b"--project-directory",
+    b"-p",
+    b"--project-name",
+];
+pub(crate) const COMPOSE_BOOLEAN_OPTIONS: &[&[u8]] =
+    &[b"--all-resources", b"--compatibility", b"--dry-run"];
+
+pub(crate) fn option_consumption(argument: &[u8], options: &[&[u8]]) -> Option<usize> {
+    options.iter().find_map(|option| {
+        if argument == *option {
+            Some(2)
+        } else if option.len() > 2
+            && argument
+                .strip_prefix(*option)
+                .is_some_and(|rest| rest.starts_with(b"="))
+            || option.len() == 2 && argument.len() > 2 && argument.starts_with(option)
+        {
+            Some(1)
+        } else {
+            None
+        }
+    })
+}
+
 pub(crate) fn requests_passthrough(argv: &[&[u8]]) -> bool {
     requests_query(argv) || requests_machine_output(argv) || requests_exact_output(argv)
 }

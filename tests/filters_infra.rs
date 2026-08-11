@@ -453,7 +453,31 @@ fn finite_docker_stats_compacts_only_the_default_human_table() {
     for argv in [
         &[b"docker".as_slice(), b"stats", b"--no-stream"][..],
         &[b"docker".as_slice(), b"compose", b"stats", b"--no-stream"][..],
+        &[
+            b"docker".as_slice(),
+            b"compose",
+            b"--file",
+            b"compose.yml",
+            b"stats",
+            b"--no-stream",
+        ][..],
         &[b"docker-compose".as_slice(), b"stats", b"--no-stream"][..],
+        &[
+            b"docker-compose".as_slice(),
+            b"--project-name",
+            b"demo",
+            b"--file",
+            b"compose.yml",
+            b"stats",
+            b"--no-stream",
+        ][..],
+        &[
+            b"docker-compose".as_slice(),
+            b"--project-name=demo",
+            b"-fcompose.yml",
+            b"stats",
+            b"--no-stream",
+        ][..],
         &[
             b"docker".as_slice(),
             b"stats",
@@ -479,6 +503,28 @@ fn finite_docker_stats_compacts_only_the_default_human_table() {
             b"{{json .}}",
         ][..],
         &[b"docker".as_slice(), b"stats"][..],
+        &[
+            b"docker".as_slice(),
+            b"compose",
+            b"--",
+            b"stats",
+            b"--no-stream",
+        ][..],
+        &[
+            b"docker".as_slice(),
+            b"compose",
+            b"--future",
+            b"value",
+            b"stats",
+            b"--no-stream",
+        ][..],
+        &[
+            b"docker-compose".as_slice(),
+            b"--file",
+            b"stats",
+            b"--no-stream",
+        ][..],
+        &[b"docker-compose".as_slice(), b"--file"][..],
     ] {
         let output = infra::dispatch_streams_argv(argv, &stats, b"", 0, false).unwrap();
         assert_eq!(output.evidence, EvidenceClass::ByteExact, "{argv:?}");

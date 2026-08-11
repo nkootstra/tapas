@@ -7,7 +7,8 @@ pub(super) fn vite_route(argv: &[&[u8]]) -> bool {
 pub(super) fn matches_vite(stdout: &[u8], stderr: &[u8]) -> bool {
     [stdout, stderr].into_iter().any(|input| {
         find_subslice(input, b"vite v").is_some()
-            && find_subslice(input, b"building for production").is_some()
+            && find_subslice(input, b"building ").is_some()
+            && find_subslice(input, b" for production").is_some()
             && (find_subslice(input, b"modules transformed").is_some()
                 || find_subslice(input, b"built in").is_some()
                 || contains_ignore_ascii_case(input, b"error"))

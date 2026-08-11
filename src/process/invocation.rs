@@ -1,5 +1,9 @@
 use std::ffi::OsString;
 
+use crate::invocation_policy::{
+    COMPOSE_BOOLEAN_OPTIONS, COMPOSE_VALUE_OPTIONS, option_consumption,
+};
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PassthroughReason {
     Query,
@@ -305,23 +309,7 @@ fn pnpm_exec_candidate(argv: &[OsString]) -> bool {
 }
 
 fn compose_inherits_lifecycle(argv: &[OsString], start: usize) -> bool {
-    match scan_subcommand(
-        argv,
-        start,
-        &[
-            b"--ansi",
-            b"--env-file",
-            b"-f",
-            b"--file",
-            b"--parallel",
-            b"--profile",
-            b"--progress",
-            b"--project-directory",
-            b"-p",
-            b"--project-name",
-        ],
-        &[b"--all-resources", b"--compatibility", b"--dry-run"],
-    ) {
+    match scan_subcommand(argv, start, COMPOSE_VALUE_OPTIONS, COMPOSE_BOOLEAN_OPTIONS) {
         SubcommandScan::Found(b"up") => {
             !boolean_option_enabled(argv, b"--detach", Some(b'd')).unwrap_or(false)
         }
@@ -362,23 +350,6 @@ fn scan_subcommand<'a>(
         }
     }
     SubcommandScan::Missing
-}
-
-fn option_consumption(argument: &[u8], options: &[&[u8]]) -> Option<usize> {
-    options.iter().find_map(|option| {
-        if argument == *option {
-            Some(2)
-        } else if option.len() > 2
-            && argument
-                .strip_prefix(*option)
-                .is_some_and(|rest| rest.starts_with(b"="))
-            || option.len() == 2 && argument.len() > 2 && argument.starts_with(option)
-        {
-            Some(1)
-        } else {
-            None
-        }
-    })
 }
 
 fn has_enabled_option(argv: &[OsString], options: &[&[u8]]) -> bool {
