@@ -454,8 +454,7 @@ fn machine_like_text_filter_commands_keep_generic_output_byte_exact() {
 fn rg_ordinary_output_stays_byte_exact() {
     let stdout = b"path line\npath line\npath line\n";
     let result =
-        listing::dispatch_streams_argv(&[b"rg", b"pattern"], stdout, b"", 0, false)
-            .unwrap();
+        listing::dispatch_streams_argv(&[b"rg", b"pattern"], stdout, b"", 0, false).unwrap();
 
     assert_eq!(result.stdout, stdout);
     assert_eq!(result.stderr, Vec::new());
