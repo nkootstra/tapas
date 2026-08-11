@@ -542,7 +542,7 @@ def _redact_identifier(
 ) -> str:
     if value in mapping:
         return mapping[value]
-    token = f"{prefix}-{hashlib.blake2b(f'{_REDACT_SALT}:{value}'.encode('utf-8'), digest_size=8).hexdigest()}"
+    token = f"{prefix}-{_REDACT_SALT[:8]}-{len(mapping) + 1:04d}"
     mapping[value] = token
     return token
 
