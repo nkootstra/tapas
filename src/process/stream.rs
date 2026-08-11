@@ -14,11 +14,14 @@ use crate::filters::{
 const MAX_LINE_BYTES: usize = 64 * 1024;
 const MAX_FRAME_BYTES: usize = 512 * 1024;
 const IDLE_FLUSH: Duration = Duration::from_secs(2);
+const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+const FNV_PRIME: u64 = 0x100000001b3;
 
 pub(super) struct StreamedOutput {
     pub exit_code: i32,
     pub input_bytes: usize,
     pub displayed_bytes: usize,
+    pub changed: bool,
     pub incomplete: bool,
     pub filter_name: &'static str,
 }
@@ -60,6 +63,8 @@ pub(super) fn run(
         let mut exit_observed_at: Option<Instant> = None;
         let mut last_activity = Instant::now();
         let mut input_bytes = 0usize;
+        let mut input_stdout_fingerprint = ByteFingerprint::new();
+        let mut input_stderr_fingerprint = ByteFingerprint::new();
         let mut incomplete = false;
 
         while stdout_open || stderr_open {
@@ -75,6 +80,7 @@ pub(super) fn run(
                     capture::read_available(&mut child_stdout, &mut stdout_buffer, |chunk| {
                         received = true;
                         input_bytes += chunk.len();
+                        input_stdout_fingerprint.absorb(chunk);
                         stdout_side.feed(chunk, &mut stdout_count)
                     })?;
             }
@@ -83,6 +89,7 @@ pub(super) fn run(
                     capture::read_available(&mut child_stderr, &mut stderr_buffer, |chunk| {
                         received = true;
                         input_bytes += chunk.len();
+                        input_stderr_fingerprint.absorb(chunk);
                         stderr_side.feed(chunk, &mut stderr_count)
                     })?;
             }
@@ -121,10 +128,13 @@ pub(super) fn run(
             Some(status) => status,
             None => unix::wait_for_child(&mut child, &forwarder)?,
         };
+        let changed = stdout_count.changed_from(&input_stdout_fingerprint)
+            || stderr_count.changed_from(&input_stderr_fingerprint);
         Ok(StreamedOutput {
             exit_code: unix::exit_code(status),
             input_bytes,
             displayed_bytes,
+            changed,
             incomplete,
             filter_name: kind.filter_name(),
         })
@@ -181,23 +191,57 @@ impl StreamKind {
 struct CountingWriter<'a> {
     inner: &'a mut dyn Write,
     count: usize,
+    fingerprint: ByteFingerprint,
 }
 
 impl<'a> CountingWriter<'a> {
     fn new(inner: &'a mut dyn Write) -> Self {
-        Self { inner, count: 0 }
+        Self {
+            inner,
+            count: 0,
+            fingerprint: ByteFingerprint::new(),
+        }
+    }
+
+    fn changed_from(&self, input: &ByteFingerprint) -> bool {
+        self.fingerprint != *input
     }
 }
 
 impl Write for CountingWriter<'_> {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
         let written = self.inner.write(bytes)?;
+        let written_bytes = &bytes[..written];
+        self.fingerprint.absorb(written_bytes);
         self.count += written;
         Ok(written)
     }
 
     fn flush(&mut self) -> io::Result<()> {
         self.inner.flush()
+    }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+struct ByteFingerprint {
+    bytes: usize,
+    hash: u64,
+}
+
+impl ByteFingerprint {
+    fn new() -> Self {
+        Self {
+            bytes: 0,
+            hash: FNV_OFFSET_BASIS,
+        }
+    }
+
+    fn absorb(&mut self, input: &[u8]) {
+        self.bytes += input.len();
+        for byte in input {
+            self.hash ^= *byte as u64;
+            self.hash = self.hash.wrapping_mul(FNV_PRIME);
+        }
     }
 }
 
