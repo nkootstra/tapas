@@ -41,7 +41,10 @@ jobs:
           set -euo pipefail
           current_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*')"
           desired_version="$(git log --format=%s "${current_tag}..HEAD" |
-            python3 scripts/release_policy.py next-version --current "$current_tag")"
+            python3 scripts/release_policy.py next-version \
+              --current "$current_tag" \
+              --manifest Cargo.toml \
+              --lockfile Cargo.lock)"
           echo "version=$desired_version" >> "$GITHUB_OUTPUT"
 
   release:

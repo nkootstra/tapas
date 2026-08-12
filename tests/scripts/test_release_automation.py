@@ -159,6 +159,8 @@ class ReleaseAutomationContractTests(unittest.TestCase):
 
         self.assertIn('subject="$(git log -1 --format=%s)"', workflow)
         self.assertIn('release_policy.py validate-title "$subject"', workflow)
+        self.assertIn("--manifest Cargo.toml", workflow)
+        self.assertIn("--lockfile Cargo.lock", workflow)
         self.assertNotIn('gh api "repos/${GITHUB_REPOSITORY}"', workflow)
         self.assertIn("Always use the pull request title", guide)
         self.assertIn("These repository settings are required setup", guide)

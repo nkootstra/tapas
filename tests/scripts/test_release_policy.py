@@ -3,6 +3,7 @@ from __future__ import annotations
 import pathlib
 import subprocess
 import sys
+import tempfile
 import unittest
 
 
@@ -11,6 +12,22 @@ SCRIPTS = ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 import release_policy  # noqa: E402
+
+
+def write_version_files(
+    root: pathlib.Path, version: str
+) -> tuple[pathlib.Path, pathlib.Path]:
+    manifest = root / "Cargo.toml"
+    lockfile = root / "Cargo.lock"
+    manifest.write_text(
+        f'[package]\nname = "tapas"\nversion = "{version}"\n',
+        encoding="utf-8",
+    )
+    lockfile.write_text(
+        f'[[package]]\nname = "tapas"\nversion = "{version}"\n',
+        encoding="utf-8",
+    )
+    return manifest, lockfile
 
 
 class PullRequestTitleTests(unittest.TestCase):
@@ -67,25 +84,95 @@ class VersionPolicyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             release_policy.next_version("v0.3.0", "skip")
 
+    def test_release_is_pending_only_until_repository_contains_desired_version(
+        self,
+    ) -> None:
+        subjects = ["minor: add support"]
+
+        self.assertEqual(
+            release_policy.pending_release_version("v0.3.0", "0.3.0", subjects),
+            "0.4.0",
+        )
+        self.assertIsNone(
+            release_policy.pending_release_version("v0.3.0", "0.4.0", subjects)
+        )
+        with self.assertRaises(ValueError):
+            release_policy.pending_release_version("v0.3.0", "0.3.1", subjects)
+
+    def test_skip_only_history_rejects_unexpected_repository_version(self) -> None:
+        with self.assertRaises(ValueError):
+            release_policy.pending_release_version(
+                "v0.3.0", "0.3.1", ["skip: update docs"]
+            )
+
+    def test_repository_version_requires_matching_manifest_and_lockfile(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            manifest, lockfile = write_version_files(root, "0.4.0")
+
+            self.assertEqual(
+                release_policy.repository_version(manifest, lockfile), "0.4.0"
+            )
+
+            lockfile.write_text(
+                '[[package]]\nname = "tapas"\nversion = "0.3.0"\n',
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                release_policy.repository_version(manifest, lockfile)
+
 
 class CommandLineTests(unittest.TestCase):
     def test_next_version_reads_commit_subjects_from_standard_input(self) -> None:
-        result = subprocess.run(
-            [
-                "python3",
-                str(SCRIPTS / "release_policy.py"),
-                "next-version",
-                "--current",
-                "v0.3.0",
-            ],
-            input="patch: repair output\nminor: add support\n",
-            check=False,
-            capture_output=True,
-            text=True,
-        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            manifest, lockfile = write_version_files(root, "0.3.0")
+            result = subprocess.run(
+                [
+                    "python3",
+                    str(SCRIPTS / "release_policy.py"),
+                    "next-version",
+                    "--current",
+                    "v0.3.0",
+                    "--manifest",
+                    str(manifest),
+                    "--lockfile",
+                    str(lockfile),
+                ],
+                input="patch: repair output\nminor: add support\n",
+                check=False,
+                capture_output=True,
+                text=True,
+            )
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "0.4.0\n")
+
+    def test_next_version_is_empty_when_release_is_already_prepared(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            manifest, lockfile = write_version_files(
+                pathlib.Path(directory), "0.4.0"
+            )
+            result = subprocess.run(
+                [
+                    "python3",
+                    str(SCRIPTS / "release_policy.py"),
+                    "next-version",
+                    "--current",
+                    "v0.3.0",
+                    "--manifest",
+                    str(manifest),
+                    "--lockfile",
+                    str(lockfile),
+                ],
+                input="minor: add support\n",
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "")
 
     def test_validate_title_reports_a_useful_failure(self) -> None:
         result = subprocess.run(
