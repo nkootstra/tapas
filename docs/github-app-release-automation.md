@@ -1,8 +1,8 @@
 # GitHub App release automation
 
-Tapas uses release-plz to prepare version and changelog pull requests and to create signed release tags. The existing tag-triggered CI remains responsible for building checksummed binaries and publishing the GitHub Release.
+release-plz prepares version and changelog pull requests. After one of those pull requests is merged, the reusable Tapas release workflow validates it and Tapas creates the signed release tag directly. The existing tag-triggered CI remains responsible for building checksummed binaries and publishing the GitHub Release.
 
-Merging a release PR is the release approval. Once it reaches `main`, release-plz creates a signed `vX.Y.Z` tag and the regular CI and publishing workflows run.
+Merging a release PR is the release approval. Once it reaches `main`, the Tapas workflow creates a signed `vX.Y.Z` tag at the validated merge commit and the regular CI and publishing workflows run. release-plz does not create tags or GitHub Releases.
 
 ## Required repository settings
 
@@ -45,7 +45,12 @@ gh api --method PATCH repos/nkootstra/tapas \
 8. Generate an App private key and store the downloaded PEM as the `RELEASE_APP_PRIVATE_KEY` repository secret.
 9. Install the App only on the `nkootstra/tapas` repository.
 
-The App token is short-lived and restricted to this repository. The default workflow token stays read-only.
+The App token is short-lived and restricted to this repository. The default workflow token stays read-only. The App's installed permissions are the maximum available to its tokens; each job requests only what it needs:
+
+- Release-PR preparation requests **Contents: Read and write** and **Pull requests: Read and write**.
+- Direct tag creation requests **Contents: Read and write** and **Pull requests: Read**.
+
+There is exactly one repository variable, `RELEASE_APP_ID`, and two repository secrets, `RELEASE_APP_PRIVATE_KEY` and `RELEASE_SIGNING_KEY`, for release automation. release-plz creates its release-PR commits through GitHub's API; these GraphQL commits show as Verified. When release-plz returns a non-literal manifest version, the GitHub-signed normalization fallback also uses the GraphQL commit API. The SSH signing key is available only to the isolated direct-tag workflow.
 
 ## Create the release-signing key
 
@@ -98,9 +103,38 @@ gh variable list --repo nkootstra/tapas
 gh secret list --repo nkootstra/tapas
 ```
 
-CI verifies the SSH signature and source commit before building or publishing a tagged release. If a tag exists but CI fails, fix the problem in a new pull request and publish a new patch version; do not move or overwrite a published version tag.
+CI verifies the SSH signature and source commit before building or publishing a tagged release.
 
-To rotate credentials:
+The `release-recovery` `repository_dispatch` event exists only to restore a missing tag after its release PR was already merged. It loads the reusable workflow from the default branch, accepts only the release PR number, and derives the version, tag, and merge commit from GitHub's authoritative PR data. The recovery caller is explicitly owner-gated with `github.actor == github.repository_owner`.
+
+For example, recover the missing tag for release PR 15 from zsh with:
+
+```sh
+gh api --method POST repos/nkootstra/tapas/dispatches \
+  -f event_type=release-recovery \
+  -F 'client_payload[release_pr_number]=15'
+```
+
+The workflow fails closed if the PR or release contents do not satisfy the same policy as a normal release. If the expected, valid tag is already present at the exact release-PR merge commit, a valid replay is a no-op. A conflicting, lightweight, incorrectly signed, or incorrectly targeted tag fails and is never moved or overwritten.
+
+If the tag exists but tag-triggered CI or publishing fails, rerun the failed downstream workflow. If the released source itself is defective, fix forward with a patch release. Never move or overwrite a published version tag.
+
+## Required signing-key rotation
+
+The previous release-signing key has been exposed and must not be used or temporarily trusted alongside its replacement. Complete this hard rotation before dispatching recovery:
+
+1. Generate a uniquely named replacement Ed25519 key that is dedicated to Tapas release signing.
+2. Register only the replacement public key as a GitHub signing key.
+3. Replace the `RELEASE_SIGNING_KEY` repository secret with the replacement private key without printing it.
+4. Revoke the exposed GitHub signing key and delete its old local private and public key files.
+5. Replace, rather than append to, `.github/release-signers` in a reviewed pull request so it contains only the replacement public key.
+6. Merge that pull request and verify the trusted signer file, registered GitHub signing key, and repository secret all refer to the replacement before running `release-recovery`.
+
+Do not dispatch recovery while the old and replacement keys are both trusted.
+
+## Future credential rotation
+
+For a routine rotation in which no credential was exposed:
 
 1. Generate and register the replacement App or signing key.
 2. Update the corresponding repository secret.
