@@ -97,11 +97,16 @@ def pending_release_version(
     ):
         raise ValueError("release versions must use vX.Y.Z or X.Y.Z")
 
+    current_version = ".".join(current_match.groups())
     bump = select_bump(subjects)
     if bump is None:
-        return None
+        if repository == current_version:
+            return None
+        raise ValueError(
+            f"repository version {repository} does not match current "
+            f"{current_version} when no release bump is pending"
+        )
     desired = next_version(current, bump)
-    current_version = ".".join(current_match.groups())
     if repository == current_version:
         return desired
     if repository == desired:

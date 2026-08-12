@@ -99,6 +99,12 @@ class VersionPolicyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             release_policy.pending_release_version("v0.3.0", "0.3.1", subjects)
 
+    def test_skip_only_history_rejects_unexpected_repository_version(self) -> None:
+        with self.assertRaises(ValueError):
+            release_policy.pending_release_version(
+                "v0.3.0", "0.3.1", ["skip: update docs"]
+            )
+
     def test_repository_version_requires_matching_manifest_and_lockfile(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)
