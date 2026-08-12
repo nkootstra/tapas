@@ -1,0 +1,18 @@
+name: Recover signed release tag
+
+on:
+  repository_dispatch:
+    types: [release-recovery]
+
+permissions: {}
+
+jobs:
+  recover:
+    name: Recover a validated release tag
+    if: github.actor == github.repository_owner
+    uses: ./.github/workflows/release-tag.yml
+    with:
+      release_pr_number: ${{ github.event.client_payload.release_pr_number }}
+    secrets:
+      RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+      RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}

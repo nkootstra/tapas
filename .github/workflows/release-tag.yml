@@ -1,0 +1,109 @@
+name: Create signed release tag
+
+on:
+  workflow_call:
+    inputs:
+      release_pr_number:
+        description: Merged release pull request number
+        required: true
+        type: number
+    secrets:
+      RELEASE_APP_PRIVATE_KEY:
+        required: true
+      RELEASE_SIGNING_KEY:
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: tapas-signed-release-tag
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    name: Validate and sign the release tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Create the release App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: read
+
+      - name: Check out the trusted release implementation
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.workflow_sha }}
+
+      - name: Fetch and validate the release candidate
+        env:
+          APP_LOGIN: ${{ steps.app-token.outputs.app-slug }}[bot]
+          CANDIDATE_JSON: ${{ runner.temp }}/release-candidate.json
+          FILES_JSON: ${{ runner.temp }}/release-pr-files.json
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_JSON: ${{ runner.temp }}/release-pr.json
+          RELEASE_PR_NUMBER: ${{ inputs.release_pr_number }}
+          TRUSTED_SIGNERS: ${{ runner.temp }}/release-signers
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_PR_NUMBER" =~ ^[1-9][0-9]*$ ]]
+          install -m 600 .github/release-signers "$TRUSTED_SIGNERS"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${RELEASE_PR_NUMBER}" > "$PR_JSON"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${RELEASE_PR_NUMBER}/files?per_page=100" > "$FILES_JSON"
+          python3 scripts/release_tag.py validate \
+            --pr-json "$PR_JSON" \
+            --files-json "$FILES_JSON" \
+            --expected-pr-number "$RELEASE_PR_NUMBER" \
+            --repository "$GITHUB_REPOSITORY" \
+            --app-login "$APP_LOGIN" \
+            --workflow-sha "$WORKFLOW_SHA" \
+            --candidate-json "$CANDIDATE_JSON"
+
+      - name: Sign and push the validated release tag
+        env:
+          CANDIDATE_JSON: ${{ runner.temp }}/release-candidate.json
+          GIT_ASKPASS: ${{ runner.temp }}/release-git-askpass
+          GIT_TERMINAL_PROMPT: "0"
+          RELEASE_APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+          SIGNING_KEY: ${{ runner.temp }}/release-signing-key
+          TRUSTED_SIGNERS: ${{ runner.temp }}/release-signers
+        run: |
+          set -euo pipefail
+          install -m 600 /dev/null "$SIGNING_KEY"
+          printf '%s\n' "$RELEASE_SIGNING_KEY" > "$SIGNING_KEY"
+          install -m 700 /dev/null "$GIT_ASKPASS"
+          cat > "$GIT_ASKPASS" <<'SH'
+          #!/bin/sh
+          case "$1" in
+            *Username*) printf '%s\n' "x-access-token" ;;
+            *) printf '%s\n' "$RELEASE_APP_TOKEN" ;;
+          esac
+          SH
+          python3 scripts/release_tag.py tag \
+            --candidate-json "$CANDIDATE_JSON" \
+            --signing-key "$SIGNING_KEY" \
+            --trusted-signers "$TRUSTED_SIGNERS" \
+            --remote origin
+
+      - name: Remove transient release credentials and metadata
+        if: always()
+        env:
+          CANDIDATE_JSON: ${{ runner.temp }}/release-candidate.json
+          FILES_JSON: ${{ runner.temp }}/release-pr-files.json
+          GIT_ASKPASS: ${{ runner.temp }}/release-git-askpass
+          PR_JSON: ${{ runner.temp }}/release-pr.json
+          SIGNING_KEY: ${{ runner.temp }}/release-signing-key
+          TRUSTED_SIGNERS: ${{ runner.temp }}/release-signers
+        run: |
+          rm -f "$GIT_ASKPASS" "$CANDIDATE_JSON" "$FILES_JSON" "$PR_JSON" \
+            "$SIGNING_KEY" "$TRUSTED_SIGNERS"
