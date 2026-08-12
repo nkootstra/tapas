@@ -62,6 +62,7 @@ class ReleaseAutomationContractTests(unittest.TestCase):
         self.assertIn("cancel-in-progress: false", workflow)
         self.assertIn("permission-contents: write", workflow)
         self.assertIn("permission-pull-requests: read", workflow)
+        self.assertIn("permission-workflows: write", workflow)
         self.assertIn("ref: ${{ github.workflow_sha }}", workflow)
         self.assertIn("fetch-depth: 0", workflow)
         self.assertIn("persist-credentials: false", workflow)
@@ -105,6 +106,7 @@ class ReleaseAutomationContractTests(unittest.TestCase):
 
         self.assertIn("permission-contents: write", workflow)
         self.assertIn("permission-pull-requests: write", workflow)
+        self.assertNotIn("permission-workflows: write", workflow)
         self.assertEqual(
             workflow.count(
                 "RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}"
@@ -262,6 +264,7 @@ class ReleaseAutomationContractTests(unittest.TestCase):
         self.assertIn("Pull requests: Read and write", guide)
         self.assertIn("GraphQL commits show as Verified", guide)
         self.assertIn("GitHub-signed normalization fallback", guide)
+        self.assertIn("Workflows: Read and write", guide)
 
 
 if __name__ == "__main__":
