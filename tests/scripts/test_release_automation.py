@@ -112,8 +112,11 @@ class ReleaseAutomationContractTests(unittest.TestCase):
             1,
         )
         fallback = workflow.index("Apply literal SemVer to the release PR")
-        prepare = workflow.index("  prepare:")
-        self.assertNotIn("RELEASE_SIGNING_KEY", workflow[prepare:])
+        prepare = re.search(
+            r"(?ms)^  prepare:\n.*?(?=^  [A-Za-z0-9_-]+:\n|\Z)", workflow
+        )
+        self.assertIsNotNone(prepare)
+        self.assertNotIn("RELEASE_SIGNING_KEY", prepare.group(0))
         self.assertIn("createCommitOnBranch", workflow[fallback:])
         self.assertNotIn("commit -S", workflow[fallback:])
         self.assertNotIn("if: steps.release-plz.outputs.prs_created", workflow)

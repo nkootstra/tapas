@@ -28,14 +28,16 @@ def select_release_pull_request(
         user = pull_request.get("user")
         head = pull_request.get("head")
         repo = head.get("repo") if isinstance(head, dict) else None
+        branch = head.get("ref") if isinstance(head, dict) else None
         if (
             isinstance(user, dict)
             and isinstance(head, dict)
             and isinstance(repo, dict)
+            and isinstance(branch, str)
             and user.get("login") == app_login
             and user.get("type") == "Bot"
             and repo.get("full_name") == repository
-            and RELEASE_BRANCH.fullmatch(head.get("ref", "")) is not None
+            and RELEASE_BRANCH.fullmatch(branch) is not None
         ):
             matches.append(pull_request)
     if len(matches) != 1:
@@ -97,11 +99,17 @@ def build_commit_request(
 def normalize_body(body: str, old_version: str, new_version: str) -> str:
     if VERSION.fullmatch(old_version) is None or VERSION.fullmatch(new_version) is None:
         raise ValueError("release pull request version is invalid")
-    if new_version in body:
+    old_version_pattern = re.compile(
+        rf"(?<![0-9.]){re.escape(old_version)}(?![0-9.])"
+    )
+    new_version_pattern = re.compile(
+        rf"(?<![0-9.]){re.escape(new_version)}(?![0-9.])"
+    )
+    if new_version_pattern.search(body) is not None:
         return body
-    if old_version not in body:
+    if old_version_pattern.search(body) is None:
         raise ValueError(f"release pull request body does not contain {old_version}")
-    return body.replace(old_version, new_version)
+    return old_version_pattern.sub(new_version, body)
 
 
 def argument_parser() -> argparse.ArgumentParser:

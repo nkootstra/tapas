@@ -57,6 +57,8 @@ def validate_signing_key(
     key_parts = public_key.split()
     allowed: dict[str, str] = {}
     for line in trusted_signers.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
         match = re.search(r"ssh-ed25519\s+[A-Za-z0-9+/]+={0,2}", line)
         if match is not None:
             allowed[match.group(0)] = line.split()[0].split(",", 1)[0]
@@ -238,7 +240,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"{status} {candidate.tag} at {candidate.merge_sha}")
         return 0
-    except (ValueError, OSError, json.JSONDecodeError, tomllib.TOMLDecodeError) as error:
+    except (
+        TypeError,
+        ValueError,
+        OSError,
+        json.JSONDecodeError,
+        tomllib.TOMLDecodeError,
+    ) as error:
         print(str(error), file=sys.stderr)
         return 2
 
@@ -319,7 +327,8 @@ def validate_repository(
     if not stable_tags:
         raise ValueError("repository has no stable release tag")
     candidate_version = _version(candidate.tag)
-    assert candidate_version is not None
+    if candidate_version is None:
+        raise ValueError("release candidate version is invalid")
     previous_tags = [item for item in stable_tags if item[0] < candidate_version]
     if not previous_tags:
         raise ValueError("repository has no stable release tag before the candidate")

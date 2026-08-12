@@ -47,6 +47,43 @@ class ReleaseNormalizationTests(unittest.TestCase):
                     app_login="tapas-release[bot]",
                 )
 
+    def test_inspect_rejects_non_string_release_branch_with_status_2(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            pulls_json = root / "pulls.json"
+            output_json = root / "selected.json"
+            pulls_json.write_text(
+                json.dumps(
+                    [
+                        {
+                            "user": {"login": "tapas-release[bot]", "type": "Bot"},
+                            "head": {
+                                "ref": 123,
+                                "repo": {"full_name": "nkootstra/tapas"},
+                            },
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            status = release_normalization.main(
+                [
+                    "inspect",
+                    "--pulls-json",
+                    str(pulls_json),
+                    "--repository",
+                    "nkootstra/tapas",
+                    "--app-login",
+                    "tapas-release[bot]",
+                    "--output-json",
+                    str(output_json),
+                ]
+            )
+
+            self.assertEqual(status, 2)
+            self.assertFalse(output_json.exists())
+
     def test_builds_expected_head_graphql_commit_from_exact_release_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)
@@ -104,6 +141,23 @@ class ReleaseNormalizationTests(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             release_normalization.normalize_body("no version\n", "0.3.1", "0.4.0")
+
+    def test_normalizes_only_standalone_old_version_occurrences(self) -> None:
+        body = "Previous 10.3.1\nRelease 0.3.1\n"
+
+        normalized = release_normalization.normalize_body(body, "0.3.1", "0.4.0")
+
+        self.assertEqual(normalized, "Previous 10.3.1\nRelease 0.4.0\n")
+        with self.assertRaises(ValueError):
+            release_normalization.normalize_body(
+                "Previous 10.3.1\n", "0.3.1", "0.4.0"
+            )
+        self.assertEqual(
+            release_normalization.normalize_body(
+                "Previous 10.4.0\nRelease 0.3.1\n", "0.3.1", "0.4.0"
+            ),
+            "Previous 10.4.0\nRelease 0.4.0\n",
+        )
 
 
 if __name__ == "__main__":

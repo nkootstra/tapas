@@ -204,6 +204,73 @@ class CandidateValidationTests(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn("trusted release policy", result.stderr)
 
+    def test_cli_fails_closed_for_non_string_json_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            pr_json = root / "pr.json"
+            files_json = root / "files.json"
+            pr_json.write_text(
+                json.dumps(
+                    {
+                        "number": 15,
+                        "state": "closed",
+                        "merged": True,
+                        "merged_at": "2026-08-11T10:00:00Z",
+                        "title": 123,
+                        "base": {"ref": "main"},
+                        "head": {
+                            "ref": "release-plz-2026-08-11T09-00-00Z",
+                            "repo": {"full_name": "nkootstra/tapas"},
+                        },
+                        "user": {"login": "tapas-release[bot]", "type": "Bot"},
+                        "merged_by": {"login": "nkootstra", "type": "User"},
+                        "merge_commit_sha": "a" * 40,
+                    }
+                )
+            )
+            files_json.write_text(
+                json.dumps(
+                    [
+                        {"filename": "Cargo.toml"},
+                        {"filename": "Cargo.lock"},
+                        {"filename": "CHANGELOG.md"},
+                    ]
+                )
+            )
+
+            result = subprocess.run(
+                [
+                    "python3",
+                    str(SCRIPTS / "release_tag.py"),
+                    "validate",
+                    "--pr-json",
+                    str(pr_json),
+                    "--files-json",
+                    str(files_json),
+                    "--expected-pr-number",
+                    "15",
+                    "--repository",
+                    "nkootstra/tapas",
+                    "--app-login",
+                    "tapas-release[bot]",
+                    "--workflow-sha",
+                    "a" * 40,
+                    "--candidate-json",
+                    str(root / "candidate.json"),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "GIT_CONFIG_GLOBAL": "/dev/null",
+                    "GIT_CONFIG_NOSYSTEM": "1",
+                },
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertNotIn("Traceback", result.stderr)
+
 
 class RepositoryValidationTests(unittest.TestCase):
     def test_accepts_consistent_next_version_at_ancestor_sha(self) -> None:
@@ -277,6 +344,28 @@ class RepositoryValidationTests(unittest.TestCase):
                     cwd=repo,
                 )
 
+    def test_rejects_invalid_candidate_version_with_value_error(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo = pathlib.Path(directory)
+            git(repo, "init", "-b", "main")
+            (repo / "Cargo.toml").write_text(
+                '[package]\nname = "tapas"\nversion = "0.3.0"\n'
+            )
+            (repo / "Cargo.lock").write_text(
+                'version = 4\n\n[[package]]\nname = "tapas"\nversion = "0.3.0"\n'
+            )
+            (repo / "CHANGELOG.md").write_text("# Changelog\n")
+            workflow_sha = commit(repo, "trusted workflow")
+            git(repo, "tag", "v0.3.0")
+
+            with self.assertRaisesRegex(ValueError, "candidate version is invalid"):
+                release_tag.validate_repository(
+                    release_tag.Candidate("invalid", workflow_sha),
+                    workflow_sha=workflow_sha,
+                    repository="nkootstra/tapas",
+                    cwd=repo,
+                )
+
 
 class SigningKeyValidationTests(unittest.TestCase):
     def test_requires_private_key_to_match_a_trusted_signer(self) -> None:
@@ -329,8 +418,109 @@ class SigningKeyValidationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 release_tag.validate_signing_key(signing_key, trusted)
 
+    def test_ignores_blank_and_commented_allowed_signer_lines(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            signing_key = root / "release-key"
+            other_key = root / "other-key"
+            for key in (signing_key, other_key):
+                subprocess.run(
+                    [
+                        "/usr/bin/ssh-keygen",
+                        "-q",
+                        "-t",
+                        "ed25519",
+                        "-N",
+                        "",
+                        "-f",
+                        str(key),
+                    ],
+                    check=True,
+                )
+            trusted = root / "allowed-signers"
+            trusted.write_text(
+                "\n"
+                "# retired@example.com namespaces=\"git\" "
+                f"{signing_key.with_suffix('.pub').read_text()}"
+                "active@example.com namespaces=\"git\" "
+                f"{other_key.with_suffix('.pub').read_text()}"
+            )
+
+            with self.assertRaises(ValueError):
+                release_tag.validate_signing_key(signing_key, trusted)
+
 
 class SignedTagIntegrationTests(unittest.TestCase):
+    def test_verifies_and_pushes_valid_local_tag_when_remote_tag_is_absent(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            remote = root / "remote.git"
+            repo = root / "work"
+            git(root, "init", "--bare", str(remote))
+            git(root, "init", "-b", "main", str(repo))
+            (repo / "release.txt").write_text("candidate\n")
+            merge_sha = commit(repo, "release candidate")
+            git(repo, "remote", "add", "origin", str(remote))
+            git(repo, "push", "origin", "main")
+
+            signing_key = root / "release-key"
+            subprocess.run(
+                [
+                    "/usr/bin/ssh-keygen",
+                    "-q",
+                    "-t",
+                    "ed25519",
+                    "-N",
+                    "",
+                    "-f",
+                    str(signing_key),
+                ],
+                check=True,
+            )
+            trusted = root / "allowed-signers"
+            trusted.write_text(
+                "release@example.com namespaces=\"git\" "
+                f"{signing_key.with_suffix('.pub').read_text()}"
+            )
+            git(
+                repo,
+                "-c",
+                "user.name=Tapas Release",
+                "-c",
+                "user.email=release@example.com",
+                "-c",
+                "gpg.format=ssh",
+                "-c",
+                "gpg.ssh.program=/usr/bin/ssh-keygen",
+                "-c",
+                f"user.signingkey={signing_key}",
+                "tag",
+                "--sign",
+                "--annotate",
+                "v0.4.0",
+                merge_sha,
+                "--message",
+                "Release v0.4.0",
+            )
+            self.assertEqual(
+                git(repo, "ls-remote", "--tags", "origin", "refs/tags/v0.4.0"),
+                "",
+            )
+
+            status = release_tag.create_or_verify_tag(
+                release_tag.Candidate("0.4.0", merge_sha),
+                signing_key=signing_key,
+                trusted_signers=trusted,
+                remote="origin",
+                cwd=repo,
+            )
+
+            self.assertEqual(status, "created")
+            remote_tag = git(
+                repo, "ls-remote", "--tags", "origin", "refs/tags/v0.4.0"
+            )
+            self.assertTrue(remote_tag.endswith("refs/tags/v0.4.0"))
+
     def test_signs_exact_historical_sha_pushes_replays_and_rejects_conflict(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)
