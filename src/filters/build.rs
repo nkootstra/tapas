@@ -46,6 +46,39 @@ pub(crate) fn dispatch_streams_decision(
     let arg1 = argv.get(1).copied().unwrap_or_default();
     let runner_package_prelude = matches!(command, b"poetry" | b"pnpm" | b"npx" | b"bunx")
         && (has_package_prelude(stdout) || has_package_prelude(stderr));
+    if command == b"prisma" {
+        let Some(route) = prisma::route(argv) else {
+            return Ok(StreamFilterDecision::Passthrough);
+        };
+        if prisma::matches(route, stdout) || prisma::matches(route, stderr) {
+            return Ok(StreamFilterDecision::compact_single_stream(
+                stdout,
+                stderr,
+                compact_evidence(exit_code),
+                prisma::compact,
+            ));
+        }
+        return Ok(StreamFilterDecision::Passthrough);
+    }
+    if command == b"rake" {
+        if rake::is_metadata_route(argv) {
+            if rake::matches(argv, stdout) || rake::matches(argv, stderr) {
+                return Ok(StreamFilterDecision::compact_single_stream(
+                    stdout,
+                    stderr,
+                    compact_evidence(exit_code),
+                    |stdout, stderr| {
+                        let mut output = Vec::with_capacity(stdout.len() + stderr.len());
+                        output.extend_from_slice(stdout);
+                        output.extend_from_slice(stderr);
+                        output
+                    },
+                ));
+            }
+            return Ok(StreamFilterDecision::Passthrough);
+        }
+        return Ok(StreamFilterDecision::Passthrough);
+    }
     let recognized_failure = has_recognized_failure(stdout) || has_recognized_failure(stderr);
     if exit_code != 0 && !stderr.is_empty() && !recognized_failure {
         return Ok(StreamFilterDecision::Unchanged);
@@ -131,7 +164,12 @@ pub(crate) fn dispatch_streams_decision(
         ));
     }
 
-    if command == b"dotnet" && matches!(arg1, b"build" | b"test" | b"format" | b"restore") {
+    if command == b"dotnet"
+        && matches!(arg1, b"build" | b"test" | b"format" | b"restore")
+        && (!matches!(arg1, b"build" | b"format")
+            || dotnet::matches_command_output(arg1, stdout)
+            || dotnet::matches_command_output(arg1, stderr))
+    {
         return Ok(StreamFilterDecision::compact_single_stream(
             stdout,
             stderr,
@@ -202,6 +240,8 @@ mod exact;
 mod frontend;
 mod java;
 mod native;
+mod prisma;
+mod rake;
 
 use apple::{compact_apple_build, compact_package_tool, matches_gradle};
 use dotnet::{compact_dotnet, compact_evidence, has_recognized_failure, matches_build_output};
