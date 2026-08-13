@@ -24,12 +24,15 @@ impl FakeCommand {
     fn new(name: &str, script: &[u8]) -> Self {
         let directory = common::unique_temp_dir(&std::env::temp_dir(), "tapas-process-test");
         let path = directory.join(name);
-        std::fs::write(&path, script).expect("write fake command");
-        let mut permissions = std::fs::metadata(&path)
+        let staging_path = directory.join(format!(".{name}.pending"));
+        std::fs::write(&staging_path, script).expect("write staged fake command");
+        let mut permissions = std::fs::metadata(&staging_path)
             .expect("read fake command metadata")
             .permissions();
         permissions.set_mode(0o755);
-        std::fs::set_permissions(&path, permissions).expect("make fake command executable");
+        std::fs::set_permissions(&staging_path, permissions)
+            .expect("make staged fake command executable");
+        std::fs::rename(&staging_path, &path).expect("publish fake command atomically");
         Self { directory, path }
     }
 
@@ -41,6 +44,18 @@ impl FakeCommand {
 impl Drop for FakeCommand {
     fn drop(&mut self) {
         std::fs::remove_dir_all(&self.directory).expect("remove fake command directory");
+    }
+}
+
+#[test]
+fn fake_commands_are_executable_immediately_after_atomic_publication() {
+    for _ in 0..32 {
+        let command = FakeCommand::new("fixture", b"#!/bin/sh\nprintf ready\n");
+        let output = Command::new(command.path())
+            .output()
+            .expect("execute newly published fake command");
+        assert!(output.status.success());
+        assert_eq!(output.stdout, b"ready");
     }
 }
 
