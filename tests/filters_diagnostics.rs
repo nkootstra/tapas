@@ -13,6 +13,7 @@ fn mypy_keeps_diagnostics_summaries_and_pretty_carets() {
     );
     let expected = concat!(
         "src/a.py:10:5: error: Incompatible types [assignment]\n",
+        "    x: int = \"foo\"\n",
         "             ^~~~~\n",
         "Found 1 error in 1 file\n",
     );
@@ -25,6 +26,188 @@ fn mypy_keeps_diagnostics_summaries_and_pretty_carets() {
             EvidenceClass::FactComplete,
         )
     );
+}
+
+#[test]
+fn ruff_and_mypy_require_recognizable_human_output() {
+    for (argv, output) in [
+        (
+            &[b"ruff".as_slice(), b"check", b"."][..],
+            br#"{"diagnostics":[{"filename":"src/app.py","location":{"row":1}}]}"#.as_slice(),
+        ),
+        (
+            &[b"mypy".as_slice(), b"src"][..],
+            b"cache_dir = .mypy_cache\nplugins = custom.plugin\n".as_slice(),
+        ),
+    ] {
+        let filtered = diagnostics::dispatch_streams_argv(argv, output, b"", 1, false).unwrap();
+        assert_eq!(filtered.stdout, output);
+        assert_eq!(filtered.evidence, EvidenceClass::ByteExact);
+    }
+
+    let non_utf8 = b"src/app.py:1:1: E999 invalid \xff\n";
+    let filtered =
+        diagnostics::dispatch_streams_argv(&[b"ruff", b"check", b"."], non_utf8, b"", 1, false)
+            .unwrap();
+    assert_eq!(filtered.stdout, non_utf8);
+    assert_eq!(filtered.evidence, EvidenceClass::ByteExact);
+}
+
+#[test]
+fn ruff_preserves_full_human_diagnostic_context() {
+    let input = concat!(
+        "F401 [*] `os` imported but unused\n",
+        " --> src/app.py:1:8\n",
+        "  |\n",
+        "1 | import os\n",
+        "  |        ^^\n",
+        "  |\n",
+        "help: Remove unused import: `os`\n",
+        "\n",
+        "Found 1 error.\n",
+    );
+    let output = diagnostics::dispatch_streams_argv(
+        &[b"ruff", b"check", b"."],
+        input.as_bytes(),
+        b"",
+        1,
+        false,
+    )
+    .unwrap();
+    assert_eq!(output.stdout, input.as_bytes());
+    assert_eq!(output.evidence, EvidenceClass::FactComplete);
+}
+
+#[test]
+fn golangci_lint_run_compacts_human_diagnostics_per_stream() {
+    let stdout = concat!(
+        "level=info msg=\"starting linters\"\n",
+        "pkg/a.go:12:4: shadow: declaration of \"err\" shadows declaration (govet)\n",
+        "\tif err := work(); err != nil {\n",
+        "\t   ^\n",
+        "2 issues:\n",
+    );
+    let stderr = b"warning: cache directory unavailable\n";
+    let output = diagnostics::dispatch_streams_argv(
+        &[b"golangci-lint", b"run"],
+        stdout.as_bytes(),
+        stderr,
+        1,
+        false,
+    )
+    .unwrap();
+    assert_eq!(
+        output.stdout,
+        concat!(
+            "pkg/a.go:12:4: shadow: declaration of \"err\" shadows declaration (govet)\n",
+            "\tif err := work(); err != nil {\n",
+            "\t   ^\n",
+            "2 issues:\n",
+        )
+        .as_bytes()
+    );
+    assert_eq!(output.stderr, stderr);
+    assert_eq!(output.evidence, EvidenceClass::FactComplete);
+}
+
+#[test]
+fn golangci_lint_run_supports_clean_and_rejects_unknown_failure_output() {
+    let clean = diagnostics::dispatch_streams_argv(&[b"golangci-lint", b"run"], b"", b"", 0, false)
+        .unwrap();
+    assert_eq!(clean.evidence, EvidenceClass::FactComplete);
+
+    let failure = b"level=error msg=\"failed to load config\"\n";
+    let unknown =
+        diagnostics::dispatch_streams_argv(&[b"golangci-lint", b"run"], b"", failure, 3, false)
+            .unwrap();
+    assert_eq!(unknown.stderr, failure);
+    assert_eq!(unknown.evidence, EvidenceClass::ByteExact);
+}
+
+#[test]
+fn rubocop_preserves_offense_source_caret_and_summary() {
+    let input = concat!(
+        "Inspecting 1 file\n",
+        "C\n",
+        "\n",
+        "Offenses:\n",
+        "\n",
+        "app/models/user.rb:3:7: C: [Correctable] Style/StringLiterals: Prefer single-quoted strings.\n",
+        "puts \"hello\"\n",
+        "     ^^^^^^^\n",
+        "\n",
+        "1 file inspected, 1 offense detected, 1 offense autocorrectable\n",
+    );
+    let output =
+        diagnostics::dispatch_streams_argv(&[b"rubocop"], b"", input.as_bytes(), 1, false).unwrap();
+    assert_eq!(
+        output.stderr,
+        concat!(
+            "app/models/user.rb:3:7: C: [Correctable] Style/StringLiterals: Prefer single-quoted strings.\n",
+            "puts \"hello\"\n",
+            "     ^^^^^^^\n",
+            "1 file inspected, 1 offense detected, 1 offense autocorrectable\n",
+        )
+        .as_bytes()
+    );
+    assert_eq!(output.evidence, EvidenceClass::FactComplete);
+}
+
+#[test]
+fn rubocop_clean_summary_is_fact_complete() {
+    let input = b"Inspecting 2 files\n..\n\n2 files inspected, no offenses detected\n";
+    let output = diagnostics::dispatch_streams_argv(&[b"rubocop"], input, b"", 0, false).unwrap();
+    assert_eq!(output.stdout, b"2 files inspected, no offenses detected\n");
+    assert_eq!(output.evidence, EvidenceClass::FactComplete);
+}
+
+#[test]
+fn dedicated_diagnostics_routes_passthrough_structured_and_unknown_shapes() {
+    let cases = [
+        (
+            &[b"golangci-lint".as_slice(), b"run"][..],
+            br#"{"Issues":[{"FromLinter":"govet","Text":"shadow"}]}"#.as_slice(),
+        ),
+        (
+            &[b"golangci-lint".as_slice(), b"run"][..],
+            b"<?xml version=\"1.0\"?><checkstyle></checkstyle>\n".as_slice(),
+        ),
+        (
+            &[b"rubocop".as_slice()][..],
+            b"::error file=user.rb,line=3,col=7::Style/StringLiterals\n".as_slice(),
+        ),
+        (
+            &[b"rubocop".as_slice()][..],
+            b"<!doctype html><html><body>report</body></html>\n".as_slice(),
+        ),
+    ];
+    for (argv, input) in cases {
+        let output = diagnostics::dispatch_streams_argv(argv, input, b"", 1, false).unwrap();
+        assert_eq!(output.stdout, input);
+        assert_eq!(output.evidence, EvidenceClass::ByteExact);
+    }
+}
+
+#[test]
+fn dedicated_diagnostics_preserve_windows_drive_locations() {
+    let golangci = b"C:\\repo\\pkg\\a.go:12:4: shadowed variable (govet)\n";
+    let golangci_output =
+        diagnostics::dispatch_streams_argv(&[b"golangci-lint", b"run"], golangci, b"", 1, false)
+            .unwrap();
+    assert_eq!(golangci_output.stdout, golangci);
+    assert_eq!(golangci_output.evidence, EvidenceClass::FactComplete);
+
+    let rubocop = concat!(
+        "C:\\repo\\user.rb:3:7: C: Style/StringLiterals: Prefer single quotes.\n",
+        "puts \"hello\"\n",
+        "     ^^^^^^^\n",
+        "1 file inspected, 1 offense detected\n",
+    );
+    let rubocop_output =
+        diagnostics::dispatch_streams_argv(&[b"rubocop"], rubocop.as_bytes(), b"", 1, false)
+            .unwrap();
+    assert_eq!(rubocop_output.stdout, rubocop.as_bytes());
+    assert_eq!(rubocop_output.evidence, EvidenceClass::FactComplete);
 }
 
 #[test]
