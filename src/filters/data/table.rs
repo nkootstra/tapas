@@ -1,3 +1,225 @@
+pub(super) fn aws_requests_table(argv: &[&[u8]]) -> bool {
+    let mut table_outputs = 0usize;
+    let mut index = 1usize;
+    while index < argv.len() {
+        let argument = argv[index];
+        if argument == b"--" {
+            break;
+        }
+        if argument == b"--output" {
+            let Some(value) = argv.get(index + 1) else {
+                return false;
+            };
+            if *value != b"table" {
+                return false;
+            }
+            table_outputs += 1;
+            index += 2;
+            continue;
+        }
+        if let Some(value) = argument.strip_prefix(b"--output=") {
+            if value != b"table" {
+                return false;
+            }
+            table_outputs += 1;
+        } else if matches!(
+            argument,
+            b"--query" | b"--cli-binary-format" | b"--generate-cli-skeleton"
+        ) || argument.starts_with(b"--query=")
+            || argument.starts_with(b"--cli-binary-format=")
+            || argument.starts_with(b"--generate-cli-skeleton=")
+        {
+            return false;
+        }
+        index += 1;
+    }
+    table_outputs == 1
+}
+
+pub(super) fn matches_aws_table(input: &[u8]) -> bool {
+    if std::str::from_utf8(input).is_err() {
+        return false;
+    }
+    let mut borders = 0usize;
+    let mut rows = 0usize;
+    for raw in input.split(|byte| *byte == b'\n') {
+        let line = raw.strip_suffix(b"\r").unwrap_or(raw).trim_ascii();
+        if line.is_empty() {
+            continue;
+        }
+        if is_aws_border(line) {
+            borders += 1;
+        } else if aws_fields(line).is_some() {
+            rows += 1;
+        } else {
+            return false;
+        }
+    }
+    borders >= 2 && rows >= 2
+}
+
+pub(super) fn compact_aws_table(input: &[u8]) -> Vec<u8> {
+    let mut output = Vec::with_capacity(input.len());
+    for raw in input.split(|byte| *byte == b'\n') {
+        let line = raw.strip_suffix(b"\r").unwrap_or(raw).trim_ascii();
+        if line.is_empty() || is_aws_border(line) {
+            continue;
+        }
+        let Some(fields) = aws_fields(line) else {
+            return input.to_vec();
+        };
+        write_fields(&mut output, fields);
+    }
+    output
+}
+
+fn is_aws_border(line: &[u8]) -> bool {
+    line.contains(&b'-')
+        && line
+            .iter()
+            .all(|byte| matches!(byte, b'+' | b'-' | b'=' | b'|'))
+}
+
+fn aws_fields(line: &[u8]) -> Option<Vec<&[u8]>> {
+    if line.first() != Some(&b'|') || line.last() != Some(&b'|') {
+        return None;
+    }
+    let fields = line
+        .split(|byte| *byte == b'|')
+        .map(|field| field.trim_ascii())
+        .filter(|field| !field.is_empty())
+        .collect::<Vec<_>>();
+    (!fields.is_empty()).then_some(fields)
+}
+
+pub(super) fn is_psql_table_route(argv: &[&[u8]]) -> bool {
+    match argv {
+        [_, option] => {
+            matches!(*option, b"-l" | b"--list")
+                || option.starts_with(b"-c") && option.len() > 2
+                || option.starts_with(b"--command=") && option.len() > b"--command=".len()
+        }
+        [_, option, command] => matches!(*option, b"-c" | b"--command") && !command.is_empty(),
+        _ => false,
+    }
+}
+
+pub(super) fn matches_psql_table(input: &[u8]) -> bool {
+    psql_table_parts(input).is_some()
+}
+
+pub(super) fn compact_psql_table(input: &[u8]) -> Vec<u8> {
+    let Some((separator, end)) = psql_table_parts(input) else {
+        return input.to_vec();
+    };
+    let lines = input
+        .split(|byte| *byte == b'\n')
+        .map(|line| line.strip_suffix(b"\r").unwrap_or(line))
+        .collect::<Vec<_>>();
+    let mut output = Vec::with_capacity(input.len());
+    for line in lines[..separator]
+        .iter()
+        .filter(|line| !line.trim_ascii().is_empty())
+    {
+        let line = line.trim_ascii();
+        if line.contains(&b'|') {
+            write_fields(&mut output, pipe_fields(line));
+        } else {
+            output.extend_from_slice(line);
+            output.push(b'\n');
+        }
+    }
+    for line in &lines[separator + 1..end] {
+        write_fields(&mut output, pipe_fields(line.trim_ascii()));
+    }
+    for line in &lines[end..] {
+        let line = line.trim_ascii();
+        if !line.is_empty() {
+            output.extend_from_slice(line);
+            output.push(b'\n');
+        }
+    }
+    output
+}
+
+fn psql_table_parts(input: &[u8]) -> Option<(usize, usize)> {
+    if std::str::from_utf8(input).is_err() {
+        return None;
+    }
+    let lines = input
+        .split(|byte| *byte == b'\n')
+        .map(|line| line.strip_suffix(b"\r").unwrap_or(line))
+        .collect::<Vec<_>>();
+    let separator = lines
+        .iter()
+        .position(|line| is_psql_separator(line.trim_ascii()))?;
+    let header = lines[..separator]
+        .iter()
+        .rfind(|line| !line.trim_ascii().is_empty())?
+        .trim_ascii();
+    let columns = pipe_fields(header).len();
+    if columns < 2 {
+        return None;
+    }
+    let mut end = separator + 1;
+    while end < lines.len() {
+        let line = lines[end].trim_ascii();
+        if line.is_empty() || is_psql_footer(line) {
+            break;
+        }
+        if pipe_fields(line).len() != columns {
+            return None;
+        }
+        end += 1;
+    }
+    if end == separator + 1
+        || lines[end..]
+            .iter()
+            .map(|line| line.trim_ascii())
+            .any(|line| !line.is_empty() && !is_psql_footer(line))
+    {
+        return None;
+    }
+    Some((separator, end))
+}
+
+fn is_psql_separator(line: &[u8]) -> bool {
+    line.contains(&b'+')
+        && line.contains(&b'-')
+        && line.iter().all(|byte| matches!(byte, b'+' | b'-'))
+}
+
+fn is_psql_footer(line: &[u8]) -> bool {
+    let Some(inner) = line
+        .strip_prefix(b"(")
+        .and_then(|line| line.strip_suffix(b")"))
+    else {
+        return false;
+    };
+    let Some(space) = inner.iter().position(|byte| *byte == b' ') else {
+        return false;
+    };
+    let count = &inner[..space];
+    let noun = &inner[space + 1..];
+    !count.is_empty() && count.iter().all(u8::is_ascii_digit) && matches!(noun, b"row" | b"rows")
+}
+
+fn pipe_fields(line: &[u8]) -> Vec<&[u8]> {
+    line.split(|byte| *byte == b'|')
+        .map(|field| field.trim_ascii())
+        .collect()
+}
+
+fn write_fields(output: &mut Vec<u8>, fields: Vec<&[u8]>) {
+    for (index, field) in fields.iter().enumerate() {
+        if index > 0 {
+            output.push(b'\t');
+        }
+        output.extend_from_slice(field);
+    }
+    output.push(b'\n');
+}
+
 pub(super) fn matches_pup_table(input: &[u8]) -> bool {
     let mut saw_border = false;
     let mut saw_row = false;
@@ -308,7 +530,6 @@ pub(super) fn is_columnar_command(command: &[u8]) -> bool {
             | b"gh"
             | b"ps"
             | b"df"
-            | b"psql"
             | b"systemctl"
             | b"lsof"
             | b"npm"

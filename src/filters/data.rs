@@ -33,15 +33,35 @@ pub(crate) fn dispatch_streams_decision(
     if argv.is_empty() {
         return Err(FilterError::InvalidInput);
     }
-    if lossless || crate::invocation_policy::requests_passthrough(argv) {
+    let command = command_basename(argv[0]);
+    let aws_table_route = command == b"aws" && table::aws_requests_table(argv);
+    if lossless || crate::invocation_policy::requests_passthrough(argv) && !aws_table_route {
         return Ok(StreamFilterDecision::Unchanged);
     }
 
-    let command = command_basename(argv[0]);
+    if command == b"aws" && exit_code == 0 && aws_table_route && table::matches_aws_table(stdout) {
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
+            table::compact_aws_table(stdout),
+            stderr.to_vec(),
+            EvidenceClass::PotentiallyLossy,
+        )));
+    }
+    if command == b"psql"
+        && exit_code == 0
+        && table::is_psql_table_route(argv)
+        && table::matches_psql_table(stdout)
+    {
+        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
+            table::compact_psql_table(stdout),
+            stderr.to_vec(),
+            EvidenceClass::PotentiallyLossy,
+        )));
+    }
+
     if matches!(command, b"pup" | b"acli") && exit_code != 0 {
         return Ok(StreamFilterDecision::Unchanged);
     }
-    let wants_json = matches!(command, b"aws" | b"jq" | b"pup" | b"acli")
+    let wants_json = matches!(command, b"jq" | b"pup" | b"acli")
         || command == b"gh" && gh_wants_data_output(argv);
     if wants_json
         && stderr.is_empty()

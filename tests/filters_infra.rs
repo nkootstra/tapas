@@ -101,7 +101,7 @@ fn verbose_curl_with_body_and_trace_preserves_both_descriptors() {
 }
 
 #[test]
-fn repeated_verbose_curl_compacts_trace_without_moving_the_body() {
+fn repeated_verbose_curl_is_byte_exact() {
     let stdout = fixture("large/curl_vvv_example.stdout.txt");
     let stderr = fixture("large/curl_vvv_example.stderr.txt");
     let output = infra::dispatch_streams_argv(
@@ -112,9 +112,57 @@ fn repeated_verbose_curl_compacts_trace_without_moving_the_body() {
         false,
     )
     .unwrap();
-    assert_eq!(output.stdout, stdout);
-    assert!(contains(&output.stderr, b"HTTP/2 200"));
-    assert!(output.stderr.len() < stderr.len());
+    assert_eq!(
+        output,
+        StreamFilterOutput::new(stdout, stderr, EvidenceClass::ByteExact)
+    );
+}
+
+#[test]
+fn curl_only_compacts_one_classic_fact_complete_verbose_trace() {
+    let stdout = b"response body\n";
+    let trace = b"* Connected to example.test (127.0.0.1) port 443\n> GET / HTTP/2\n> Host: example.test\n< HTTP/2 503\n< content-type: text/plain\n";
+    let compact = infra::dispatch_streams_argv(
+        &[b"curl", b"-sv", b"https://example.test"],
+        stdout,
+        trace,
+        22,
+        false,
+    )
+    .unwrap();
+    assert_eq!(compact.stdout, stdout);
+    assert_eq!(compact.evidence, EvidenceClass::FactComplete);
+    assert!(contains(&compact.stderr, b"HTTP/2 503"));
+
+    for (argv, stderr) in [
+        (&[b"curl".as_slice(), b"--version"][..], trace.as_slice()),
+        (
+            &[b"curl".as_slice(), b"-v", b"-v", b"https://example.test"][..],
+            trace,
+        ),
+        (
+            &[b"curl".as_slice(), b"--verbose", b"--trace", b"trace.log"][..],
+            trace,
+        ),
+        (
+            &[b"curl".as_slice(), b"-v", b"https://example.test"][..],
+            b"curl: (6) unknown host\n",
+        ),
+        (
+            &[b"curl".as_slice(), b"-v", b"https://example.test"][..],
+            b"* Connected\n> GET / HTTP/2\n",
+        ),
+        (
+            &[b"curl".as_slice(), b"-v", b"https://example.test"][..],
+            b"* Connected\n> GET / HTTP/2\n< HTTP/2 200\nunknown \xff\n",
+        ),
+    ] {
+        assert_eq!(
+            infra::dispatch_streams_argv(argv, stdout, stderr, 0, false).unwrap(),
+            StreamFilterOutput::new(stdout.to_vec(), stderr.to_vec(), EvidenceClass::ByteExact),
+            "argv {argv:?}",
+        );
+    }
 }
 
 #[test]
