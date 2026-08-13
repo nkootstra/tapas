@@ -59,6 +59,30 @@ fn fake_commands_are_executable_immediately_after_atomic_publication() {
     }
 }
 
+#[test]
+fn transient_text_busy_errors_are_retried_at_the_process_boundary() {
+    let command = FakeCommand::new("fixture", b"#!/bin/sh\nprintf ready\n");
+    let writer = std::fs::OpenOptions::new()
+        .write(true)
+        .open(command.path())
+        .expect("hold fake command open for writing");
+    let release = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(25));
+        drop(writer);
+    });
+    let args = [command.path().as_os_str().to_owned()];
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+
+    let report = run(&args, &mut stdout, &mut stderr, RunOptions::default())
+        .expect("retry transient text-busy spawn");
+    release.join().expect("release fake command writer");
+
+    assert_eq!(report.exit_code, 0);
+    assert_eq!(stdout, b"ready");
+    assert!(stderr.is_empty());
+}
+
 fn tapas(args: &[&str], stdin: &[u8], env: &[(&str, &str)]) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_tapas"));
     command
