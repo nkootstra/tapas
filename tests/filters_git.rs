@@ -2,6 +2,8 @@ use tapas::filters::{EvidenceClass, StreamFilterOutput, git};
 mod common;
 use common::fixture;
 
+type RouteCase<'a> = (&'a [&'a [u8]], &'a [u8], i32, bool);
+
 #[test]
 fn diff_pipe_filter_matches_the_pinned_oracle() {
     let input = fixture("git_diff_simple.txt");
@@ -718,4 +720,108 @@ fn stdout_only_dispatch_compacts_argv_only_helpers_without_owning_stderr() {
         .bytes
         .is_empty()
     );
+}
+
+#[test]
+fn graphite_log_routes_compact_only_recognized_gt_graphs() {
+    let default = concat!(
+        "\u{25c9} feature/two (current)\n",
+        "\u{2502} 8 seconds ago\n",
+        "\u{2502}\n",
+        "\u{2502} abcdef0 - second change\n",
+        "\u{25cb} feature/one\n",
+        "\u{2502} 2 minutes ago\n",
+        "\u{2502}\n",
+        "\u{2502} 1234567 - first change\n",
+        "\u{25cb} main\n",
+    );
+    let expected = concat!(
+        "\u{25c9} feature/two (current)\n",
+        "\u{2502} abcdef0 - second change\n",
+        "\u{25cb} feature/one\n",
+        "\u{2502} 1234567 - first change\n",
+        "\u{25cb} main\n",
+    );
+    assert_eq!(
+        git::dispatch_streams_argv(
+            &[b"/opt/graphite/bin/gt", b"log"],
+            default.as_bytes(),
+            b"graphite notice\n",
+            0,
+            false,
+        )
+        .unwrap(),
+        StreamFilterOutput::new(
+            expected.as_bytes().to_vec(),
+            b"graphite notice\n".to_vec(),
+            EvidenceClass::PotentiallyLossy,
+        ),
+    );
+
+    let short =
+        "\u{25c9} feature/two\n\u{2502} \u{25cb} feature/one\n\u{25cb}\u{2500}\u{2518} main\n";
+    assert_eq!(
+        git::dispatch_streams_argv(&[b"gt", b"log", b"short"], short.as_bytes(), b"", 0, false,)
+            .unwrap(),
+        StreamFilterOutput::new(
+            short.as_bytes().to_vec(),
+            Vec::new(),
+            EvidenceClass::PotentiallyLossy,
+        ),
+    );
+
+    let long = "* abcdef0 - (7 minutes ago) second change - Ada (feature/two)\n* 1234567 - (8 minutes ago) first change - Ada (main)\n";
+    assert_eq!(
+        git::dispatch_streams_argv(&[b"gt", b"log", b"long"], long.as_bytes(), b"", 0, false)
+            .unwrap(),
+        StreamFilterOutput::new(
+            long.as_bytes().to_vec(),
+            Vec::new(),
+            EvidenceClass::PotentiallyLossy,
+        ),
+    );
+}
+
+#[test]
+fn graphite_status_reuses_git_status_only_after_shape_validation() {
+    let status = fixture("git_status_dirty.txt");
+    assert_eq!(
+        git::dispatch_streams_argv(
+            &[b"gt", b"status"],
+            &status,
+            b"graphite notice\n",
+            0,
+            false,
+        )
+        .unwrap(),
+        StreamFilterOutput::new(
+            b"# main =origin/main\nM src/main.zig\nM src/pipeline.zig\n? src/filters/git_status.zig\n? tests/fixtures/git_status_dirty.txt\n".to_vec(),
+            b"graphite notice\n".to_vec(),
+            EvidenceClass::FactComplete,
+        ),
+    );
+}
+
+#[test]
+fn graphite_unrecognized_alias_malformed_exact_and_failed_routes_are_byte_exact() {
+    let graph = "\u{25c9} feature\n\u{25cb} main\n";
+    let stderr = b"diagnostic \xff\n";
+    let cases: &[RouteCase<'_>] = &[
+        (&[b"graphite", b"log"], graph.as_bytes(), 0, false),
+        (&[b"gt", b"ls"], graph.as_bytes(), 0, false),
+        (&[b"gt", b"log", b"brief"], graph.as_bytes(), 0, false),
+        (&[b"gt", b"log"], b"not a graph\n", 0, false),
+        (&[b"gt", b"log"], b"\xe2\x97\x89 feature\n\xff", 0, false),
+        (&[b"gt", b"log", b"--format=json"], b"{}\n", 0, false),
+        (&[b"gt", b"log"], graph.as_bytes(), 1, false),
+        (&[b"gt", b"log"], graph.as_bytes(), 0, true),
+        (&[b"gt", b"status"], b"unexpected status\n", 0, false),
+    ];
+    for &(argv, stdout, exit_code, lossless) in cases {
+        assert_eq!(
+            git::dispatch_streams_argv(argv, stdout, stderr, exit_code, lossless).unwrap(),
+            StreamFilterOutput::passthrough(stdout, stderr),
+            "argv {argv:?}",
+        );
+    }
 }

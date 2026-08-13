@@ -2,6 +2,8 @@ use tapas::filters::{EvidenceClass, FilterOutput, listing};
 mod common;
 use common::fixture;
 
+type RouteCase<'a> = (&'a [&'a [u8]], &'a [u8], i32, bool);
+
 #[test]
 fn tree_pipe_filter_matches_the_pinned_oracle() {
     let input = fixture("tree_src.txt");
@@ -519,4 +521,119 @@ fn lossless_exact_modes_unknown_shapes_and_parser_failures_are_byte_exact() {
         listing::apply_matched(b"unrelated \xff bytes\n"),
         Err(tapas::filters::FilterError::InvalidInput),
     );
+}
+
+#[test]
+fn direct_diff_compacts_recognized_normal_and_unified_human_shapes() {
+    let normal = b"1c1\n< old value\n---\n> new value\n";
+    assert_eq!(
+        listing::dispatch_streams_argv(
+            &[b"/usr/bin/diff", b"old.txt", b"new.txt"],
+            normal,
+            b"locale notice\n",
+            1,
+            false,
+        )
+        .unwrap(),
+        tapas::filters::StreamFilterOutput::new(
+            b"@1c1\n-old value\n+new value\n".to_vec(),
+            b"locale notice\n".to_vec(),
+            EvidenceClass::FactComplete,
+        ),
+    );
+
+    let unified = b"--- old.txt\t2026-08-13 10:00:00\n+++ new.txt\t2026-08-13 10:01:00\n@@ -1,2 +1,2 @@\n same\n-old\n+new\n";
+    assert_eq!(
+        listing::dispatch_streams_argv(
+            &[b"diff", b"old.txt", b"new.txt"],
+            unified,
+            b"",
+            1,
+            false,
+        )
+        .unwrap(),
+        tapas::filters::StreamFilterOutput::new(
+            b"--- old.txt\t2026-08-13 10:00:00\n+++ new.txt\t2026-08-13 10:01:00\n@1,2|1,2\n same\n-old\n+new\n".to_vec(),
+            Vec::new(),
+            EvidenceClass::FactComplete,
+        ),
+    );
+}
+
+#[test]
+fn direct_diff_owns_unknown_exact_non_utf8_and_failed_shapes_as_passthrough() {
+    let stderr = b"diff diagnostic \xff\n";
+    let cases: &[RouteCase<'_>] = &[
+        (&[b"diff", b"a", b"b"], b"1c1\nmalformed\n", 1, false),
+        (
+            &[b"diff", b"a", b"b"],
+            b"Binary files a and b differ\n",
+            1,
+            false,
+        ),
+        (&[b"diff", b"a", b"b"], b"1c1\n< \xff\n---\n> x\n", 1, false),
+        (
+            &[b"diff", b"--unified", b"a", b"b"],
+            b"--- a\n+++ b\n",
+            1,
+            false,
+        ),
+        (&[b"diff", b"a", b"b"], b"diff: trouble\n", 2, false),
+        (&[b"diff", b"a", b"b"], b"1a2\n> x\n", 1, true),
+    ];
+    for &(argv, stdout, exit_code, lossless) in cases {
+        assert_eq!(
+            listing::dispatch_streams_argv(argv, stdout, stderr, exit_code, lossless).unwrap(),
+            tapas::filters::StreamFilterOutput::passthrough(stdout, stderr),
+            "argv {argv:?}",
+        );
+    }
+}
+
+#[test]
+fn direct_head_and_tail_compact_default_text_and_preserve_stderr() {
+    let input = b"one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten\n";
+    let expected = b"one\ntwo\nthree\nfour\n... 3 lines omitted ...\neight\nnine\nten\n";
+    for command in [b"head".as_slice(), b"tail"] {
+        assert_eq!(
+            listing::dispatch_streams_argv(
+                &[command, b"notes.txt"],
+                input,
+                b"read warning\n",
+                0,
+                false,
+            )
+            .unwrap(),
+            tapas::filters::StreamFilterOutput::new(
+                expected.to_vec(),
+                b"read warning\n".to_vec(),
+                EvidenceClass::PotentiallyLossy,
+            ),
+            "command {command:?}",
+        );
+    }
+}
+
+#[test]
+fn direct_head_and_tail_own_flags_unknown_binary_non_utf8_and_failures_as_passthrough() {
+    let text = b"one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten\n";
+    let stderr = b"diagnostic \xff\n";
+    let cases: &[RouteCase<'_>] = &[
+        (&[b"head", b"-n", b"5", b"file"], text, 0, false),
+        (&[b"tail", b"-n5", b"file"], text, 0, false),
+        (&[b"head"], text, 0, false),
+        (&[b"tail", b"a", b"b"], text, 0, false),
+        (&[b"head", b"file"], b"short text\n", 0, false),
+        (&[b"tail", b"file"], b"one\n\xff\n", 0, false),
+        (&[b"head", b"file"], b"one\0two\n", 0, false),
+        (&[b"tail", b"file"], text, 1, false),
+        (&[b"head", b"file"], text, 0, true),
+    ];
+    for &(argv, stdout, exit_code, lossless) in cases {
+        assert_eq!(
+            listing::dispatch_streams_argv(argv, stdout, stderr, exit_code, lossless).unwrap(),
+            tapas::filters::StreamFilterOutput::passthrough(stdout, stderr),
+            "argv {argv:?}",
+        );
+    }
 }

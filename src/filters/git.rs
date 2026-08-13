@@ -1,6 +1,6 @@
 use super::{
     EvidenceClass, FilterError, FilterOutput, StreamFilterDecision, StreamFilterInput,
-    StreamFilterOutput, find_subslice, rfind_subslice, strip_ansi,
+    StreamFilterOutput, command_basename, find_subslice, rfind_subslice, strip_ansi,
 };
 
 pub fn matches(input: &[u8]) -> bool {
@@ -325,7 +325,8 @@ fn try_dispatch_argv(
 /// Compactors that need both streams fail open when both contain output.
 pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
     argv.len() > 1
-        && crate::catalog::filter_family_handles(argv, crate::catalog::GIT_FILTER_COMMANDS)
+        && (crate::catalog::filter_family_handles(argv, crate::catalog::GIT_FILTER_COMMANDS)
+            || matches!(command_basename(argv[0]), b"gt" | b"graphite"))
 }
 
 pub fn dispatch_streams_argv(
@@ -353,6 +354,22 @@ pub(crate) fn dispatch_streams_decision(
     } = input;
     if argv.len() < 2 {
         return Err(FilterError::InvalidInput);
+    }
+    if command_basename(argv[0]) == b"gt" {
+        if lossless || crate::invocation_policy::requests_passthrough(argv) || exit_code != 0 {
+            return Ok(StreamFilterDecision::Passthrough);
+        }
+        return Ok(match graphite::route(argv, stdout) {
+            Some((stdout, evidence)) => StreamFilterDecision::Applied(StreamFilterOutput::new(
+                stdout,
+                stderr.to_vec(),
+                evidence,
+            )),
+            None => StreamFilterDecision::Passthrough,
+        });
+    }
+    if command_basename(argv[0]) != b"git" {
+        return Ok(StreamFilterDecision::Passthrough);
     }
     if lossless || exit_code != 0 {
         return Ok(StreamFilterDecision::Unchanged);
@@ -449,6 +466,7 @@ fn applied_or_unchanged(
 mod blame;
 mod commit;
 mod diff;
+mod graphite;
 mod log;
 mod merge;
 mod refs;
