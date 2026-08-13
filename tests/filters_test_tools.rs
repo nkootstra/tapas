@@ -447,3 +447,186 @@ fn ctest_and_playwright_routes_require_known_finite_human_modes() {
     assert_eq!(output.evidence, EvidenceClass::ByteExact);
     assert_eq!(output.stderr, failed);
 }
+
+#[test]
+fn cargo_nextest_run_preserves_failure_body_location_and_summary() {
+    let input = concat!(
+        "    Finished test [unoptimized + debuginfo] target(s) in 0.10s\n",
+        "    Starting 2 tests across 1 binary\n",
+        "        PASS [   0.01s] core::tests::adds\n",
+        "        FAIL [   0.02s] core::tests::subtracts\n",
+        "  stdout ───\n",
+        "assertion failed: left == right\n",
+        "  left: 3\n",
+        " right: 2\n",
+        "  stderr ───\n",
+        "thread 'core::tests::subtracts' panicked at src/lib.rs:19:9\n",
+        "────────────\n",
+        "     Summary [   0.03s] 2 tests run: 1 passed, 1 failed, 0 skipped\n",
+        "        FAIL [   0.02s] core::tests::subtracts\n",
+    );
+    let expected = concat!(
+        "        FAIL [   0.02s] core::tests::subtracts\n",
+        "  stdout ───\n",
+        "assertion failed: left == right\n",
+        "  left: 3\n",
+        " right: 2\n",
+        "  stderr ───\n",
+        "thread 'core::tests::subtracts' panicked at src/lib.rs:19:9\n",
+        "────────────\n",
+        "     Summary [   0.03s] 2 tests run: 1 passed, 1 failed, 0 skipped\n",
+        "        FAIL [   0.02s] core::tests::subtracts\n",
+    );
+
+    for argv in [
+        &[b"cargo".as_slice(), b"nextest", b"run"][..],
+        &[b"nextest".as_slice(), b"run"][..],
+    ] {
+        let output =
+            test_tools::dispatch_streams_argv(argv, input.as_bytes(), b"", 101, false).unwrap();
+        assert_eq!(output.stdout, expected.as_bytes(), "{argv:?}");
+        assert_eq!(output.evidence, EvidenceClass::FactComplete, "{argv:?}");
+    }
+}
+
+#[test]
+fn rspec_progress_and_documentation_preserve_failures_and_summaries() {
+    let progress = concat!(
+        ".F\n\n",
+        "Failures:\n\n",
+        "  1) Calculator subtracts\n",
+        "     Failure/Error: expect(result).to eq(2)\n",
+        "       expected: 2\n",
+        "            got: 3\n",
+        "     # ./spec/calculator_spec.rb:12:in `block (2 levels) in <top (required)>'\n\n",
+        "Finished in 0.01 seconds (files took 0.08 seconds to load)\n",
+        "2 examples, 1 failure\n\n",
+        "Failed examples:\n\n",
+        "rspec ./spec/calculator_spec.rb:11 # Calculator subtracts\n",
+    );
+    let expected = &progress[4..];
+    let output = test_tools::dispatch_streams_argv(
+        &[b"rspec", b"--format", b"progress"],
+        b"",
+        progress.as_bytes(),
+        7,
+        false,
+    )
+    .unwrap();
+    assert_eq!(output.stderr, expected.as_bytes());
+    assert_eq!(output.evidence, EvidenceClass::FactComplete);
+
+    let documentation = concat!(
+        "Calculator\n",
+        "  adds\n",
+        "  subtracts (FAILED - 1)\n\n",
+        "Failures:\n\n",
+        "  1) Calculator subtracts\n",
+        "     Failure/Error: raise 'wrong result'\n",
+        "     RuntimeError:\n",
+        "       wrong result\n",
+        "     # ./spec/calculator_spec.rb:12\n\n",
+        "Finished in 0.02 seconds\n",
+        "2 examples, 1 failure\n",
+    );
+    let expected = &documentation[documentation.find("Failures:").unwrap()..];
+    let output = test_tools::dispatch_streams_argv(
+        &[b"rspec", b"-f", b"documentation"],
+        documentation.as_bytes(),
+        b"",
+        1,
+        false,
+    )
+    .unwrap();
+    assert_eq!(output.stdout, expected.as_bytes());
+}
+
+#[test]
+fn dotnet_test_compacts_recognized_diagnostics_and_summary_on_either_stream() {
+    let failure = fixture("dotnet_test_failed.txt");
+    let expected_start = failure
+        .windows(b"[xUnit.net ".len())
+        .position(|window| window == b"[xUnit.net ")
+        .unwrap();
+    let expected = &failure[expected_start..];
+    let output =
+        test_tools::dispatch_streams_argv(&[b"dotnet", b"test"], b"", &failure, 42, false).unwrap();
+    assert_eq!(output.stderr, expected);
+    assert_eq!(output.evidence, EvidenceClass::FactComplete);
+
+    let stdout = concat!(
+        "Test run for App.Tests.dll (.NETCoreApp,Version=v8.0)\n",
+        "Starting test execution, please wait...\n",
+        "Passed!  - Failed: 0, Passed: 8, Skipped: 1, Total: 9, Duration: 30 ms\n",
+    );
+    let stderr = concat!(
+        "[xUnit.net 00:00:00.11] App.Tests.WidgetTests.breaks [FAIL]\n",
+        "  Failed App.Tests.WidgetTests.breaks [4 ms]\n",
+        "  Error Message:\n",
+        "   Expected true but was false\n",
+        "  Stack Trace:\n",
+        "     at App.Tests.WidgetTests.breaks() in /src/WidgetTests.cs:line 18\n",
+    );
+    let output = test_tools::dispatch_streams_argv(
+        &[b"dotnet", b"test"],
+        stdout.as_bytes(),
+        stderr.as_bytes(),
+        9,
+        false,
+    )
+    .unwrap();
+    assert_eq!(
+        output.stdout,
+        b"Passed!  - Failed: 0, Passed: 8, Skipped: 1, Total: 9, Duration: 30 ms\n"
+    );
+    assert_eq!(output.stderr, stderr.as_bytes());
+}
+
+#[test]
+fn dedicated_test_routes_passthrough_machine_custom_malformed_and_non_utf8_output() {
+    type PassthroughCase<'a> = (&'a [&'a [u8]], &'a [u8], &'a [u8]);
+    let cases: &[PassthroughCase<'_>] = &[
+        (
+            &[b"nextest", b"run", b"--message-format=libtest-json-plus"],
+            b"{\"type\":\"test\",\"event\":\"ok\"}\n",
+            b"",
+        ),
+        (
+            &[b"rspec", b"--format", b"json"],
+            b"{\"examples\":[]}\n",
+            b"",
+        ),
+        (
+            &[b"dotnet", b"test", b"--logger", b"trx"],
+            b"<?xml version=\"1.0\"?><TestRun/>\n",
+            b"",
+        ),
+        (
+            &[
+                b"playwright",
+                b"test",
+                b"--reporter=line",
+                b"--reporter=json",
+            ],
+            b"Running 2 tests using 2 workers\n2 passed (1.2s)\n",
+            b"",
+        ),
+        (
+            &[b"playwright", b"test", b"--reporter=line"],
+            b"Running an unknown number of tests\n2 passed (1.2s)\n",
+            b"",
+        ),
+        (
+            &[b"cargo", b"nextest", b"run"],
+            b"    Starting 1 tests across 1 binary\n\xff    Summary [0.1s] 1 tests run: 1 passed\n",
+            b"diagnostic\xfe\n",
+        ),
+    ];
+
+    for &(argv, stdout, stderr) in cases {
+        let output = test_tools::dispatch_streams_argv(argv, stdout, stderr, 23, false).unwrap();
+        assert_eq!(output.stdout, stdout, "{argv:?}");
+        assert_eq!(output.stderr, stderr, "{argv:?}");
+        assert_eq!(output.evidence, EvidenceClass::ByteExact, "{argv:?}");
+    }
+}
