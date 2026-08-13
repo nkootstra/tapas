@@ -14,15 +14,8 @@ import tomllib
 from dataclasses import dataclass
 from typing import Any
 
+from release_contract import RELEASE_BRANCH, RELEASE_FILES, RELEASE_TITLE, SHA
 import release_policy
-
-
-RELEASE_TITLE = re.compile(
-    r"^skip: prepare v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$"
-)
-SHA = re.compile(r"^[0-9a-f]{40}$")
-RELEASE_BRANCH = re.compile(r"^release-plz-.+$")
-RELEASE_FILES = {"Cargo.toml", "Cargo.lock", "CHANGELOG.md"}
 
 
 @dataclass(frozen=True)
@@ -375,6 +368,10 @@ def validate_pull_request(
         raise ValueError("pull request does not satisfy the trusted release policy")
     title_match = RELEASE_TITLE.fullmatch(pull_request.get("title", ""))
     merge_sha = pull_request.get("merge_commit_sha", "")
+    merger = pull_request.get("merged_by", {})
+    trusted_merger = merger.get("type") == "User" or (
+        merger.get("type") == "Bot" and merger.get("login") == app_login
+    )
     if (
         expected_number < 1
         or pull_request.get("number") != expected_number
@@ -388,7 +385,7 @@ def validate_pull_request(
         is None
         or pull_request.get("user", {}).get("login") != app_login
         or pull_request.get("user", {}).get("type") != "Bot"
-        or pull_request.get("merged_by", {}).get("type") != "User"
+        or not trusted_merger
         or title_match is None
         or SHA.fullmatch(merge_sha) is None
     ):

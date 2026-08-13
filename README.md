@@ -178,11 +178,11 @@ Windows stable binaries are not published yet because the current runtime uses U
 
 Use `--version 0.3.0` to install a specific tagged Unix release.
 
-Stable releases are prepared from pull request titles. Use `major:`, `minor:`, or `patch:` to select the next version, or `skip:` for changes that should not appear in a release. Release-plz opens or updates a release pull request containing `Cargo.toml`, `Cargo.lock`, and `CHANGELOG.md`; merging that pull request creates a signed tag automatically.
+Stable releases are prepared from pull request titles. Use `major:`, `minor:`, or `patch:` to trigger a release and select its version. An unprefixed pull request does not trigger a release, but it is included under **Other changes** when a later prefixed pull request triggers one. Use `skip:` for changes that should neither trigger nor appear in a release. Release-plz opens or updates a release pull request containing `Cargo.toml`, `Cargo.lock`, and `CHANGELOG.md`; GitHub automatically squash-merges it after the required checks pass and then creates a signed tag.
 
 The signed tag triggers the existing checked-artifact pipeline. It verifies the tag and package version, builds each supported target, and publishes the GitHub Release only after CI succeeds. See [GitHub App release automation](docs/github-app-release-automation.md) for setup, credential rotation, and recovery.
 
-Merging ordinary pull requests updates the pending release PR; merging the release PR publishes the selected version.
+Merging an ordinary pull request with `major:`, `minor:`, or `patch:` authorizes the selected release. GitHub keeps the generated release pull request up to date and merges it after its required checks pass.
 
 To test a pull request before it is merged, install the exact build for its current head commit:
 

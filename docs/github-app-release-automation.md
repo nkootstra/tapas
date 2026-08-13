@@ -1,8 +1,8 @@
 # GitHub App release automation
 
-release-plz prepares version and changelog pull requests. After one of those pull requests is merged, the reusable Tapas release workflow validates it and Tapas creates the signed release tag directly. The existing tag-triggered CI remains responsible for building checksummed binaries and publishing the GitHub Release.
+release-plz prepares version and changelog pull requests. GitHub automatically squash-merges a trusted release pull request after its required checks pass. The reusable Tapas release workflow then validates it and creates the signed release tag directly. The existing tag-triggered CI remains responsible for building checksummed binaries and publishing the GitHub Release.
 
-Merging a release PR is the release approval. Once it reaches `main`, the Tapas workflow creates a signed `vX.Y.Z` tag at the validated merge commit and the regular CI and publishing workflows run. release-plz does not create tags or GitHub Releases.
+Merging an ordinary pull request with a valid `major:`, `minor:`, or `patch:` title authorizes the resulting automated release. Once the generated release pull request reaches `main`, the Tapas workflow creates a signed `vX.Y.Z` tag at the validated merge commit and the regular CI and publishing workflows run. release-plz does not create tags or GitHub Releases.
 
 ## Required repository settings
 
@@ -22,8 +22,9 @@ Configure pull request merging under **Settings → General → Pull Requests**:
 2. Disable merge commits and rebase merging.
 3. Set the default squash commit title to **Pull request title**. Always use the pull request title so the validated `major:`, `minor:`, `patch:`, or `skip:` prefix reaches `main`.
 4. Protect `main` with **Require a pull request before merging**, **Require conversation resolution before merging**, and **Require linear history**. Apply the rule to administrators. A solo-maintainer repository can require zero approving reviews while still requiring the pull-request path.
+5. Require the uniquely named **CI gate** and **Release intent** checks from GitHub Actions. Enable **Require branches to be up to date before merging**. Configure these checks before merging any change that enables release-PR auto-merge.
 
-These repository settings are required setup and ensure the pull request title becomes the commit subject on `main`. The workflow does not inspect the repository merge settings at runtime. Instead, before calculating a version, it validates the actual merged commit subject and fails closed unless that subject starts with `major:`, `minor:`, `patch:`, or `skip:`. The equivalent GitHub CLI command for configuring the required merge settings is:
+These repository settings are required setup and ensure the pull request title becomes the commit subject on `main`. The workflow does not inspect the repository merge settings at runtime. Before calculating a version, it validates the actual merged commit subject and fails closed only when a reserved release-intent prefix is malformed. The equivalent GitHub CLI commands for configuring the merge settings and strict required checks are:
 
 ```sh
 gh api --method PATCH repos/nkootstra/tapas \
@@ -31,6 +32,14 @@ gh api --method PATCH repos/nkootstra/tapas \
   -F allow_merge_commit=false \
   -F allow_rebase_merge=false \
   -f squash_merge_commit_title=PR_TITLE
+
+gh api --method PUT repos/nkootstra/tapas/branches/main/protection/required_status_checks \
+  -H "X-GitHub-Api-Version: 2026-03-10" \
+  -F strict=true \
+  -F 'checks[][context]=CI gate' \
+  -F 'checks[][app_id]=15368' \
+  -F 'checks[][context]=Release intent' \
+  -F 'checks[][app_id]=15368'
 ```
 
 ## Create and install the GitHub App
@@ -85,14 +94,22 @@ The corresponding public key is checked into `.github/release-signers` so CI can
 
 ## Release-title policy
 
-Every pull request title must use exactly one release-intent prefix:
+Pull request titles may use one release-intent prefix:
 
 - `major:` increments the first SemVer component, including `0.3.0` to `1.0.0`.
 - `minor:` increments the second component.
 - `patch:` increments the third component.
 - `skip:` does not create a release and is omitted from the changelog.
 
-When several pull requests are awaiting release, the highest intent wins. Release-plz maintains one release PR containing the accumulated version, lockfile, and changelog changes.
+An unprefixed title does not create a release. It remains pending and appears under **Other changes** when a later `major:`, `minor:`, or `patch:` pull request creates one. A reserved prefix must be lowercase, followed by `: `, and have a nonblank single-line description; malformed reserved prefixes fail the required title check.
+
+When several pull requests are awaiting release, the highest intent wins. Release-plz maintains one release PR containing the accumulated version, lockfile, and changelog changes. The release App suspends any earlier auto-merge request before updating that PR, validates its final head and exact file set, and re-enables squash auto-merge against that head only.
+
+## Auto-merge operation and recovery
+
+The release App uses only Contents and Pull requests write permissions. It never receives Administration permission and never bypasses branch protection. Failed or pending required checks leave the release pull request open. A newer merge to `main` makes the release branch stale, so release-plz refreshes it and its checks run again before merge.
+
+If auto-merge is disabled or preparation fails while the release pull request remains open, rerun the Release automation workflow on the latest qualifying `main` push or merge another qualifying change. A maintainer may disable an incorrect pending request with `gh pr merge <number> --disable-auto`; branch protections should remain enabled. A manual squash merge remains the break-glass fallback after validating the same release metadata and checks.
 
 ## Verification and recovery
 

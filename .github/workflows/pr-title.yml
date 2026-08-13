@@ -20,10 +20,12 @@ jobs:
           python3 - <<'PY'
           import os, re
           title = os.environ["PR_TITLE"]
-          pattern = r"^(major|minor|patch|skip): [^\r\n]*\S[^\r\n]*$"
-          if re.fullmatch(pattern, title) is None:
-              raise SystemExit(
-                  "pull request titles must start with major:, minor:, patch:, "
-                  "or skip: followed by a description"
-              )
+          valid_intent = r"^(major|minor|patch|skip): [^\r\n]*\S[^\r\n]*$"
+          reserved = r"^(major|minor|patch|skip):"
+          if not title.strip() or "\n" in title or "\r" in title:
+              raise SystemExit("pull request titles must be nonblank and single-line")
+          if re.match(reserved, title, re.IGNORECASE) and not re.fullmatch(
+              valid_intent, title
+          ):
+              raise SystemExit("reserved release-intent prefix is malformed")
           PY

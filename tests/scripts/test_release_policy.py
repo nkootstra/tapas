@@ -31,23 +31,25 @@ def write_version_files(
 
 
 class PullRequestTitleTests(unittest.TestCase):
-    def test_accepts_release_and_skip_titles(self) -> None:
+    def test_accepts_release_skip_and_ordinary_titles(self) -> None:
         for title in (
             "major: remove the legacy protocol",
             "minor: add release automation",
             "patch: repair tag validation",
             "skip: update internal documentation",
+            "feat: add release automation",
+            "Improve contributor documentation",
         ):
             with self.subTest(title=title):
                 self.assertEqual(release_policy.validate_title(title), None)
 
     def test_rejects_titles_outside_the_release_contract(self) -> None:
         for title in (
-            "feat: add release automation",
             "Major: remove the legacy protocol",
             "patch:no separating space",
             "skip: ",
             "minor: first line\nsecond line",
+            "   ",
         ):
             with self.subTest(title=title):
                 with self.assertRaises(ValueError):
@@ -69,6 +71,19 @@ class VersionPolicyTests(unittest.TestCase):
         self.assertIsNone(
             release_policy.select_bump(
                 ["skip: update docs (#1)", "chore: historical commit (#2)"]
+            )
+        )
+
+    def test_only_exact_valid_release_intent_triggers_a_bump(self) -> None:
+        self.assertIsNone(
+            release_policy.select_bump(
+                [
+                    "minor:no separating space",
+                    "Minor: wrong case",
+                    "patch: ",
+                    "major: first line\nsecond line",
+                    "ordinary maintenance",
+                ]
             )
         )
 
@@ -180,7 +195,7 @@ class CommandLineTests(unittest.TestCase):
                 "python3",
                 str(SCRIPTS / "release_policy.py"),
                 "validate-title",
-                "feat: unsupported title",
+                "Minor: malformed reserved prefix",
             ],
             check=False,
             capture_output=True,
@@ -188,7 +203,7 @@ class CommandLineTests(unittest.TestCase):
         )
 
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("major:, minor:, patch:, or skip:", result.stderr)
+        self.assertIn("release-intent prefixes must use lowercase", result.stderr)
 
 
 if __name__ == "__main__":
