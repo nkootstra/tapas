@@ -39,7 +39,7 @@ gh api --method PATCH repos/nkootstra/tapas \
 2. Give the App a unique name such as `Tapas Release nkootstra`.
 3. Set the homepage URL to <https://github.com/nkootstra/tapas>.
 4. Disable the webhook.
-5. Grant repository **Contents: Read and write** and **Pull requests: Read and write**. Leave every other permission disabled.
+5. Grant repository **Contents: Read and write**, **Pull requests: Read and write**, and **Workflows: Read and write**. Leave every other permission disabled. The similarly named **Actions** permission is not required.
 6. Limit installation to the owning account, then create the App.
 7. Copy the numeric App ID into the `RELEASE_APP_ID` repository variable.
 8. Generate an App private key and store the downloaded PEM as the `RELEASE_APP_PRIVATE_KEY` repository secret.
@@ -48,7 +48,7 @@ gh api --method PATCH repos/nkootstra/tapas \
 The App token is short-lived and restricted to this repository. The default workflow token stays read-only. The App's installed permissions are the maximum available to its tokens; each job requests only what it needs:
 
 - Release-PR preparation requests **Contents: Read and write** and **Pull requests: Read and write**.
-- Direct tag creation requests **Contents: Read and write** and **Pull requests: Read**.
+- Direct tag creation requests **Contents: Read and write**, **Pull requests: Read**, and **Workflows: Read and write**. GitHub requires workflow-write access when a new tag reaches commits that change files under `.github/workflows/`.
 
 There is exactly one repository variable, `RELEASE_APP_ID`, and two repository secrets, `RELEASE_APP_PRIVATE_KEY` and `RELEASE_SIGNING_KEY`, for release automation. release-plz creates its release-PR commits through GitHub's API; these GraphQL commits show as Verified. When release-plz returns a non-literal manifest version, the GitHub-signed normalization fallback also uses the GraphQL commit API. The SSH signing key is available only to the isolated direct-tag workflow.
 
