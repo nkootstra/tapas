@@ -73,7 +73,6 @@ impl<'a> StreamFilterInput<'a> {
 pub(crate) enum StreamFilterDecision {
     /// The family recognized and owns this route, but its output must remain
     /// byte-exact instead of falling through to another filter.
-    #[allow(dead_code)] // Route implementations adopt this foundation incrementally.
     Passthrough,
     /// The family did not apply a route-specific decision. Dispatch may use
     /// the family's configured fallback behavior.
