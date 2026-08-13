@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use super::{RecognizedStream, split_location};
 use crate::filters::{append_line, find_subslice, strip_ansi_csi};
 
@@ -6,9 +8,17 @@ pub(super) fn classify_ruff(input: &[u8]) -> Option<RecognizedStream> {
         return None;
     }
 
-    let lines: Vec<Vec<u8>> = input
+    let lines: Vec<Cow<'_, [u8]>> = input
         .split(|byte| *byte == b'\n')
-        .map(|line| strip_ansi_csi(line).trim_ascii_end().to_vec())
+        .map(|line| {
+            if line.contains(&0x1b) {
+                let mut clean = strip_ansi_csi(line);
+                clean.truncate(clean.trim_ascii_end().len());
+                Cow::Owned(clean)
+            } else {
+                Cow::Borrowed(line.trim_ascii_end())
+            }
+        })
         .collect();
     if has_full_diagnostic(&lines) {
         return Some(RecognizedStream::Diagnostics(compact_full(&lines)));
@@ -17,7 +27,7 @@ pub(super) fn classify_ruff(input: &[u8]) -> Option<RecognizedStream> {
     compact_concise(&lines)
 }
 
-fn has_full_diagnostic(lines: &[Vec<u8>]) -> bool {
+fn has_full_diagnostic(lines: &[Cow<'_, [u8]>]) -> bool {
     lines.iter().enumerate().any(|(index, line)| {
         is_rule_header(line)
             && lines[index + 1..]
@@ -27,14 +37,14 @@ fn has_full_diagnostic(lines: &[Vec<u8>]) -> bool {
     })
 }
 
-fn compact_full(lines: &[Vec<u8>]) -> Vec<u8> {
+fn compact_full(lines: &[Cow<'_, [u8]>]) -> Vec<u8> {
     let mut output = Vec::new();
     let mut in_diagnostic = false;
     for line in lines {
-        if is_rule_header(line) {
+        if is_rule_header(line.as_ref()) {
             in_diagnostic = true;
             append_line(&mut output, line);
-        } else if is_summary(line) {
+        } else if is_summary(line.as_ref()) {
             append_line(&mut output, line);
             in_diagnostic = false;
         } else if in_diagnostic {
@@ -44,13 +54,14 @@ fn compact_full(lines: &[Vec<u8>]) -> Vec<u8> {
     output
 }
 
-fn compact_concise(lines: &[Vec<u8>]) -> Option<RecognizedStream> {
+fn compact_concise(lines: &[Cow<'_, [u8]>]) -> Option<RecognizedStream> {
     let mut output = Vec::new();
     let mut current_path = Vec::new();
     let mut found_diagnostic = false;
     let mut found_clean_summary = false;
     let mut in_diagnostic = false;
     for line in lines {
+        let line = line.as_ref();
         if let Some((path, location, body)) = parse_concise_diagnostic(line) {
             if current_path != path {
                 append_line(&mut output, path);

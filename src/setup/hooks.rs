@@ -187,7 +187,7 @@ fn codex_words_read_only(words: &[Vec<u8>]) -> bool {
     }
     let arguments = &words[1..];
     match program {
-        b"cat" | b"du" | b"jq" | b"ls" | b"ps" | b"wc" => true,
+        b"cat" | b"du" | b"jq" | b"ls" | b"ps" => true,
         b"tree" => !arguments.iter().any(|argument| {
             argument.starts_with(b"-o")
                 || argument == b"--output"

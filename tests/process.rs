@@ -574,7 +574,7 @@ fn lifecycle_policies_inherit_interactive_and_unbounded_commands() {
 }
 
 #[test]
-fn recognized_non_tty_streaming_compacts_by_default_and_legacy_env_is_a_no_op() {
+fn recognized_non_tty_streaming_compacts_by_default_with_a_legacy_opt_out() {
     let command = FakeCommand::new(
         "docker",
         b"#!/bin/sh\nprintf '2026-08-01 10:00:00 INFO ready\\n2026-08-01 10:00:01 INFO ready\\n'\nprintf '2026-08-01 10:00:00 WARN retry\\n2026-08-01 10:00:01 WARN retry\\n' >&2\nexit 42\n",
@@ -585,7 +585,7 @@ fn recognized_non_tty_streaming_compacts_by_default_and_legacy_env_is_a_no_op() 
     assert_eq!(filtered.stdout, "INFO ready ×2\n".as_bytes());
     assert_eq!(filtered.stderr, "WARN retry ×2\n".as_bytes());
 
-    for legacy_value in ["0", "1", "false", "anything"] {
+    for legacy_value in ["1", "anything"] {
         let legacy = tapas(
             &[program, "logs", "-f", "api"],
             b"",
@@ -601,6 +601,8 @@ fn recognized_non_tty_streaming_compacts_by_default_and_legacy_env_is_a_no_op() 
     for (prefix, env) in [
         (&["--raw", "--"][..], &[][..]),
         (&[][..], &[("TAPAS_LOSSLESS", "1")][..]),
+        (&[][..], &[("TAPAS_STREAM", "0")][..]),
+        (&[][..], &[("TAPAS_STREAM", "false")][..]),
     ] {
         let mut args = prefix.to_vec();
         args.extend([program, "logs", "-f", "api"]);
@@ -615,7 +617,7 @@ fn recognized_non_tty_streaming_compacts_by_default_and_legacy_env_is_a_no_op() 
 fn compose_up_streams_state_and_deduplicates_prefixed_logs_per_side() {
     let command = FakeCommand::new(
         "docker",
-        b"#!/bin/sh\nprintf '[+] Running 1/1\n Container demo-api-1 Started\napi-1 | 2026-08-01 10:00:00 INFO ready\napi-1 | 2026-08-01 10:00:01 INFO ready\n'\nprintf 'custom compose extension\napi-1 | stderr detail\n' >&2\nexit 23\n",
+        b"#!/bin/sh\nprintf '[+] Running 1/1\n Container demo-api-1 Started\napi-1 | 2026-08-01 10:00:00 INFO ready\napi-1 | 2026-08-01 10:00:01 INFO ready\n'\nprintf '\\033[31mcustom compose extension\\033[0m  \napi-1 | stderr detail\n' >&2\nexit 23\n",
     );
     let program = command.path().to_str().expect("UTF-8 fake command path");
     let output = tapas(&[program, "compose", "up"], b"", &[]);
@@ -627,8 +629,30 @@ fn compose_up_streams_state_and_deduplicates_prefixed_logs_per_side() {
     );
     assert_eq!(
         output.stderr,
-        b"custom compose extension\napi-1 | stderr detail\n"
+        b"\x1b[31mcustom compose extension\x1b[0m  \napi-1 | stderr detail\n"
     );
+}
+
+#[test]
+fn exact_output_routes_bypass_live_filters_and_empty_output_hints() {
+    let tail = FakeCommand::new(
+        "tail",
+        b"#!/bin/sh\nprintf '2026-08-01 10:00:00 INFO ready\n2026-08-01 10:00:01 INFO ready\n'\n",
+    );
+    let tail_program = tail.path().to_str().expect("UTF-8 fake command path");
+    let live = tapas(&[tail_program, "-f", "-n", "20", "app.log"], b"", &[]);
+    assert!(live.status.success());
+    assert_eq!(
+        live.stdout,
+        b"2026-08-01 10:00:00 INFO ready\n2026-08-01 10:00:01 INFO ready\n"
+    );
+
+    let diff = FakeCommand::new("diff", b"#!/bin/sh\nexit 0\n");
+    let diff_program = diff.path().to_str().expect("UTF-8 fake command path");
+    let empty = tapas(&[diff_program, "--brief", "old", "new"], b"", &[]);
+    assert!(empty.status.success());
+    assert!(empty.stdout.is_empty());
+    assert!(empty.stderr.is_empty());
 }
 
 #[test]
@@ -690,6 +714,35 @@ fn vitest_watch_unknown_frame_after_recognized_output_only_opens_its_stream_side
         b"all tests passed\n\x1b[2J\x1b[Hcustom watch status\n\x1b[2J\x1b[HTest Suites: 1 passed, 1 total\nTests: 1 passed, 1 total\n"
     );
     assert_eq!(output.stderr, b"all tests passed\n");
+}
+
+#[test]
+fn tsc_and_gh_live_workflows_use_the_default_process_stream_path() {
+    let tsc = FakeCommand::new(
+        "tsc",
+        b"#!/bin/sh\nprintf 'src/app.ts:1:7 - error TS2322: bad type\n        ~\nFound 1 error. Watching for file changes.\n'\n",
+    );
+    let tsc_program = tsc.path().to_str().expect("UTF-8 fake command path");
+    let tsc_output = tapas(&[tsc_program, "--watch"], b"", &[]);
+    assert!(tsc_output.status.success());
+    assert_eq!(
+        tsc_output.stdout,
+        b"src/app.ts:1:7 TS2322: bad type\n        ~\nFound 1 error. Watching for file changes.\n"
+    );
+    assert!(tsc_output.stderr.is_empty());
+
+    let gh = FakeCommand::new(
+        "gh",
+        b"#!/bin/sh\nprintf 'JOBS\n* build (ID 123)\n  * checkout\n\nJOBS\n\\342\\234\\223 build in 2s (ID 123)\n\n'\n",
+    );
+    let gh_program = gh.path().to_str().expect("UTF-8 fake command path");
+    let gh_output = tapas(&[gh_program, "run", "watch"], b"", &[]);
+    assert!(gh_output.status.success());
+    assert_eq!(
+        gh_output.stdout,
+        b"build: running\nbuild: running->passed\n"
+    );
+    assert!(gh_output.stderr.is_empty());
 }
 
 #[test]

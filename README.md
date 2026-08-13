@@ -32,12 +32,13 @@ Inspect the static command and runner catalogs:
 tapas --filters
 ```
 
-The default catalog includes 55 common Git, GitHub, Graphite, Rust,
-JavaScript/TypeScript, Python, Go, Ruby, .NET, container, Kubernetes, file,
-cloud, and database workflows. This includes their common human-readable
-forms, such as Cargo and nextest runs, package and build summaries, diagnostics,
-test reports, repository details, container state, aligned tables, and text
-diffs.
+The default catalog includes dedicated coverage for 55 common Git, GitHub,
+Graphite, Rust, JavaScript/TypeScript, Python, Go, Ruby, .NET, container,
+Kubernetes, file, cloud, and database workflows, alongside the existing
+package, build, test, Helm, and Docker routes. This includes common
+human-readable forms such as Cargo and nextest runs, package and build
+summaries, diagnostics, test reports, repository details, container state,
+aligned tables, and text diffs.
 `tapas --filters` reports the compact routes as well as exact-output and
 inherited/stream policies from the same catalog used at runtime.
 
@@ -70,9 +71,10 @@ tapas docker compose up
 ```
 
 Interactive terminal runs still inherit the terminal. Use `--raw` or
-`TAPAS_LOSSLESS=1` for byte-exact redirected output; the legacy `TAPAS_STREAM`
-variable is accepted but has no effect. Metadata requested with flags such as
-`--timestamps`, `--details`, or `--prefix` is preserved.
+`TAPAS_LOSSLESS=1` for byte-exact redirected output. An explicit
+`TAPAS_STREAM=0` (or `false`, `no`, or `off`) also preserves the previous raw
+streaming behavior; other values use the default. Metadata requested with flags
+such as `--timestamps`, `--details`, or `--prefix` is preserved.
 
 Live filtering is necessarily incremental: if a command fails after already
 emitting compacted output, Tapas cannot reconstruct bytes it has already

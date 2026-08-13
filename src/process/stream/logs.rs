@@ -25,23 +25,23 @@ impl LogState {
             return writer.write_all(b"\n");
         }
         let clean = strip_ansi(line);
-        let line = clean.trim_ascii_end();
-        if line.is_empty() {
+        let classified = clean.trim_ascii_end();
+        if classified.is_empty() {
             return self.flush(writer);
         }
-        if self.compose && !is_compose_line(line) {
+        if self.compose && !is_compose_line(classified) {
             self.flush(writer)?;
             writer.write_all(line)?;
             writer.write_all(b"\n")?;
             self.raw_passthrough = true;
             return Ok(());
         }
-        if self.compose && !line.contains(&b'|') {
+        if self.compose && !classified.contains(&b'|') {
             self.flush(writer)?;
-            writer.write_all(line)?;
+            writer.write_all(classified)?;
             return writer.write_all(b"\n");
         }
-        let normalized = normalize_log_line(line, self.compose);
+        let normalized = normalize_log_line(classified, self.compose);
         let start = if self.compose {
             0
         } else {

@@ -852,6 +852,7 @@ fn codex_hook_keeps_the_expanded_catalog_outside_its_read_only_allowlist() {
         "rake",
         "rspec",
         "rubocop",
+        "wc",
     ] {
         let input = format!(
             r#"{{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{{"command":"{command} --version"}}}}"#,

@@ -42,6 +42,7 @@ pub fn run(
     let invocation = classify(argv);
     let logical = invocation.logical_argv;
     let lossless = crate::environment::flag_on("TAPAS_LOSSLESS");
+    let exact_output = requests_exact_output(logical);
     // Keep the outer runner visible for lifecycle decisions. A transparent
     // runner can hide a development/watch command after argv unwrapping.
     let stream = merge_stream_decisions(classify_stream(logical), classify_stream(argv));
@@ -49,6 +50,8 @@ pub fn run(
         && !unix::stdout_is_tty()
         && !options.raw
         && !lossless
+        && !exact_output
+        && !crate::environment::flag_off("TAPAS_STREAM")
         && invocation.passthrough_reason.is_none()
         && !is_raw_curl(logical);
     if stream_filtering {
@@ -68,6 +71,7 @@ pub fn run(
     }
     let unfiltered = options.raw
         || lossless
+        || exact_output
         || invocation.passthrough_reason.is_some()
         || stream != StreamDecision::Capture
         || is_raw_curl(logical);
@@ -93,8 +97,7 @@ pub fn run(
             limit: MAX_OUTPUT_BYTES,
         }
     };
-    let force_c_locale =
-        !unfiltered && command_is(logical, b"ls") && !requests_exact_output(logical);
+    let force_c_locale = !unfiltered && command_is(logical, b"ls");
     let captured = capture::run_captured(argv, mode, force_c_locale, stdout, stderr)?;
 
     if captured.streamed {

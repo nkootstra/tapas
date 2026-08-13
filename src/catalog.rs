@@ -206,6 +206,19 @@ pub const PIPE_DETECTORS: &[&str] = &[
 pub const TRANSPARENT_RUNNERS: &[&str] =
     &["bunx", "npx", "pnpm exec", "poetry run", "uv run", "uvx"];
 pub const COMPACT_ROUTES: &[&str] = &[
+    "pip/pip3:pip_table",
+    "uv:uv_project",
+    "uv:uv_pip",
+    "vite:vite_build",
+    "esbuild:esbuild_file_build",
+    "cmake:cmake_configure",
+    "cmake:cmake_build",
+    "ctest:ctest_finite",
+    "helm:helm_read",
+    "grep:grep_multifile",
+    "bat/batcat:bat_plain",
+    "docker/docker-compose:docker_buildkit",
+    "docker/docker-compose:docker_stats_finite",
     "git:git_status",
     "git:git_log",
     "git:git_diff",
@@ -296,7 +309,7 @@ pub const STREAM_WATCH_POLICIES: &[&str] = &[
     "jest_watch",
     "journalctl_follow",
     "kubectl_logs_follow",
-    "legacy_stream_environment_noop",
+    "legacy_stream_environment_opt_out",
     "live_stream_default",
     "playwright_interactive_inherit",
     "tail_follow",
