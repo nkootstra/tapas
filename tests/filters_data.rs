@@ -41,8 +41,8 @@ fn structured_json_dispatch_minifies_single_containers_byte_safely() {
 #[test]
 fn aws_only_compacts_explicit_recognized_table_output() {
     let table = concat!(
-        "----------------------\n",
-        "|   DescribeRegions  |\n",
+        "-----------------------\n",
+        "|   DescribeRegions   |\n",
         "+----------+-----------+\n",
         "| Name     | Endpoint  |\n",
         "+----------+-----------+\n",
@@ -88,6 +88,7 @@ fn aws_only_compacts_explicit_recognized_table_output() {
 
     for malformed in [
         b"Name   Endpoint\neu-west-1   example-1\n".as_slice(),
+        b"+---+---+\n| A | B |\n+---+---+\n| 1 | 2 | 3 |\n+---+---+\n",
         b"+---+\n| Name \xff |\n+---+\n".as_slice(),
     ] {
         assert_eq!(

@@ -7,8 +7,8 @@ fn mypy_keeps_diagnostics_summaries_and_pretty_carets() {
     let input = concat!(
         "LOG: processing\n",
         "\x1b[31msrc/a.py:10:5: error: Incompatible types [assignment]\x1b[0m\n",
-        "    x: int = \"foo\"\n",
-        "             ^~~~~\n",
+        "\x1b[36m    x: int = \"foo\"\x1b[0m\n",
+        "\x1b[36m             ^~~~~\x1b[0m\n",
         "Found 1 error in 1 file\n",
     );
     let expected = concat!(
@@ -83,8 +83,8 @@ fn golangci_lint_run_compacts_human_diagnostics_per_stream() {
     let stdout = concat!(
         "level=info msg=\"starting linters\"\n",
         "pkg/a.go:12:4: shadow: declaration of \"err\" shadows declaration (govet)\n",
-        "\tif err := work(); err != nil {\n",
-        "\t   ^\n",
+        "\x1b[36m\tif err := work(); err != nil {\x1b[0m\n",
+        "\x1b[36m\t   ^\x1b[0m\n",
         "2 issues:\n",
     );
     let stderr = b"warning: cache directory unavailable\n";

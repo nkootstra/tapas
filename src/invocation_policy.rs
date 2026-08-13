@@ -374,7 +374,7 @@ pub(crate) fn requests_exact_output(argv: &[&[u8]]) -> bool {
                     || has_option(arguments, b"--output", b"-o", true))
         }
         b"rspec" => {
-            option_values(arguments, b"--format", b"-f").any(is_custom_reporter)
+            option_values(arguments, b"--format", b"-f").any(is_custom_rspec_formatter)
                 || has_option(arguments, b"--out", b"-o", true)
         }
         b"rubocop" => {
@@ -570,6 +570,10 @@ fn is_custom_reporter(reporter: &[u8]) -> bool {
     !matches!(reporter, b"list" | b"line" | b"dot")
 }
 
+fn is_custom_rspec_formatter(formatter: &[u8]) -> bool {
+    !matches!(formatter, b"progress" | b"documentation")
+}
+
 fn short_option_joined(argument: &[u8], option: &[u8]) -> bool {
     argument.starts_with(option) && argument.len() > option.len()
 }
@@ -621,19 +625,22 @@ fn diff_requests_exact(arguments: &[&[u8]]) -> bool {
 }
 
 fn repeated_curl_verbose(arguments: &[&[u8]]) -> bool {
-    arguments
-        .iter()
-        .map(|argument| {
-            if *argument == b"--verbose" {
-                1
-            } else if argument.starts_with(b"-") && !argument.starts_with(b"--") {
-                argument[1..].iter().filter(|byte| **byte == b'v').count()
-            } else {
-                0
-            }
-        })
-        .sum::<usize>()
-        > 1
+    curl_verbosity(arguments) > 1
+}
+
+pub(crate) fn curl_verbosity(arguments: &[&[u8]]) -> usize {
+    let mut verbosity = 0usize;
+    for argument in arguments.iter().take_while(|argument| **argument != b"--") {
+        if *argument == b"--no-verbose" {
+            return 0;
+        }
+        if *argument == b"--verbose" {
+            verbosity += 1;
+        } else if argument.starts_with(b"-") && !argument.starts_with(b"--") {
+            verbosity += argument[1..].iter().filter(|byte| **byte == b'v').count();
+        }
+    }
+    verbosity
 }
 
 fn psql_copy_command(command: &[u8]) -> bool {

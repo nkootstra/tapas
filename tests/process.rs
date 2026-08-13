@@ -48,6 +48,9 @@ fn tapas(args: &[&str], stdin: &[u8], env: &[(&str, &str)]) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_tapas"));
     command
         .args(args)
+        .env_remove("TAPAS_LOSSLESS")
+        .env_remove("TAPAS_STREAM")
+        .env_remove("TAPAS_RAW")
         .envs(env.iter().copied())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -935,6 +938,9 @@ fn expanded_interactive_lifecycle_policies_inherit_the_terminal() {
         &["rubocop", "--mcp"],
         &["rubocop", "--server"],
         &["psql"],
+        &["psql", "postgresql://localhost/app"],
+        &["psql", "-U", "app", "-h", "localhost", "app"],
+        &["psql", "--", "-c"],
         &["nextest", "run", "--debugger"],
         &["cargo", "nextest", "run", "--no-capture"],
         &["cargo", "nextest", "run", "--stress-count=infinite"],
@@ -949,6 +955,10 @@ fn expanded_interactive_lifecycle_policies_inherit_the_terminal() {
         &["rspec", "--", "--bisect"],
         &["rubocop", "--", "--lsp"],
         &["psql", "--command", "select 1"],
+        &["psql", "-Atcselect 1"],
+        &["psql", "-Al"],
+        &["psql", "--file=report.sql"],
+        &["psql", "--help"],
         &["nextest", "run", "--stress-count=10"],
         &["cargo", "nextest", "run", "--", "--no-capture"],
         &["gt", "stack", "--interactive=false"],

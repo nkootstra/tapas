@@ -743,6 +743,12 @@ fn graphite_log_routes_compact_only_recognized_gt_graphs() {
         "\u{25cb} main\n",
     );
     assert_eq!(
+        git::dispatch_streams_argv(&[b"graphite", b"log"], default.as_bytes(), b"", 0, false,)
+            .unwrap()
+            .stdout,
+        expected.as_bytes(),
+    );
+    assert_eq!(
         git::dispatch_streams_argv(
             &[b"/opt/graphite/bin/gt", b"log"],
             default.as_bytes(),

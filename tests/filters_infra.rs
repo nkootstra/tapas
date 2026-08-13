@@ -132,7 +132,21 @@ fn curl_only_compacts_one_classic_fact_complete_verbose_trace() {
     .unwrap();
     assert_eq!(compact.stdout, stdout);
     assert_eq!(compact.evidence, EvidenceClass::FactComplete);
-    assert!(contains(&compact.stderr, b"HTTP/2 503"));
+    assert_eq!(
+        compact.stderr,
+        b"curl GET example.test/ -> HTTP/2 503 text/plain\n"
+    );
+
+    let marked_trace = b"* Connected to example.test (127.0.0.1) port 443\n> GET / HTTP/2\n{ [5 bytes data]\n< HTTP/2 503\n} [5 bytes data]\n";
+    let marked = infra::dispatch_streams_argv(
+        &[b"curl", b"-v", b"https://example.test"],
+        stdout,
+        marked_trace,
+        0,
+        false,
+    )
+    .unwrap();
+    assert!(!contains(&marked.stderr, b"bytes data"));
 
     for (argv, stderr) in [
         (&[b"curl".as_slice(), b"--version"][..], trace.as_slice()),
@@ -383,6 +397,11 @@ fn gh_dedicated_routes_fail_closed_on_unknown_shapes_and_failures() {
             0,
         ),
         (&[b"gh", b"run", b"list"], b"NAME  VALUE\nrun   one\n", 0),
+        (
+            &[b"gh", b"pr", b"list"],
+            b"123\tAdd feature\tfeature-branch\tOPEN\n",
+            0,
+        ),
         (
             &[b"gh", b"run", b"list"],
             b"STATUS TITLE WORKFLOW BRANCH EVENT ID ELAPSED AGE\n",

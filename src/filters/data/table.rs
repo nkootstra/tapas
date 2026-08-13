@@ -42,6 +42,8 @@ pub(super) fn matches_aws_table(input: &[u8]) -> bool {
     }
     let mut borders = 0usize;
     let mut rows = 0usize;
+    let mut columns = None;
+    let mut border_widths = Vec::new();
     for raw in input.split(|byte| *byte == b'\n') {
         let line = raw.strip_suffix(b"\r").unwrap_or(raw).trim_ascii();
         if line.is_empty() {
@@ -49,13 +51,23 @@ pub(super) fn matches_aws_table(input: &[u8]) -> bool {
         }
         if is_aws_border(line) {
             borders += 1;
-        } else if aws_fields(line).is_some() {
+            border_widths.push(line.len());
+        } else if let Some(fields) = aws_fields(line) {
+            if !border_widths.contains(&line.len()) {
+                return false;
+            }
+            if fields.len() > 1 {
+                if columns.is_some_and(|columns| columns != fields.len()) {
+                    return false;
+                }
+                columns = Some(fields.len());
+            }
             rows += 1;
         } else {
             return false;
         }
     }
-    borders >= 2 && rows >= 2
+    borders >= 2 && rows >= 2 && columns.is_some()
 }
 
 pub(super) fn compact_aws_table(input: &[u8]) -> Vec<u8> {
@@ -84,12 +96,11 @@ fn aws_fields(line: &[u8]) -> Option<Vec<&[u8]>> {
     if line.first() != Some(&b'|') || line.last() != Some(&b'|') {
         return None;
     }
-    let fields = line
+    let fields = line[1..line.len() - 1]
         .split(|byte| *byte == b'|')
         .map(|field| field.trim_ascii())
-        .filter(|field| !field.is_empty())
         .collect::<Vec<_>>();
-    (!fields.is_empty()).then_some(fields)
+    (!fields.is_empty() && fields.iter().any(|field| !field.is_empty())).then_some(fields)
 }
 
 pub(super) fn is_psql_table_route(argv: &[&[u8]]) -> bool {

@@ -355,7 +355,7 @@ pub(crate) fn dispatch_streams_decision(
     if argv.len() < 2 {
         return Err(FilterError::InvalidInput);
     }
-    if command_basename(argv[0]) == b"gt" {
+    if matches!(command_basename(argv[0]), b"gt" | b"graphite") {
         if lossless || crate::invocation_policy::requests_passthrough(argv) || exit_code != 0 {
             return Ok(StreamFilterDecision::Passthrough);
         }

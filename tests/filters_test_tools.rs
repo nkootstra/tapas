@@ -1,4 +1,4 @@
-use tapas::filters::{EvidenceClass, FilterOutput, test_tools};
+use tapas::filters::{EvidenceClass, FilterOutput, StreamFilterOutput, test_tools};
 mod common;
 use common::fixture;
 
@@ -580,6 +580,12 @@ fn dotnet_test_compacts_recognized_diagnostics_and_summary_on_either_stream() {
         b"Passed!  - Failed: 0, Passed: 8, Skipped: 1, Total: 9, Duration: 30 ms\n"
     );
     assert_eq!(output.stderr, stderr.as_bytes());
+
+    let malformed = b"Passed! Failed: zero, Passed: 8, Total: 8\n";
+    assert_eq!(
+        test_tools::dispatch_streams_argv(&[b"dotnet", b"test"], malformed, b"", 0, false).unwrap(),
+        StreamFilterOutput::passthrough(malformed, b""),
+    );
 }
 
 #[test]

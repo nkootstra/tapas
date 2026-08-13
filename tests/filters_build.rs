@@ -477,7 +477,7 @@ fn rake_tasks_machine_and_malformed_output_are_route_owned_passthrough() {
         (&[b"rake", b"db:report"], b"name,total\nexample,42\n"),
         (
             &[b"rake", b"db:report"],
-            br#"{"name":"example","total":42}\n"#,
+            b"{\"name\":\"example\",\"total\":42}\n",
         ),
         (
             &[b"rake", b"-T", b"--", b"unexpected"],

@@ -16,7 +16,7 @@ pub(super) fn classify_golangci_lint(input: &[u8]) -> Option<RecognizedStream> {
             append_line(&mut output, line);
             found_diagnostic = true;
             in_diagnostic = true;
-        } else if in_diagnostic && raw.first().is_some_and(u8::is_ascii_whitespace) {
+        } else if in_diagnostic && clean.first().is_some_and(u8::is_ascii_whitespace) {
             append_line(&mut output, line);
         } else if is_summary(line) {
             append_line(&mut output, line);

@@ -48,9 +48,41 @@ fn summary_start(input: &[u8]) -> Option<usize> {
 }
 
 fn recognized_summary(line: &[u8]) -> bool {
-    let status = line.starts_with(b"Passed!") || line.starts_with(b"Failed!");
-    status
-        && find_subslice(line, b"Failed:").is_some()
-        && find_subslice(line, b"Passed:").is_some()
-        && find_subslice(line, b"Total:").is_some()
+    let Some(rest) = line
+        .strip_prefix(b"Passed!  - ")
+        .or_else(|| line.strip_prefix(b"Failed!  - "))
+    else {
+        return false;
+    };
+    let Some(rest) = numeric_field(rest, b"Failed: ") else {
+        return false;
+    };
+    let Some(rest) = rest.strip_prefix(b", Passed: ") else {
+        return false;
+    };
+    let Some(rest) = digits_then(rest) else {
+        return false;
+    };
+    let Some(rest) = rest.strip_prefix(b", Skipped: ") else {
+        return false;
+    };
+    let Some(rest) = digits_then(rest) else {
+        return false;
+    };
+    let Some(rest) = rest.strip_prefix(b", Total: ") else {
+        return false;
+    };
+    digits_then(rest).is_some_and(|suffix| suffix.is_empty() || suffix.starts_with(b", Duration: "))
+}
+
+fn numeric_field<'a>(input: &'a [u8], label: &[u8]) -> Option<&'a [u8]> {
+    digits_then(input.strip_prefix(label)?)
+}
+
+fn digits_then(input: &[u8]) -> Option<&[u8]> {
+    let digits = input
+        .iter()
+        .take_while(|byte| byte.is_ascii_digit())
+        .count();
+    (digits > 0).then_some(&input[digits..])
 }

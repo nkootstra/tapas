@@ -19,7 +19,7 @@ pub(super) fn classify_mypy(input: &[u8]) -> Option<RecognizedStream> {
             in_diagnostic = true;
         } else if in_diagnostic
             && !line.is_empty()
-            && raw.first().is_some_and(u8::is_ascii_whitespace)
+            && clean.first().is_some_and(u8::is_ascii_whitespace)
         {
             append_line(&mut output, line);
         } else if is_summary(line) {

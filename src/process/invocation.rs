@@ -235,7 +235,7 @@ fn inherits_lifecycle(command: &[u8], argv: &[OsString]) -> bool {
         return has_enabled_option(argv, &[b"--lsp", b"--mcp", b"--server"]);
     }
     if command == b"psql" {
-        return argv.len() == 1;
+        return !psql_is_non_interactive(argv);
     }
     if command == b"nextest" || command == b"cargo" && equals_at(argv, 1, b"nextest") {
         return has_enabled_option(argv, &[b"--debugger", b"--no-capture", b"--nocapture"])
@@ -302,6 +302,35 @@ fn inherits_lifecycle(command: &[u8], argv: &[OsString]) -> bool {
         return option_value(argv, b"--paging").is_some_and(|value| value == b"always");
     }
     command == b"ctest" && option_value(argv, b"--repeat").is_some()
+}
+
+fn psql_is_non_interactive(argv: &[OsString]) -> bool {
+    for argument in argv
+        .iter()
+        .skip(1)
+        .take_while(|argument| bytes(argument) != b"--")
+    {
+        let argument = bytes(argument);
+        if matches!(
+            argument,
+            b"--command" | b"--file" | b"--list" | b"--help" | b"--version"
+        ) || argument.starts_with(b"--command=")
+            || argument.starts_with(b"--file=")
+        {
+            return true;
+        }
+        if let Some(options) = argument
+            .strip_prefix(b"-")
+            .filter(|value| !value.is_empty())
+            && !argument.starts_with(b"--")
+            && options
+                .iter()
+                .any(|option| matches!(option, b'c' | b'f' | b'l' | b'?' | b'V'))
+        {
+            return true;
+        }
+    }
+    false
 }
 
 fn pnpm_exec_candidate(argv: &[OsString]) -> bool {

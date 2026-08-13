@@ -26,7 +26,7 @@ pub(super) fn compact_gh(argv: &[&[u8]], stdout: &[u8]) -> Option<Vec<u8>> {
                 append_line(&mut output, line.trim_ascii_end());
             }
         }
-        return Some(output);
+        return (!output.is_empty()).then_some(output);
     }
     if arg1 == b"run" && arg2 == b"list" {
         return compact_gh_run_list(stdout);

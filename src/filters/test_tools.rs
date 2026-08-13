@@ -20,7 +20,10 @@ pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
         return false;
     };
     let arg1 = argv.get(1).copied().unwrap_or_default();
-    if matches!(command, b"nextest" | b"rspec") || command == b"dotnet" && arg1 == b"test" {
+    if matches!(command, b"nextest" | b"rspec")
+        || command == b"cargo" && arg1 == b"nextest" && argv.get(2) == Some(&b"run".as_slice())
+        || command == b"dotnet" && arg1 == b"test"
+    {
         return true;
     }
     if !crate::catalog::filter_family_handles(argv, crate::catalog::TEST_TOOLS_FILTER_COMMANDS) {
@@ -88,7 +91,11 @@ pub(crate) fn dispatch_streams_decision(
         return Ok(compact_owned_streams(stdout, stderr, nextest::compact));
     }
     if command == b"rspec" {
-        if lossless || !streams_are_utf8(stdout, stderr) || !rspec::human_route(argv) {
+        if lossless
+            || !streams_are_utf8(stdout, stderr)
+            || crate::invocation_policy::requests_passthrough(argv)
+            || !rspec::human_route(argv)
+        {
             return Ok(StreamFilterDecision::Passthrough);
         }
         return Ok(compact_owned_streams(stdout, stderr, rspec::compact));

@@ -413,6 +413,9 @@ fn cargo_check_and_clippy_routes_compact_recognized_build_output() {
         let output = Command::new(env!("CARGO_BIN_EXE_tapas"))
             .arg(&cargo)
             .arg(subcommand)
+            .env_remove("TAPAS_LOSSLESS")
+            .env_remove("TAPAS_STREAM")
+            .env_remove("TAPAS_RAW")
             .output()
             .expect("run fake cargo through tapas");
         assert!(output.status.success(), "subcommand: {subcommand}");

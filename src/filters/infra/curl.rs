@@ -9,6 +9,9 @@ pub(super) fn compact_curl_trace(input: &[u8]) -> Vec<u8> {
         if line.is_empty() {
             continue;
         }
+        if line.starts_with(b"{ [") || line.starts_with(b"} [") {
+            continue;
+        }
         if find_subslice(line, b"-----BEGIN CERTIFICATE-----").is_some() {
             in_certificate = true;
             continue;
@@ -241,19 +244,7 @@ pub(super) fn compact_curl(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
 }
 
 pub(super) fn is_single_verbose_invocation(argv: &[&[u8]]) -> bool {
-    let mut verbosity = 0usize;
-    for argument in argv[1..].iter().take_while(|argument| **argument != b"--") {
-        if *argument == b"--verbose" {
-            verbosity += 1;
-        } else if argument.starts_with(b"--") {
-            if *argument == b"--no-verbose" {
-                return false;
-            }
-        } else if let Some(options) = argument.strip_prefix(b"-") {
-            verbosity += options.iter().filter(|option| **option == b'v').count();
-        }
-    }
-    verbosity == 1
+    crate::invocation_policy::curl_verbosity(&argv[1..]) == 1
 }
 
 pub(super) fn matches_classic_verbose_trace(input: &[u8]) -> bool {
@@ -271,6 +262,7 @@ pub(super) fn matches_classic_verbose_trace(input: &[u8]) -> bool {
             b'*' => {}
             b'>' => requests += usize::from(is_curl_request_line(line)),
             b'<' => statuses += usize::from(line.starts_with(b"< HTTP/")),
+            b'{' | b'}' if line.starts_with(b"{ [") || line.starts_with(b"} [") => {}
             _ => return false,
         }
     }

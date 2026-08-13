@@ -133,8 +133,7 @@ pub(super) fn matches(route: Route, input: &[u8]) -> bool {
                         || find_subslice(line, b"database schema is not in sync").is_some()
                 }
                 Route::Diff => {
-                    matches!(line.first(), Some(b'+' | b'-' | b'*'))
-                        || line.starts_with(b"[+]")
+                    line.starts_with(b"[+]")
                         || line.starts_with(b"[-]")
                         || line.starts_with(b"[*]")
                         || line.starts_with(b"No difference detected")
