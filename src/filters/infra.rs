@@ -67,7 +67,16 @@ pub(crate) fn dispatch_streams_decision(
         )));
     }
 
-    if exit_code != 0 && !stderr.is_empty() {
+    let gh_pending_checks = command == b"gh"
+        && arg1 == b"pr"
+        && arg2 == b"checks"
+        && exit_code == 8
+        && stderr.is_empty();
+    let gh_owned_failure = command == b"gh"
+        && (arg1 == b"pr" && matches!(arg2, b"view" | b"checks")
+            || arg1 == b"issue" && arg2 == b"view"
+            || arg1 == b"run" && arg2 == b"list");
+    if exit_code != 0 && (!stderr.is_empty() || gh_owned_failure) && !gh_pending_checks {
         return Ok(StreamFilterDecision::Unchanged);
     }
 
@@ -105,8 +114,8 @@ pub(crate) fn dispatch_streams_decision(
         Some(compact_docker_images(stdout))
     } else if command == b"kubectl" && matches_kubectl(stdout) {
         Some(compact_kubectl(stdout))
-    } else if command == b"gh" {
-        Some(compact_gh(argv, stdout))
+    } else if command == b"gh" && std::str::from_utf8(stdout).is_ok() {
+        compact_gh(argv, stdout)
     } else if command == b"acli" {
         compact_acli(arg1, arg2, arg3, stdout)
     } else {

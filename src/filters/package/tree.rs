@@ -84,6 +84,51 @@ pub(super) fn compact_package_tree(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
     output
 }
 
+pub(super) fn compact_pnpm_list(stdout: &[u8]) -> Option<Vec<u8>> {
+    let mut saw_legend = false;
+    let mut saw_root = false;
+    let mut in_section = false;
+    let mut dependency_rows = 0usize;
+    for raw in stdout.split(|byte| *byte == b'\n') {
+        let clean = strip_ansi(raw);
+        let line = trim_end(&clean).trim_ascii_start();
+        if line.is_empty() {
+            continue;
+        }
+        if !saw_legend {
+            if !line.starts_with(b"Legend:") {
+                return None;
+            }
+            saw_legend = true;
+            continue;
+        }
+        if !saw_root {
+            if !line.contains(&b'@') || line.starts_with(b"Legend:") {
+                return None;
+            }
+            saw_root = true;
+            continue;
+        }
+        if matches!(
+            line,
+            b"dependencies:" | b"devDependencies:" | b"optionalDependencies:"
+        ) {
+            in_section = true;
+            continue;
+        }
+        if !in_section {
+            return None;
+        }
+        if contains_tree_marker(line) || flat_dependency(line).is_some() {
+            dependency_rows += 1;
+        } else {
+            return None;
+        }
+    }
+    (saw_legend && saw_root && in_section && dependency_rows > 0)
+        .then(|| compact_package_tree(stdout, b""))
+}
+
 fn direct_package(line: &[u8]) -> Option<&[u8]> {
     TREE_PREFIXES
         .iter()

@@ -218,10 +218,8 @@ fn gh_extended_list_and_json_routes_keep_actionable_facts() {
 }
 
 #[test]
-fn gh_api_and_json_selection_compact_json_but_jq_stays_exact() {
+fn gh_machine_and_custom_output_stays_byte_exact() {
     let json = fixture("gh_api.json");
-    let expected =
-        b"{\"nameWithOwner\":\"nkootstra/tapas\",\"description\":\"Compact command output for coding agents\",\"isPrivate\":false,\"defaultBranchRef\":{\"name\":\"main\"},\"topics\":[\"agents\",\"cli\",\"rust\"]}\n";
 
     for argv in [
         &[b"gh".as_slice(), b"api", b"repos/nkootstra/tapas"][..],
@@ -234,7 +232,8 @@ fn gh_api_and_json_selection_compact_json_but_jq_stays_exact() {
         ][..],
     ] {
         let output = infra::dispatch_streams_argv(argv, &json, b"", 0, false).unwrap();
-        assert_eq!(output.stdout, expected);
+        assert_eq!(output.stdout, json, "{argv:?}");
+        assert_eq!(output.evidence, EvidenceClass::ByteExact, "{argv:?}");
     }
 
     let jq_output = b"nkootstra/tapas\n";
@@ -253,6 +252,104 @@ fn gh_api_and_json_selection_compact_json_but_jq_stays_exact() {
     )
     .unwrap();
     assert_eq!(output.stdout, jq_output);
+    assert_eq!(output.evidence, EvidenceClass::ByteExact);
+}
+
+#[test]
+fn gh_issue_view_compacts_only_framing_and_preserves_content_bytes() {
+    let input = concat!(
+        "title:\tWhitespace-sensitive report\n",
+        "state:\tOPEN\n",
+        "author:\tcontributor\n",
+        "labels:\tbug\n",
+        "comments:\t1\n",
+        "assignees:\t\n",
+        "number:\t42\n",
+        "--\n",
+        "## Body\n",
+        "\n",
+        "    let value =  one +  two;\n",
+        "\n",
+        "author:\tmaintainer\n",
+        "association:\tmember\n",
+        "edited:\tfalse\n",
+        "status:\tnone\n",
+        "--\n",
+        "Keep  the  two spaces.\n",
+        "\n",
+        "```text\n",
+        "  indented  code\n",
+        "```\n",
+    );
+    let expected = concat!(
+        "#42 OPEN Whitespace-sensitive report\n",
+        "author:\tcontributor\n",
+        "labels:\tbug\n",
+        "comments:\t1\n",
+        "## Body\n",
+        "\n",
+        "    let value =  one +  two;\n",
+        "\n",
+        "author:\tmaintainer\n",
+        "association:\tmember\n",
+        "edited:\tfalse\n",
+        "status:\tnone\n",
+        "--\n",
+        "Keep  the  two spaces.\n",
+        "\n",
+        "```text\n",
+        "  indented  code\n",
+        "```\n",
+    );
+    let stderr = b"warning: cached result\n";
+    let output = infra::dispatch_streams_argv(
+        &[b"gh", b"issue", b"view", b"42", b"--comments"],
+        input.as_bytes(),
+        stderr,
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(output.stdout, expected.as_bytes());
+    assert_eq!(output.stderr, stderr);
+    assert_eq!(output.evidence, EvidenceClass::FactComplete);
+}
+
+#[test]
+fn gh_dedicated_routes_fail_closed_on_unknown_shapes_and_failures() {
+    type Case<'a> = (&'a [&'a [u8]], &'a [u8], i32);
+    let cases: &[Case<'_>] = &[
+        (
+            &[b"gh", b"pr", b"view", b"1"],
+            b"title without metadata\n",
+            0,
+        ),
+        (
+            &[b"gh", b"issue", b"view", b"1"],
+            b"title:\tMissing separator\n",
+            0,
+        ),
+        (
+            &[b"gh", b"pr", b"checks", b"1"],
+            b"not\ta\tcheck\trow\textra\n",
+            0,
+        ),
+        (&[b"gh", b"run", b"list"], b"NAME  VALUE\nrun   one\n", 0),
+        (
+            &[b"gh", b"run", b"list"],
+            b"STATUS TITLE WORKFLOW BRANCH EVENT ID ELAPSED AGE\n",
+            1,
+        ),
+    ];
+    let stderr = b"diagnostic\n";
+    for (argv, stdout, exit_code) in cases {
+        let output = infra::dispatch_streams_argv(argv, stdout, stderr, *exit_code, false).unwrap();
+        assert_eq!(
+            output,
+            StreamFilterOutput::new(stdout.to_vec(), stderr.to_vec(), EvidenceClass::ByteExact),
+            "{argv:?}",
+        );
+    }
 }
 
 #[test]
