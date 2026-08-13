@@ -62,6 +62,7 @@
     "cmake_special_mode_exact": "tests/filters_build.rs::direct_vite_esbuild_and_cmake_routes_require_finite_argv_and_known_grammar",
     "ctest_discovery_dashboard_exact": "tests/filters_test_tools.rs::ctest_and_playwright_routes_require_known_finite_human_modes",
     "docker_machine_exact": "tests/filters_infra.rs::finite_docker_stats_compacts_only_the_default_human_table",
+    "expanded_output_shaping_exact": "tests/process.rs::expanded_output_shaping_policies_remain_byte_exact",
     "frontend_machine_exact": "tests/filters_build.rs::direct_vite_esbuild_and_cmake_routes_require_finite_argv_and_known_grammar",
     "grep_output_shaping_exact": "tests/filters_listing.rs::grep_compacts_only_large_path_prefixed_multi_file_human_matches",
     "helm_machine_mutation_exact": "tests/filters_infra.rs::helm_human_read_routes_compact_and_exact_forms_fail_closed",
@@ -72,10 +73,12 @@
   "inherited_stream_policies": {
     "bat_forced_paging_inherit": "tests/process.rs::lifecycle_policies_inherit_interactive_and_unbounded_commands",
     "ctest_repeat_inherit": "tests/process.rs::lifecycle_policies_inherit_interactive_and_unbounded_commands",
-    "docker_compose_up_inherit": "tests/process.rs::lifecycle_policies_inherit_interactive_and_unbounded_commands",
+    "docker_compose_up_stream": "tests/process.rs::compose_up_streams_state_and_deduplicates_prefixed_logs_per_side",
     "docker_run_inherit": "tests/process.rs::lifecycle_policies_inherit_interactive_and_unbounded_commands",
     "docker_stats_stream_inherit": "tests/process.rs::lifecycle_policies_inherit_interactive_and_unbounded_commands",
     "esbuild_watch_serve_inherit": "tests/process.rs::lifecycle_policies_inherit_interactive_and_unbounded_commands",
+    "legacy_stream_environment_noop": "tests/process.rs::recognized_non_tty_streaming_compacts_by_default_and_legacy_env_is_a_no_op",
+    "live_stream_default": "tests/process.rs::recognized_non_tty_streaming_compacts_by_default_and_legacy_env_is_a_no_op",
     "playwright_interactive_inherit": "tests/process.rs::lifecycle_policies_inherit_interactive_and_unbounded_commands",
     "vite_lifecycle_inherit": "tests/process.rs::lifecycle_policies_inherit_interactive_and_unbounded_commands"
   },

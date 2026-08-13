@@ -32,17 +32,20 @@ Inspect the static command and runner catalogs:
 tapas --filters
 ```
 
-The default catalog includes package workflows (`pip`, `pip3`, `uv`, and
-`uvx`), frontend and native builds (`vite`, `esbuild`, `cmake`, and `ctest`),
-Playwright tests, Helm reads, multi-file human `grep` output, plain `bat` and
-`batcat` output, and recognized Docker BuildKit and finite stats output.
+The default catalog includes 55 common Git, GitHub, Graphite, Rust,
+JavaScript/TypeScript, Python, Go, Ruby, .NET, container, Kubernetes, file,
+cloud, and database workflows. This includes their common human-readable
+forms, such as Cargo and nextest runs, package and build summaries, diagnostics,
+test reports, repository details, container state, aligned tables, and text
+diffs.
 `tapas --filters` reports the compact routes as well as exact-output and
 inherited/stream policies from the same catalog used at runtime.
 
 These routes are deliberately conservative. Machine formats, custom or
 ambiguous output, malformed data, and unsupported option combinations remain
-byte-exact. Interactive, watched, paged, or otherwise unbounded commands
-inherit the terminal instead of being buffered.
+byte-exact. Interactive and paged commands inherit the terminal. Recognized
+line-oriented watches and logs use bounded incremental filtering when their
+output is redirected; other unbounded commands inherit the terminal.
 
 Force exact output when needed:
 
