@@ -384,10 +384,25 @@ mod tests {
             output,
             concat!(
                 "src/app.ts:1:7 TS2322: bad type\n",
+                "        ~\n",
                 "Found 1 error. Watching for file changes.\n",
                 "clean (0 errors)\n",
             )
             .as_bytes()
+        );
+
+        let mut unknown = StreamSide::new(StreamKind::Tsc);
+        let mut output = Vec::new();
+        unknown
+            .feed(b"custom policy output\n", &mut output)
+            .unwrap();
+        unknown
+            .feed(b"Found 0 errors. Watching for file changes.\n", &mut output)
+            .unwrap();
+        unknown.finish(&mut output).unwrap();
+        assert_eq!(
+            output,
+            b"custom policy output\nFound 0 errors. Watching for file changes.\n"
         );
     }
 
