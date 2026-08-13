@@ -264,6 +264,15 @@ fn filter_captured_output<'a>(
     captured: &'a capture::CapturedOutput,
     lossless: bool,
 ) -> FilteredStreams<'a> {
+    filter_captured_output_with_filters(argv, captured, lossless, STREAM_FILTERS)
+}
+
+fn filter_captured_output_with_filters<'a>(
+    argv: &[OsString],
+    captured: &'a capture::CapturedOutput,
+    lossless: bool,
+    filters: &[StreamFilterSpec],
+) -> FilteredStreams<'a> {
     if requests_exact_output(argv) {
         return passthrough_streams(captured);
     }
@@ -280,11 +289,14 @@ fn filter_captured_output<'a>(
         lossless,
     );
 
-    for filter in STREAM_FILTERS {
+    for filter in filters {
         if !(filter.handles)(&argv_bytes) {
             continue;
         }
         match (filter.apply)(input) {
+            Ok(StreamFilterDecision::Passthrough) => {
+                return passthrough_streams(captured);
+            }
             Ok(StreamFilterDecision::Applied(output)) => {
                 return FilteredStreams {
                     stdout: Cow::Owned(output.stdout),
@@ -434,4 +446,68 @@ fn no_output_hint(argv: &[OsString], exit_code: i32) -> Vec<u8> {
     hint.extend_from_slice(exit_code.to_string().as_bytes());
     hint.extend_from_slice(b" with no output)\n");
     hint
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn recognizes_family(_: &[&[u8]]) -> bool {
+        true
+    }
+
+    fn claims_route(
+        _: StreamFilterInput<'_>,
+    ) -> Result<StreamFilterDecision, crate::filters::FilterError> {
+        Ok(StreamFilterDecision::Passthrough)
+    }
+
+    fn declines_route(
+        _: StreamFilterInput<'_>,
+    ) -> Result<StreamFilterDecision, crate::filters::FilterError> {
+        Ok(StreamFilterDecision::Unchanged)
+    }
+
+    #[test]
+    fn route_owned_passthrough_prevents_generic_fallback_byte_exact() {
+        let table = b"NAME       STATUS\nservice-a  running\n".repeat(300);
+        assert!(crate::filters::generic::matches(&table));
+        let captured = capture::CapturedOutput {
+            stdout: table.clone(),
+            stderr: b"retained diagnostic\n".to_vec(),
+            exit_code: 0,
+            incomplete: false,
+            streamed: false,
+            overflowed: false,
+            input_bytes: table.len() + b"retained diagnostic\n".len(),
+        };
+        let unchanged_family = StreamFilterSpec {
+            name: "recognized-family",
+            handles: recognizes_family,
+            apply: declines_route,
+            on_unchanged: OnUnchanged::Continue,
+        };
+        let argv = [OsString::from("recognized")];
+
+        let unchanged =
+            filter_captured_output_with_filters(&argv, &captured, false, &[unchanged_family]);
+
+        assert_eq!(unchanged.filter_name, "generic");
+        assert_ne!(unchanged.stdout.as_ref(), captured.stdout);
+
+        let owning_family = StreamFilterSpec {
+            name: "recognized-family",
+            handles: recognizes_family,
+            apply: claims_route,
+            on_unchanged: OnUnchanged::Continue,
+        };
+
+        let filtered =
+            filter_captured_output_with_filters(&argv, &captured, false, &[owning_family]);
+
+        assert_eq!(filtered.filter_name, "passthrough");
+        assert_eq!(filtered.evidence, EvidenceClass::ByteExact);
+        assert_eq!(filtered.stdout.as_ref(), captured.stdout);
+        assert_eq!(filtered.stderr.as_ref(), captured.stderr);
+    }
 }

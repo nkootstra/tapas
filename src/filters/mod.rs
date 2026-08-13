@@ -71,6 +71,12 @@ impl<'a> StreamFilterInput<'a> {
 /// Internal routing result that lets dispatchers represent passthrough without
 /// an owned copy of the captured streams.
 pub(crate) enum StreamFilterDecision {
+    /// The family recognized and owns this route, but its output must remain
+    /// byte-exact instead of falling through to another filter.
+    #[allow(dead_code)] // Route implementations adopt this foundation incrementally.
+    Passthrough,
+    /// The family did not apply a route-specific decision. Dispatch may use
+    /// the family's configured fallback behavior.
     Unchanged,
     Applied(StreamFilterOutput),
 }
@@ -132,7 +138,7 @@ impl StreamFilterDecision {
 
     pub(crate) fn into_output(self, stdout: &[u8], stderr: &[u8]) -> StreamFilterOutput {
         match self {
-            Self::Unchanged => StreamFilterOutput::passthrough(stdout, stderr),
+            Self::Passthrough | Self::Unchanged => StreamFilterOutput::passthrough(stdout, stderr),
             Self::Applied(output) => output,
         }
     }
@@ -141,4 +147,18 @@ impl StreamFilterDecision {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FilterError {
     InvalidInput,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn passthrough_decision_converts_to_byte_exact_output() {
+        let output = StreamFilterDecision::Passthrough.into_output(b"stdout\0\xff", b"stderr\n");
+
+        assert_eq!(output.stdout, b"stdout\0\xff");
+        assert_eq!(output.stderr, b"stderr\n");
+        assert_eq!(output.evidence, EvidenceClass::ByteExact);
+    }
 }
