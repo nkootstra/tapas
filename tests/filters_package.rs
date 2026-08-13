@@ -84,6 +84,81 @@ fn package_tree_ecosystems_match_the_pinned_fixture_oracles() {
 }
 
 #[test]
+fn pnpm_outdated_compacts_only_the_strict_human_table() {
+    let table = concat!(
+        "\u{250c}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{252c}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{252c}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2510}\n",
+        "\u{2502} Package \u{2502} Current \u{2502} Latest  \u{2502}\n",
+        "\u{251c}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{253c}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{253c}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2524}\n",
+        "\u{2502} chalk   \u{2502} 4.1.2   \u{2502} 5.3.0   \u{2502}\n",
+        "\u{2502} vite    \u{2502} 5.0.0   \u{2502} 6.0.0   \u{2502}\n",
+        "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2534}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2534}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2518}\n",
+    );
+    for argv in [
+        &[b"pnpm".as_slice(), b"outdated"][..],
+        &[b"pnpm".as_slice(), b"outdated", b"--format", b"table"][..],
+        &[b"pnpm".as_slice(), b"outdated", b"--format=table"][..],
+    ] {
+        let output =
+            package::dispatch_streams_argv(argv, table.as_bytes(), b"warning\n", 0, false).unwrap();
+        assert_eq!(
+            output,
+            StreamFilterOutput::new(
+                b"Package Current Latest\nchalk 4.1.2 5.3.0\nvite 5.0.0 6.0.0\n".to_vec(),
+                b"warning\n".to_vec(),
+                EvidenceClass::FactComplete,
+            ),
+            "{argv:?}",
+        );
+    }
+}
+
+#[test]
+fn pnpm_machine_formats_unknown_shapes_and_failures_stay_exact() {
+    type Case<'a> = (&'a [&'a [u8]], &'a [u8], i32);
+    let tree = fixture("pnpm_list.txt");
+    let table = b"Package Current Latest\nchalk 4.1.2 5.3.0\n";
+    let stderr = b"diagnostic\n";
+    let exact_cases: &[Case<'_>] = &[
+        (&[b"pnpm", b"list", b"--json"], &tree, 0),
+        (&[b"pnpm", b"list", b"--parseable"], &tree, 0),
+        (&[b"pnpm", b"list", b"--format", b"table"], &tree, 0),
+        (&[b"pnpm", b"list", b"--format", b"list"], &tree, 0),
+        (&[b"pnpm", b"outdated", b"--format=json"], table, 0),
+        (&[b"pnpm", b"outdated", b"--format", b"list"], table, 0),
+        (
+            &[
+                b"pnpm",
+                b"outdated",
+                b"--format=table",
+                b"--reporter",
+                b"append-only",
+            ],
+            table,
+            0,
+        ),
+        (&[b"pnpm", b"outdated"], table, 0),
+        (&[b"pnpm", b"list"], b"not a package tree\n", 0),
+        (&[b"pnpm", b"list"], &tree, 1),
+    ];
+    for (argv, stdout, exit_code) in exact_cases {
+        let output =
+            package::dispatch_streams_argv(argv, stdout, stderr, *exit_code, false).unwrap();
+        assert_eq!(
+            output,
+            StreamFilterOutput::new(stdout.to_vec(), stderr.to_vec(), EvidenceClass::ByteExact),
+            "{argv:?}",
+        );
+    }
+
+    let non_utf8 = b"Legend: dependencies\n\xff\n";
+    let output =
+        package::dispatch_streams_argv(&[b"pnpm", b"list"], non_utf8, stderr, 0, false).unwrap();
+    assert_eq!(output.evidence, EvidenceClass::ByteExact);
+    assert_eq!(output.stdout, non_utf8);
+    assert_eq!(output.stderr, stderr);
+}
+
+#[test]
 fn npm_install_fixture_matches_the_pinned_summary_oracle() {
     let input = fixture("npm_install.txt");
     let expected = concat!(

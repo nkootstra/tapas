@@ -138,7 +138,11 @@ pub(super) fn run(
 
 #[derive(Clone, Copy)]
 enum StreamKind {
-    Logs { compose: bool, docker: bool },
+    Logs {
+        compose: bool,
+        docker: bool,
+        preserve_metadata: bool,
+    },
     Tsc,
     Jest,
     Gh,
@@ -161,9 +165,27 @@ impl StreamKind {
         }
         let compose = command == b"docker-compose"
             || command == b"docker" && argv.get(1).is_some_and(|value| value == "compose");
+        let preserve_metadata = argv.iter().any(|argument| {
+            let argument = argument.as_encoded_bytes();
+            argument == b"-t"
+                || [
+                    b"--timestamps".as_slice(),
+                    b"--details",
+                    b"--prefix",
+                    b"--no-log-prefix",
+                ]
+                .iter()
+                .any(|option| {
+                    argument == *option
+                        || argument
+                            .strip_prefix(*option)
+                            .is_some_and(|rest| rest.starts_with(b"="))
+                })
+        });
         Self::Logs {
             compose,
             docker: matches!(command, b"docker" | b"docker-compose"),
+            preserve_metadata,
         }
     }
 
@@ -204,12 +226,24 @@ impl Write for CountingWriter<'_> {
 struct StreamSide {
     line: Vec<u8>,
     processor: Processor,
+    raw_passthrough: bool,
 }
 
 impl StreamSide {
     fn new(kind: StreamKind) -> Self {
+        let raw_passthrough = matches!(
+            kind,
+            StreamKind::Logs {
+                preserve_metadata: true,
+                ..
+            }
+        );
         let processor = match kind {
-            StreamKind::Logs { compose, .. } => Processor::Logs(LogState::new(compose)),
+            StreamKind::Logs {
+                compose,
+                preserve_metadata,
+                ..
+            } => Processor::Logs(LogState::new(compose, preserve_metadata)),
             StreamKind::Tsc => Processor::Tsc(TscState::default()),
             StreamKind::Jest => Processor::Jest(JestState::default()),
             StreamKind::Gh => Processor::Gh(GhState::default()),
@@ -217,23 +251,39 @@ impl StreamSide {
         Self {
             line: Vec::new(),
             processor,
+            raw_passthrough,
         }
     }
 
     fn feed(&mut self, bytes: &[u8], writer: &mut dyn Write) -> io::Result<()> {
-        let mut start = 0usize;
-        for (index, byte) in bytes.iter().copied().enumerate() {
-            if byte != b'\n' {
-                continue;
-            }
-            self.line.extend_from_slice(&bytes[start..index]);
-            self.emit_line(writer)?;
-            start = index + 1;
+        if self.raw_passthrough {
+            return writer.write_all(bytes);
         }
-        if start < bytes.len() {
-            self.line.extend_from_slice(&bytes[start..]);
-            if self.line.len() >= MAX_LINE_BYTES {
+
+        let mut cursor = 0usize;
+        while cursor < bytes.len() {
+            let newline = bytes[cursor..]
+                .iter()
+                .position(|byte| *byte == b'\n')
+                .map(|relative| cursor + relative);
+            let end = newline.unwrap_or(bytes.len());
+            let segment = &bytes[cursor..end];
+            let remaining = MAX_LINE_BYTES - self.line.len();
+            if segment.len() >= remaining {
+                self.line.extend_from_slice(&segment[..remaining]);
+                self.processor.finish(writer)?;
+                writer.write_all(&self.line)?;
+                self.line.clear();
+                self.raw_passthrough = true;
+                writer.write_all(&bytes[cursor + remaining..])?;
+                return Ok(());
+            }
+            self.line.extend_from_slice(segment);
+            if newline.is_some() {
                 self.emit_line(writer)?;
+                cursor = end + 1;
+            } else {
+                break;
             }
         }
         Ok(())
@@ -252,6 +302,9 @@ impl StreamSide {
     }
 
     fn finish(&mut self, writer: &mut dyn Write) -> io::Result<()> {
+        if self.raw_passthrough {
+            return Ok(());
+        }
         if !self.line.is_empty() {
             self.emit_line(writer)?;
         }
@@ -315,6 +368,7 @@ mod tests {
         let mut side = StreamSide::new(StreamKind::Logs {
             compose: false,
             docker: true,
+            preserve_metadata: false,
         });
         let mut output = Vec::new();
         side.feed(b"2026-08-01 10:00:00 INFO rea", &mut output)
@@ -327,11 +381,32 @@ mod tests {
         let mut side = StreamSide::new(StreamKind::Logs {
             compose: false,
             docker: false,
+            preserve_metadata: false,
         });
         let mut output = Vec::new();
         side.feed(&vec![b'x'; MAX_LINE_BYTES], &mut output).unwrap();
+        side.feed(b"tail\n", &mut output).unwrap();
         side.finish(&mut output).unwrap();
-        assert_eq!(output.len(), MAX_LINE_BYTES + 1);
+        assert_eq!(
+            output,
+            [vec![b'x'; MAX_LINE_BYTES], b"tail\n".to_vec()].concat()
+        );
+    }
+
+    #[test]
+    fn oversized_metadata_line_fails_open_without_inserting_a_delimiter() {
+        let mut side = StreamSide::new(StreamKind::Logs {
+            compose: false,
+            docker: true,
+            preserve_metadata: true,
+        });
+        let mut input = vec![b'x'; MAX_LINE_BYTES + 17];
+        input.extend_from_slice(b"tail\n");
+        let mut output = Vec::new();
+        side.feed(&input[..MAX_LINE_BYTES], &mut output).unwrap();
+        side.feed(&input[MAX_LINE_BYTES..], &mut output).unwrap();
+        side.finish(&mut output).unwrap();
+        assert_eq!(output, input);
     }
 
     #[test]
@@ -356,10 +431,25 @@ mod tests {
             output,
             concat!(
                 "src/app.ts:1:7 TS2322: bad type\n",
+                "        ~\n",
                 "Found 1 error. Watching for file changes.\n",
                 "clean (0 errors)\n",
             )
             .as_bytes()
+        );
+
+        let mut unknown = StreamSide::new(StreamKind::Tsc);
+        let mut output = Vec::new();
+        unknown
+            .feed(b"custom policy output\n", &mut output)
+            .unwrap();
+        unknown
+            .feed(b"Found 0 errors. Watching for file changes.\n", &mut output)
+            .unwrap();
+        unknown.finish(&mut output).unwrap();
+        assert_eq!(
+            output,
+            b"custom policy output\nFound 0 errors. Watching for file changes.\n"
         );
     }
 

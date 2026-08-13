@@ -43,10 +43,11 @@ pub(super) fn playwright_route(argv: &[&[u8]]) -> bool {
 
 pub(super) fn matches_playwright(stdout: &[u8], stderr: &[u8]) -> bool {
     [stdout, stderr].into_iter().any(|input| {
-        input.split(|byte| *byte == b'\n').any(|line| {
-            line.trim_ascii_start().starts_with(b"Running ")
-                || playwright_summary(line.trim_ascii())
-        })
+        let mut lines = input
+            .split(|byte| *byte == b'\n')
+            .map(|line| line.trim_ascii());
+        let has_run = lines.clone().any(playwright_running_line);
+        has_run && lines.any(playwright_summary)
     })
 }
 
@@ -69,25 +70,57 @@ pub(super) fn compact_playwright(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
 
 fn reporter<'a>(argv: &'a [&'a [u8]]) -> Option<&'a [u8]> {
     let args = crate::invocation_policy::options(argv);
+    let mut reporter = None;
     for (index, argument) in args.iter().enumerate() {
         if *argument == b"--reporter" {
-            return args.get(index + 1).copied();
+            let value = args.get(index + 1).copied()?;
+            if reporter.replace(value).is_some() {
+                return None;
+            }
         }
-        if let Some(value) = argument.strip_prefix(b"--reporter=") {
-            return Some(value);
+        if let Some(value) = argument.strip_prefix(b"--reporter=")
+            && reporter.replace(value).is_some()
+        {
+            return None;
         }
     }
-    None
+    reporter
+}
+
+fn playwright_running_line(line: &[u8]) -> bool {
+    let mut words = line
+        .split(|byte| byte.is_ascii_whitespace())
+        .filter(|word| !word.is_empty());
+    words.next() == Some(b"Running".as_slice())
+        && words
+            .next()
+            .is_some_and(|word| word.iter().all(u8::is_ascii_digit))
+        && words
+            .next()
+            .is_some_and(|word| matches!(word, b"test" | b"tests"))
+        && words.next() == Some(b"using".as_slice())
+        && words
+            .next()
+            .is_some_and(|word| word.iter().all(u8::is_ascii_digit))
+        && words
+            .next()
+            .is_some_and(|word| matches!(word, b"worker" | b"workers"))
+        && words.next().is_none()
 }
 
 fn playwright_summary(line: &[u8]) -> bool {
     let mut words = line
         .split(|byte| byte.is_ascii_whitespace())
         .filter(|word| !word.is_empty());
-    words
+    let count = words
         .next()
-        .is_some_and(|word| word.iter().all(u8::is_ascii_digit))
-        && words
-            .next()
-            .is_some_and(|word| matches!(word, b"passed" | b"failed" | b"skipped" | b"flaky"))
+        .is_some_and(|word| word.iter().all(u8::is_ascii_digit));
+    let status = words
+        .next()
+        .is_some_and(|word| matches!(word, b"passed" | b"failed" | b"skipped" | b"flaky"));
+    let suffix = words.next();
+    count
+        && status
+        && suffix.is_none_or(|word| word.starts_with(b"(") && word.ends_with(b")"))
+        && words.next().is_none()
 }

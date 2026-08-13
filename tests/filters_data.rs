@@ -12,7 +12,6 @@ fn structured_json_dispatch_minifies_single_containers_byte_safely() {
     let expected = b"{\"a\":\"x y\",\"b\":[1,2],\"raw\":\"}\\\\\\\"{\"}\n";
 
     for argv in [
-        &[b"aws".as_slice(), b"sts", b"get-caller-identity"][..],
         &[
             b"gh".as_slice(),
             b"issue",
@@ -36,6 +35,132 @@ fn structured_json_dispatch_minifies_single_containers_byte_safely() {
     assert_eq!(
         data::dispatch_streams_argv(&[b"jq", b"."], input, b"", 0, false).unwrap(),
         StreamFilterOutput::new(input.to_vec(), Vec::new(), EvidenceClass::ByteExact),
+    );
+}
+
+#[test]
+fn aws_only_compacts_explicit_recognized_table_output() {
+    let table = concat!(
+        "-----------------------\n",
+        "|   DescribeRegions   |\n",
+        "+----------+-----------+\n",
+        "| Name     | Endpoint  |\n",
+        "+----------+-----------+\n",
+        "| eu-west-1| example-1 |\n",
+        "| eu-west-2| example-2 |\n",
+        "+----------+-----------+\n",
+    );
+    let compact = data::dispatch_streams_argv(
+        &[b"aws", b"ec2", b"describe-regions", b"--output", b"table"],
+        table.as_bytes(),
+        b"warning\n",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(
+        compact,
+        StreamFilterOutput::new(
+            b"DescribeRegions\nName\tEndpoint\neu-west-1\texample-1\neu-west-2\texample-2\n"
+                .to_vec(),
+            b"warning\n".to_vec(),
+            EvidenceClass::PotentiallyLossy,
+        )
+    );
+
+    let json = b"{\n  \"Regions\": []\n}\n";
+    for argv in [
+        &[b"aws".as_slice(), b"ec2", b"describe-regions"][..],
+        &[
+            b"aws".as_slice(),
+            b"ec2",
+            b"describe-regions",
+            b"--output=json",
+        ][..],
+        &[b"aws".as_slice(), b"ec2", b"describe-regions", b"--query=x"][..],
+    ] {
+        assert_eq!(
+            data::dispatch_streams_argv(argv, json, b"", 0, false).unwrap(),
+            StreamFilterOutput::new(json.to_vec(), Vec::new(), EvidenceClass::ByteExact),
+            "argv {argv:?}",
+        );
+    }
+
+    for malformed in [
+        b"Name   Endpoint\neu-west-1   example-1\n".as_slice(),
+        b"+---+---+\n| A | B |\n+---+---+\n| 1 | 2 | 3 |\n+---+---+\n",
+        b"+---+\n| Name \xff |\n+---+\n".as_slice(),
+    ] {
+        assert_eq!(
+            data::dispatch_streams_argv(
+                &[b"aws", b"ec2", b"describe-regions", b"--output=table"],
+                malformed,
+                b"",
+                0,
+                false,
+            )
+            .unwrap(),
+            StreamFilterOutput::new(malformed.to_vec(), Vec::new(), EvidenceClass::ByteExact),
+        );
+    }
+}
+
+#[test]
+fn psql_only_compacts_finite_aligned_table_routes() {
+    let table = b" id | name  \n----+-------\n 1  | alpha \n 2  | beta  \n(2 rows)\n";
+    for argv in [
+        &[b"psql".as_slice(), b"-c", b"select id, name from items"][..],
+        &[b"psql".as_slice(), b"--command=select id, name from items"][..],
+        &[b"psql".as_slice(), b"--list"][..],
+        &[b"psql".as_slice(), b"-l"][..],
+    ] {
+        assert_eq!(
+            data::dispatch_streams_argv(argv, table, b"", 0, false).unwrap(),
+            StreamFilterOutput::new(
+                b"id\tname\n1\talpha\n2\tbeta\n(2 rows)\n".to_vec(),
+                Vec::new(),
+                EvidenceClass::PotentiallyLossy,
+            ),
+            "argv {argv:?}",
+        );
+    }
+
+    for argv in [
+        &[b"psql".as_slice(), b"database"][..],
+        &[b"psql".as_slice(), b"--unknown"][..],
+        &[b"psql".as_slice(), b"-c", b"select 1", b"database"][..],
+        &[b"psql".as_slice(), b"-At", b"-c", b"select 1"][..],
+        &[
+            b"psql".as_slice(),
+            b"--output",
+            b"rows.txt",
+            b"-c",
+            b"select 1",
+        ][..],
+        &[
+            b"psql".as_slice(),
+            b"-c",
+            b"\\copy items to stdout with csv",
+        ][..],
+    ] {
+        assert_eq!(
+            data::dispatch_streams_argv(argv, table, b"", 0, false).unwrap(),
+            StreamFilterOutput::new(table.to_vec(), Vec::new(), EvidenceClass::ByteExact),
+            "argv {argv:?}",
+        );
+    }
+
+    let malformed = b" id | name\n----+-----\n 1  | bad \xff\n(1 row)\n";
+    assert_eq!(
+        data::dispatch_streams_argv(
+            &[b"psql", b"-c", b"select id, name from items"],
+            malformed,
+            b"",
+            0,
+            false,
+        )
+        .unwrap(),
+        StreamFilterOutput::new(malformed.to_vec(), Vec::new(), EvidenceClass::ByteExact),
     );
 }
 

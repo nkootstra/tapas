@@ -229,12 +229,12 @@ fn filters_report_the_canonical_commands_and_runners() {
             "Compact routes:",
             &[
                 "pip_install",
-                "uv_project",
-                "vite_build",
+                "git_status",
+                "cargo_nextest",
                 "playwright_test",
-                "helm_read",
-                "grep_multifile",
-                "docker_buildkit",
+                "prisma_migrate",
+                "golangci_lint",
+                "docker_compose_up",
             ][..],
         ),
         (
@@ -269,8 +269,8 @@ fn filters_report_the_canonical_commands_and_runners() {
 
 #[test]
 fn expanded_catalog_reports_and_rewrites_the_supported_commands() {
-    assert_eq!(tapas::catalog::AUTO_WRAP_COMMANDS.len(), 63);
-    assert_eq!(tapas::catalog::WRAPPER_COMMANDS.len(), 78);
+    assert_eq!(tapas::catalog::AUTO_WRAP_COMMANDS.len(), 76);
+    assert_eq!(tapas::catalog::WRAPPER_COMMANDS.len(), 85);
     let filters = tapas(&["--filters"]);
     let filters = String::from_utf8(filters.stdout).expect("UTF-8 filters");
     for command in [
@@ -313,6 +313,62 @@ fn expanded_catalog_reports_and_rewrites_the_supported_commands() {
 }
 
 #[test]
+fn expanded_catalog_commands_rewrite_directly_and_through_transparent_runners() {
+    let promoted = [
+        "diff",
+        "dotnet",
+        "golangci-lint",
+        "gt",
+        "head",
+        "mypy",
+        "prisma",
+        "rake",
+        "rspec",
+        "rubocop",
+        "ruff",
+        "tail",
+        "wc",
+    ];
+    let executable = env!("CARGO_BIN_EXE_tapas");
+
+    for target in ["claude", "opencode"] {
+        for command in promoted {
+            let direct = format!(r#"{{"tool_input":{{"command":"{command} --version"}}}}"#);
+            let output = tapas_with_stdin(&["--hook-eval", target], direct.as_bytes(), &[]);
+            assert!(
+                output.status.success(),
+                "target: {target}, command: {command}"
+            );
+            let stdout = String::from_utf8(output.stdout).expect("UTF-8 hook output");
+            assert!(
+                stdout.contains(&format!("'{executable}' {command} --version")),
+                "target: {target}, command: {command}, output: {stdout:?}",
+            );
+            assert_eq!(stdout.matches(executable).count(), 1);
+        }
+
+        for command in [
+            "npx gt status",
+            "uv run rubocop",
+            "pnpm exec prisma migrate status",
+        ] {
+            let input = format!(r#"{{"tool_input":{{"command":{command:?}}}}}"#);
+            let output = tapas_with_stdin(&["--hook-eval", target], input.as_bytes(), &[]);
+            assert!(
+                output.status.success(),
+                "target: {target}, command: {command}"
+            );
+            let stdout = String::from_utf8(output.stdout).expect("UTF-8 hook output");
+            assert!(
+                stdout.contains(&format!("'{executable}' {command}")),
+                "target: {target}, command: {command}, output: {stdout:?}",
+            );
+            assert_eq!(stdout.matches(executable).count(), 1);
+        }
+    }
+}
+
+#[test]
 fn all_auto_wrap_commands_rewrite_directly() {
     for command in tapas::catalog::AUTO_WRAP_COMMANDS {
         let arguments = if matches!(*command, "bunx" | "uvx") {
@@ -332,6 +388,45 @@ fn all_auto_wrap_commands_rewrite_directly() {
             String::from_utf8_lossy(&output.stdout)
         );
     }
+}
+
+#[test]
+fn cargo_check_and_clippy_routes_compact_recognized_build_output() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("time after epoch")
+        .as_nanos();
+    let directory = std::env::temp_dir().join(format!(
+        "tapas-cli-cargo-routes-{}-{unique}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&directory).expect("create fake cargo directory");
+    let cargo = directory.join("cargo");
+    fs::write(
+        &cargo,
+        b"#!/bin/sh\nprintf '   Compiling demo v0.1.0\\n    Finished dev [unoptimized] target(s) in 0.1s\\n'\n",
+    )
+    .expect("write fake cargo");
+    fs::set_permissions(&cargo, fs::Permissions::from_mode(0o755)).expect("make cargo executable");
+
+    for subcommand in ["check", "clippy"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_tapas"))
+            .arg(&cargo)
+            .arg(subcommand)
+            .env_remove("TAPAS_LOSSLESS")
+            .env_remove("TAPAS_STREAM")
+            .env_remove("TAPAS_RAW")
+            .output()
+            .expect("run fake cargo through tapas");
+        assert!(output.status.success(), "subcommand: {subcommand}");
+        assert_eq!(
+            output.stdout, b"cargo: Finished dev; 1 crates\n",
+            "subcommand: {subcommand}",
+        );
+        assert!(output.stderr.is_empty(), "subcommand: {subcommand}");
+    }
+
+    fs::remove_dir_all(directory).expect("remove fake cargo directory");
 }
 
 #[test]
@@ -748,6 +843,32 @@ fn codex_hook_allows_only_the_rewritten_command() {
     assert!(self_check.status.success());
     assert!(self_check.stdout.is_empty());
     assert!(self_check.stderr.is_empty());
+}
+
+#[test]
+fn codex_hook_keeps_the_expanded_catalog_outside_its_read_only_allowlist() {
+    for command in [
+        "diff",
+        "golangci-lint",
+        "gt",
+        "prisma",
+        "rake",
+        "rspec",
+        "rubocop",
+        "wc",
+    ] {
+        let input = format!(
+            r#"{{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{{"command":"{command} --version"}}}}"#,
+        );
+        let output = tapas_with_stdin(
+            &["--hook-eval", "codex"],
+            input.as_bytes(),
+            &[("PATH", "/usr/bin:/bin")],
+        );
+        assert!(output.status.success(), "command: {command}");
+        assert!(output.stdout.is_empty(), "command: {command}");
+        assert!(output.stderr.is_empty(), "command: {command}");
+    }
 }
 
 #[test]

@@ -9,6 +9,9 @@ pub(super) fn compact_curl_trace(input: &[u8]) -> Vec<u8> {
         if line.is_empty() {
             continue;
         }
+        if line.starts_with(b"{ [") || line.starts_with(b"} [") {
+            continue;
+        }
         if find_subslice(line, b"-----BEGIN CERTIFICATE-----").is_some() {
             in_certificate = true;
             continue;
@@ -240,11 +243,30 @@ pub(super) fn compact_curl(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
     output
 }
 
-pub(super) fn has_verbose_flag(argv: &[&[u8]]) -> bool {
-    argv[1..]
-        .iter()
-        .take_while(|arg| **arg != b"--")
-        .any(|arg| **arg == *b"--verbose" || arg.starts_with(b"-") && arg[1..].contains(&b'v'))
+pub(super) fn is_single_verbose_invocation(argv: &[&[u8]]) -> bool {
+    crate::invocation_policy::curl_verbosity(&argv[1..]) == 1
+}
+
+pub(super) fn matches_classic_verbose_trace(input: &[u8]) -> bool {
+    if input.is_empty() || std::str::from_utf8(input).is_err() {
+        return false;
+    }
+    let mut requests = 0usize;
+    let mut statuses = 0usize;
+    for raw in input.split(|byte| *byte == b'\n') {
+        let line = raw.strip_suffix(b"\r").unwrap_or(raw);
+        if line.is_empty() {
+            continue;
+        }
+        match line[0] {
+            b'*' => {}
+            b'>' => requests += usize::from(is_curl_request_line(line)),
+            b'<' => statuses += usize::from(line.starts_with(b"< HTTP/")),
+            b'{' | b'}' if line.starts_with(b"{ [") || line.starts_with(b"} [") => {}
+            _ => return false,
+        }
+    }
+    requests > 0 && statuses > 0 && statuses >= requests
 }
 use super::table::strip_prefix_ignore_ascii_case;
 use super::{append_line, find_subslice};

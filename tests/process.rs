@@ -24,12 +24,15 @@ impl FakeCommand {
     fn new(name: &str, script: &[u8]) -> Self {
         let directory = common::unique_temp_dir(&std::env::temp_dir(), "tapas-process-test");
         let path = directory.join(name);
-        std::fs::write(&path, script).expect("write fake command");
-        let mut permissions = std::fs::metadata(&path)
+        let staging_path = directory.join(format!(".{name}.pending"));
+        std::fs::write(&staging_path, script).expect("write staged fake command");
+        let mut permissions = std::fs::metadata(&staging_path)
             .expect("read fake command metadata")
             .permissions();
         permissions.set_mode(0o755);
-        std::fs::set_permissions(&path, permissions).expect("make fake command executable");
+        std::fs::set_permissions(&staging_path, permissions)
+            .expect("make staged fake command executable");
+        std::fs::rename(&staging_path, &path).expect("publish fake command atomically");
         Self { directory, path }
     }
 
@@ -44,10 +47,49 @@ impl Drop for FakeCommand {
     }
 }
 
+#[test]
+fn fake_commands_are_executable_immediately_after_atomic_publication() {
+    for _ in 0..32 {
+        let command = FakeCommand::new("fixture", b"#!/bin/sh\nprintf ready\n");
+        let output = Command::new(command.path())
+            .output()
+            .expect("execute newly published fake command");
+        assert!(output.status.success());
+        assert_eq!(output.stdout, b"ready");
+    }
+}
+
+#[test]
+fn transient_text_busy_errors_are_retried_at_the_process_boundary() {
+    let command = FakeCommand::new("fixture", b"#!/bin/sh\nprintf ready\n");
+    let writer = std::fs::OpenOptions::new()
+        .write(true)
+        .open(command.path())
+        .expect("hold fake command open for writing");
+    let release = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(25));
+        drop(writer);
+    });
+    let args = [command.path().as_os_str().to_owned()];
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+
+    let report = run(&args, &mut stdout, &mut stderr, RunOptions::default())
+        .expect("retry transient text-busy spawn");
+    release.join().expect("release fake command writer");
+
+    assert_eq!(report.exit_code, 0);
+    assert_eq!(stdout, b"ready");
+    assert!(stderr.is_empty());
+}
+
 fn tapas(args: &[&str], stdin: &[u8], env: &[(&str, &str)]) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_tapas"));
     command
         .args(args)
+        .env_remove("TAPAS_LOSSLESS")
+        .env_remove("TAPAS_STREAM")
+        .env_remove("TAPAS_RAW")
         .envs(env.iter().copied())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -509,12 +551,10 @@ fn lifecycle_policies_inherit_interactive_and_unbounded_commands() {
         &["playwright", "show-trace", "trace.zip"][..],
         &["playwright", "codegen", "example.com"][..],
         &["docker", "run", "alpine"][..],
-        &["docker", "compose", "up"][..],
-        &["docker", "compose", "-f", "compose.yml", "up"][..],
         &["docker", "compose", "--future", "value", "up"][..],
-        &["docker", "compose", "up", "--detach=false"][..],
-        &["docker", "compose", "up", "--detach", "false"][..],
-        &["docker-compose", "up"][..],
+        &["docker", "compose", "up", "--watch"][..],
+        &["docker", "compose", "up", "--menu"][..],
+        &["docker", "compose", "up", "--menu=true"][..],
         &["docker", "stats"][..],
         &["docker", "stats", "--no-stream=false"][..],
         &["docker", "stats", "--no-stream", "false"][..],
@@ -537,6 +577,8 @@ fn lifecycle_policies_inherit_interactive_and_unbounded_commands() {
         &["docker", "compose", "-f", "compose.yml", "ps"][..],
         &["docker", "compose", "up", "--detach"][..],
         &["docker", "compose", "up", "--detach=true"][..],
+        &["docker", "compose", "up", "--wait"][..],
+        &["docker", "compose", "up", "--no-start"][..],
         &["docker", "stats", "--no-stream"][..],
         &["docker", "stats", "--no-stream=true"][..],
         &["bat", "--paging=auto", "README.md"][..],
@@ -544,6 +586,23 @@ fn lifecycle_policies_inherit_interactive_and_unbounded_commands() {
     ] {
         let args = args.iter().map(OsString::from).collect::<Vec<_>>();
         assert_eq!(classify_stream(&args), StreamDecision::Capture, "{args:?}");
+    }
+
+    for args in [
+        &["docker", "compose", "up"][..],
+        &["docker", "compose", "-f", "compose.yml", "up"][..],
+        &["docker", "compose", "up", "--detach=false"][..],
+        &["docker", "compose", "up", "--detach", "false"][..],
+        &["docker", "compose", "up", "--watch=false"][..],
+        &["docker", "compose", "up", "--menu=false"][..],
+        &["docker-compose", "up"][..],
+    ] {
+        let args = args.iter().map(OsString::from).collect::<Vec<_>>();
+        assert_eq!(
+            classify_stream(&args),
+            StreamDecision::StreamFilter,
+            "{args:?}"
+        );
     }
 
     let nested = ["npx", "vite", "dev"]
@@ -557,41 +616,112 @@ fn lifecycle_policies_inherit_interactive_and_unbounded_commands() {
 }
 
 #[test]
-fn streaming_is_raw_by_default_and_opt_in_deduplicates_each_stream() {
+fn recognized_non_tty_streaming_compacts_by_default_with_a_legacy_opt_out() {
     let command = FakeCommand::new(
         "docker",
         b"#!/bin/sh\nprintf '2026-08-01 10:00:00 INFO ready\\n2026-08-01 10:00:01 INFO ready\\n'\nprintf '2026-08-01 10:00:00 WARN retry\\n2026-08-01 10:00:01 WARN retry\\n' >&2\nexit 42\n",
     );
     let program = command.path().to_str().expect("UTF-8 fake command path");
-    let raw = tapas(&[program, "logs", "-f", "api"], b"", &[]);
-    assert_eq!(raw.status.code(), Some(42));
-    assert_eq!(
-        raw.stdout,
-        b"2026-08-01 10:00:00 INFO ready\n2026-08-01 10:00:01 INFO ready\n"
-    );
-    assert_eq!(
-        raw.stderr,
-        b"2026-08-01 10:00:00 WARN retry\n2026-08-01 10:00:01 WARN retry\n"
-    );
-
-    let filtered = tapas(
-        &[program, "logs", "-f", "api"],
-        b"",
-        &[("TAPAS_STREAM", "1")],
-    );
+    let filtered = tapas(&[program, "logs", "-f", "api"], b"", &[]);
     assert_eq!(filtered.status.code(), Some(42));
     assert_eq!(filtered.stdout, "INFO ready ×2\n".as_bytes());
     assert_eq!(filtered.stderr, "WARN retry ×2\n".as_bytes());
 
-    for env in [
-        &[("SMLL_STREAM", "1")][..],
-        &[("TAPAS_STREAM", "1"), ("TAPAS_LOSSLESS", "1")][..],
-    ] {
-        let bypassed = tapas(&[program, "logs", "-f", "api"], b"", env);
-        assert_eq!(bypassed.status.code(), Some(42));
-        assert_eq!(bypassed.stdout, raw.stdout);
-        assert_eq!(bypassed.stderr, raw.stderr);
+    for legacy_value in ["1", "anything"] {
+        let legacy = tapas(
+            &[program, "logs", "-f", "api"],
+            b"",
+            &[("TAPAS_STREAM", legacy_value)],
+        );
+        assert_eq!(legacy.status.code(), Some(42));
+        assert_eq!(legacy.stdout, filtered.stdout);
+        assert_eq!(legacy.stderr, filtered.stderr);
     }
+
+    let expected_stdout = b"2026-08-01 10:00:00 INFO ready\n2026-08-01 10:00:01 INFO ready\n";
+    let expected_stderr = b"2026-08-01 10:00:00 WARN retry\n2026-08-01 10:00:01 WARN retry\n";
+    for (prefix, env) in [
+        (&["--raw", "--"][..], &[][..]),
+        (&[][..], &[("TAPAS_LOSSLESS", "1")][..]),
+        (&[][..], &[("TAPAS_STREAM", "0")][..]),
+        (&[][..], &[("TAPAS_STREAM", "false")][..]),
+    ] {
+        let mut args = prefix.to_vec();
+        args.extend([program, "logs", "-f", "api"]);
+        let raw = tapas(&args, b"", env);
+        assert_eq!(raw.status.code(), Some(42));
+        assert_eq!(raw.stdout, expected_stdout);
+        assert_eq!(raw.stderr, expected_stderr);
+    }
+}
+
+#[test]
+fn compose_up_streams_state_and_deduplicates_prefixed_logs_per_side() {
+    let command = FakeCommand::new(
+        "docker",
+        b"#!/bin/sh\nprintf '[+] Running 1/1\n Container demo-api-1 Started\napi-1 | 2026-08-01 10:00:00 INFO ready\napi-1 | 2026-08-01 10:00:01 INFO ready\n'\nprintf '\\033[31mcustom compose extension\\033[0m  \napi-1 | stderr detail\n' >&2\nexit 23\n",
+    );
+    let program = command.path().to_str().expect("UTF-8 fake command path");
+    let output = tapas(&[program, "compose", "up"], b"", &[]);
+
+    assert_eq!(output.status.code(), Some(23));
+    assert_eq!(
+        output.stdout,
+        "[+] Running 1/1\n Container demo-api-1 Started\napi-1| INFO ready ×2\n".as_bytes()
+    );
+    assert_eq!(
+        output.stderr,
+        b"\x1b[31mcustom compose extension\x1b[0m  \napi-1 | stderr detail\n"
+    );
+}
+
+#[test]
+fn exact_output_routes_bypass_live_filters_and_empty_output_hints() {
+    let tail = FakeCommand::new(
+        "tail",
+        b"#!/bin/sh\nprintf '2026-08-01 10:00:00 INFO ready\n2026-08-01 10:00:01 INFO ready\n'\n",
+    );
+    let tail_program = tail.path().to_str().expect("UTF-8 fake command path");
+    let live = tapas(&[tail_program, "-f", "-n", "20", "app.log"], b"", &[]);
+    assert!(live.status.success());
+    assert_eq!(
+        live.stdout,
+        b"2026-08-01 10:00:00 INFO ready\n2026-08-01 10:00:01 INFO ready\n"
+    );
+
+    let diff = FakeCommand::new("diff", b"#!/bin/sh\nexit 0\n");
+    let diff_program = diff.path().to_str().expect("UTF-8 fake command path");
+    let empty = tapas(&[diff_program, "--brief", "old", "new"], b"", &[]);
+    assert!(empty.status.success());
+    assert!(empty.stdout.is_empty());
+    assert!(empty.stderr.is_empty());
+}
+
+#[test]
+fn requested_live_log_metadata_is_preserved() {
+    let command = FakeCommand::new(
+        "docker",
+        b"#!/bin/sh\nprintf '2026-08-01 10:00:00 label=blue INFO ready\n2026-08-01 10:00:01 label=blue INFO ready\n'\n",
+    );
+    let program = command.path().to_str().expect("UTF-8 fake command path");
+    let output = tapas(
+        &[
+            program,
+            "logs",
+            "--follow",
+            "--timestamps",
+            "--details",
+            "api",
+        ],
+        b"",
+        &[],
+    );
+
+    assert!(output.status.success());
+    assert_eq!(
+        output.stdout,
+        b"2026-08-01 10:00:00 label=blue INFO ready\n2026-08-01 10:00:01 label=blue INFO ready\n"
+    );
 }
 
 #[test]
@@ -601,7 +731,7 @@ fn jest_watch_unknown_frame_before_recognized_output_fails_open_losslessly() {
         b"#!/bin/sh\nprintf 'custom watch status\\n\\033[2J\\033[HTest Suites: 1 passed, 1 total\\nTests: 1 passed, 1 total\\n'\n",
     );
     let program = jest.path().to_str().expect("UTF-8 fake command path");
-    let output = tapas(&[program, "--watch"], b"", &[("TAPAS_STREAM", "1")]);
+    let output = tapas(&[program, "--watch"], b"", &[]);
 
     assert!(output.status.success());
     assert_eq!(
@@ -618,7 +748,7 @@ fn vitest_watch_unknown_frame_after_recognized_output_only_opens_its_stream_side
         b"#!/bin/sh\nprintf 'Test Suites: 1 passed, 1 total\\nTests: 1 passed, 1 total\\n\\033[2J\\033[Hcustom watch status\\n\\033[2J\\033[HTest Suites: 1 passed, 1 total\\nTests: 1 passed, 1 total\\n'\nprintf 'Test Suites: 1 passed, 1 total\\nTests: 1 passed, 1 total\\n' >&2\n",
     );
     let program = vitest.path().to_str().expect("UTF-8 fake command path");
-    let output = tapas(&[program, "--watch"], b"", &[("TAPAS_STREAM", "1")]);
+    let output = tapas(&[program, "--watch"], b"", &[]);
 
     assert!(output.status.success());
     assert_eq!(
@@ -629,14 +759,39 @@ fn vitest_watch_unknown_frame_after_recognized_output_only_opens_its_stream_side
 }
 
 #[test]
+fn tsc_and_gh_live_workflows_use_the_default_process_stream_path() {
+    let tsc = FakeCommand::new(
+        "tsc",
+        b"#!/bin/sh\nprintf 'src/app.ts:1:7 - error TS2322: bad type\n        ~\nFound 1 error. Watching for file changes.\n'\n",
+    );
+    let tsc_program = tsc.path().to_str().expect("UTF-8 fake command path");
+    let tsc_output = tapas(&[tsc_program, "--watch"], b"", &[]);
+    assert!(tsc_output.status.success());
+    assert_eq!(
+        tsc_output.stdout,
+        b"src/app.ts:1:7 TS2322: bad type\n        ~\nFound 1 error. Watching for file changes.\n"
+    );
+    assert!(tsc_output.stderr.is_empty());
+
+    let gh = FakeCommand::new(
+        "gh",
+        b"#!/bin/sh\nprintf 'JOBS\n* build (ID 123)\n  * checkout\n\nJOBS\n\\342\\234\\223 build in 2s (ID 123)\n\n'\n",
+    );
+    let gh_program = gh.path().to_str().expect("UTF-8 fake command path");
+    let gh_output = tapas(&[gh_program, "run", "watch"], b"", &[]);
+    assert!(gh_output.status.success());
+    assert_eq!(
+        gh_output.stdout,
+        b"build: running\nbuild: running->passed\n"
+    );
+    assert!(gh_output.stderr.is_empty());
+}
+
+#[test]
 fn streaming_preserves_signals_and_descendant_pipe_diagnostics() {
     let signaled = FakeCommand::new("docker", b"#!/bin/sh\nkill -TERM $$\n");
     let program = signaled.path().to_str().expect("UTF-8 fake command path");
-    let output = tapas(
-        &[program, "logs", "-f", "api"],
-        b"",
-        &[("TAPAS_STREAM", "1")],
-    );
+    let output = tapas(&[program, "logs", "-f", "api"], b"", &[]);
     assert_eq!(output.status.code(), Some(143));
     assert!(output.stdout.is_empty());
     assert!(output.stderr.is_empty());
@@ -647,11 +802,7 @@ fn streaming_preserves_signals_and_descendant_pipe_diagnostics() {
     );
     let program = retained.path().to_str().expect("UTF-8 fake command path");
     let started = Instant::now();
-    let output = tapas(
-        &[program, "logs", "-f", "api"],
-        b"",
-        &[("TAPAS_STREAM", "1")],
-    );
+    let output = tapas(&[program, "logs", "-f", "api"], b"", &[]);
     assert!(started.elapsed() < Duration::from_secs(3));
     assert_eq!(output.stdout, b"ready\n");
     assert_eq!(
@@ -751,6 +902,108 @@ fn invocation_policy_is_byte_safe_and_stops_option_scans_at_the_terminator() {
         OsString::from("--"),
         OsString::from("--format=%H"),
     ]));
+}
+
+#[test]
+fn expanded_output_shaping_policies_remain_byte_exact() {
+    fn exact(values: &[&str]) -> bool {
+        requests_exact_output(&values.iter().map(OsString::from).collect::<Vec<_>>())
+    }
+
+    for values in [
+        &["cargo", "test", "--message-format=json"] as &[&str],
+        &["cargo", "metadata", "--json"],
+        &[
+            "cargo",
+            "nextest",
+            "run",
+            "--message-format",
+            "libtest-json",
+        ],
+        &["nextest", "run", "--message-format=libtest-json-plus"],
+        &["go", "test", "-json", "./..."],
+        &["jest", "--json"],
+        &["jest", "--reporters", "jest-junit"],
+        &["vitest", "--reporter=json", "--outputFile=results.json"],
+        &["playwright", "test", "--reporter", "junit"],
+        &["prisma", "migrate", "diff", "--script"],
+        &[
+            "prisma",
+            "--schema",
+            "db.prisma",
+            "migrate",
+            "diff",
+            "--output=diff.sql",
+        ],
+        &["rspec", "--format", "json"],
+        &["rubocop", "--format=json", "--out", "offenses.json"],
+        &["golangci-lint", "run", "--out-format", "json"],
+        &["dotnet", "test", "--logger", "trx"],
+        &["gt", "log", "--format=json"],
+        &["diff", "--unified=3", "old", "new"],
+        &["head", "--bytes=20", "file"],
+        &["tail", "-n20", "file"],
+        &["psql", "--output", "rows.txt"],
+        &["psql", "--command", "\\copy records to stdout with csv"],
+        &["curl", "-vv", "https://example.test"],
+        &["curl", "--trace-ascii", "trace.log", "https://example.test"],
+        &["curl", "--write-out=%{json}", "https://example.test"],
+    ] {
+        assert!(exact(values), "{values:?}");
+    }
+
+    for values in [
+        &["playwright", "test", "--reporter=line"] as &[&str],
+        &["vitest", "--reporter=dot"],
+        &["cargo", "test", "--", "--message-format=json"],
+        &["curl", "https://example.test", "--", "--trace", "trace.log"],
+    ] {
+        assert!(!exact(values), "{values:?}");
+    }
+}
+
+#[test]
+fn expanded_interactive_lifecycle_policies_inherit_the_terminal() {
+    fn stream(values: &[&str]) -> StreamDecision {
+        classify_stream(&values.iter().map(OsString::from).collect::<Vec<_>>())
+    }
+
+    for values in [
+        &["prisma", "migrate", "dev"] as &[&str],
+        &["prisma", "migrate", "reset"],
+        &["prisma", "--schema", "db.prisma", "migrate", "dev"],
+        &["rspec", "--bisect"],
+        &["rubocop", "--lsp"],
+        &["rubocop", "--mcp"],
+        &["rubocop", "--server"],
+        &["psql"],
+        &["psql", "postgresql://localhost/app"],
+        &["psql", "-U", "app", "-h", "localhost", "app"],
+        &["psql", "--", "-c"],
+        &["nextest", "run", "--debugger"],
+        &["cargo", "nextest", "run", "--no-capture"],
+        &["cargo", "nextest", "run", "--stress-count=infinite"],
+        &["gt", "stack", "--interactive"],
+        &["graphite", "--interactive", "submit"],
+    ] {
+        assert_eq!(stream(values), StreamDecision::Inherit, "{values:?}");
+    }
+
+    for values in [
+        &["prisma", "migrate", "deploy"] as &[&str],
+        &["rspec", "--", "--bisect"],
+        &["rubocop", "--", "--lsp"],
+        &["psql", "--command", "select 1"],
+        &["psql", "-Atcselect 1"],
+        &["psql", "-Al"],
+        &["psql", "--file=report.sql"],
+        &["psql", "--help"],
+        &["nextest", "run", "--stress-count=10"],
+        &["cargo", "nextest", "run", "--", "--no-capture"],
+        &["gt", "stack", "--interactive=false"],
+    ] {
+        assert_eq!(stream(values), StreamDecision::Capture, "{values:?}");
+    }
 }
 
 #[test]

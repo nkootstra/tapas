@@ -32,17 +32,21 @@ Inspect the static command and runner catalogs:
 tapas --filters
 ```
 
-The default catalog includes package workflows (`pip`, `pip3`, `uv`, and
-`uvx`), frontend and native builds (`vite`, `esbuild`, `cmake`, and `ctest`),
-Playwright tests, Helm reads, multi-file human `grep` output, plain `bat` and
-`batcat` output, and recognized Docker BuildKit and finite stats output.
+The default catalog includes dedicated coverage for 55 common Git, GitHub,
+Graphite, Rust, JavaScript/TypeScript, Python, Go, Ruby, .NET, container,
+Kubernetes, file, cloud, and database workflows, alongside the existing
+package, build, test, Helm, and Docker routes. This includes common
+human-readable forms such as Cargo and nextest runs, package and build
+summaries, diagnostics, test reports, repository details, container state,
+aligned tables, and text diffs.
 `tapas --filters` reports the compact routes as well as exact-output and
 inherited/stream policies from the same catalog used at runtime.
 
 These routes are deliberately conservative. Machine formats, custom or
 ambiguous output, malformed data, and unsupported option combinations remain
-byte-exact. Interactive, watched, paged, or otherwise unbounded commands
-inherit the terminal instead of being buffered.
+byte-exact. Interactive and paged commands inherit the terminal. Recognized
+line-oriented watches and logs use bounded incremental filtering when their
+output is redirected; other unbounded commands inherit the terminal.
 
 Force exact output when needed:
 
@@ -57,12 +61,25 @@ Explain the selected filter and reduction for one command:
 tapas --explain git status
 ```
 
-Continuous logs and supported watch modes remain raw by default. Opt into bounded live compaction with:
+Recognized continuous logs, supported watch modes, and attached `docker compose up`
+use bounded live compaction by default when Tapas output is redirected or piped:
 
 ```sh
-TAPAS_STREAM=1 tapas docker logs --follow api
-TAPAS_STREAM=1 tapas tsc --watch
+tapas docker logs --follow api
+tapas tsc --watch
+tapas docker compose up
 ```
+
+Interactive terminal runs still inherit the terminal. Use `--raw` or
+`TAPAS_LOSSLESS=1` for byte-exact redirected output. An explicit
+`TAPAS_STREAM=0` (or `false`, `no`, or `off`) also preserves the previous raw
+streaming behavior; other values use the default. Metadata requested with flags
+such as `--timestamps`, `--details`, or `--prefix` is preserved.
+
+Live filtering is necessarily incremental: if a command fails after already
+emitting compacted output, Tapas cannot reconstruct bytes it has already
+displayed. Unrecognized live frames fail open independently on stdout and
+stderr from the point they are observed.
 
 Tapas never invokes a shell to run a wrapped command. Shell execution happens only when the caller explicitly requests a shell, such as `tapas sh -c '...'`.
 

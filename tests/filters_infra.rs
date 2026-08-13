@@ -101,7 +101,7 @@ fn verbose_curl_with_body_and_trace_preserves_both_descriptors() {
 }
 
 #[test]
-fn repeated_verbose_curl_compacts_trace_without_moving_the_body() {
+fn repeated_verbose_curl_is_byte_exact() {
     let stdout = fixture("large/curl_vvv_example.stdout.txt");
     let stderr = fixture("large/curl_vvv_example.stderr.txt");
     let output = infra::dispatch_streams_argv(
@@ -112,9 +112,71 @@ fn repeated_verbose_curl_compacts_trace_without_moving_the_body() {
         false,
     )
     .unwrap();
-    assert_eq!(output.stdout, stdout);
-    assert!(contains(&output.stderr, b"HTTP/2 200"));
-    assert!(output.stderr.len() < stderr.len());
+    assert_eq!(
+        output,
+        StreamFilterOutput::new(stdout, stderr, EvidenceClass::ByteExact)
+    );
+}
+
+#[test]
+fn curl_only_compacts_one_classic_fact_complete_verbose_trace() {
+    let stdout = b"response body\n";
+    let trace = b"* Connected to example.test (127.0.0.1) port 443\n> GET / HTTP/2\n> Host: example.test\n< HTTP/2 503\n< content-type: text/plain\n";
+    let compact = infra::dispatch_streams_argv(
+        &[b"curl", b"-sv", b"https://example.test"],
+        stdout,
+        trace,
+        22,
+        false,
+    )
+    .unwrap();
+    assert_eq!(compact.stdout, stdout);
+    assert_eq!(compact.evidence, EvidenceClass::FactComplete);
+    assert_eq!(
+        compact.stderr,
+        b"curl GET example.test/ -> HTTP/2 503 text/plain\n"
+    );
+
+    let marked_trace = b"* Connected to example.test (127.0.0.1) port 443\n> GET / HTTP/2\n{ [5 bytes data]\n< HTTP/2 503\n} [5 bytes data]\n";
+    let marked = infra::dispatch_streams_argv(
+        &[b"curl", b"-v", b"https://example.test"],
+        stdout,
+        marked_trace,
+        0,
+        false,
+    )
+    .unwrap();
+    assert!(!contains(&marked.stderr, b"bytes data"));
+
+    for (argv, stderr) in [
+        (&[b"curl".as_slice(), b"--version"][..], trace.as_slice()),
+        (
+            &[b"curl".as_slice(), b"-v", b"-v", b"https://example.test"][..],
+            trace,
+        ),
+        (
+            &[b"curl".as_slice(), b"--verbose", b"--trace", b"trace.log"][..],
+            trace,
+        ),
+        (
+            &[b"curl".as_slice(), b"-v", b"https://example.test"][..],
+            b"curl: (6) unknown host\n",
+        ),
+        (
+            &[b"curl".as_slice(), b"-v", b"https://example.test"][..],
+            b"* Connected\n> GET / HTTP/2\n",
+        ),
+        (
+            &[b"curl".as_slice(), b"-v", b"https://example.test"][..],
+            b"* Connected\n> GET / HTTP/2\n< HTTP/2 200\nunknown \xff\n",
+        ),
+    ] {
+        assert_eq!(
+            infra::dispatch_streams_argv(argv, stdout, stderr, 0, false).unwrap(),
+            StreamFilterOutput::new(stdout.to_vec(), stderr.to_vec(), EvidenceClass::ByteExact),
+            "argv {argv:?}",
+        );
+    }
 }
 
 #[test]
@@ -218,10 +280,8 @@ fn gh_extended_list_and_json_routes_keep_actionable_facts() {
 }
 
 #[test]
-fn gh_api_and_json_selection_compact_json_but_jq_stays_exact() {
+fn gh_machine_and_custom_output_stays_byte_exact() {
     let json = fixture("gh_api.json");
-    let expected =
-        b"{\"nameWithOwner\":\"nkootstra/tapas\",\"description\":\"Compact command output for coding agents\",\"isPrivate\":false,\"defaultBranchRef\":{\"name\":\"main\"},\"topics\":[\"agents\",\"cli\",\"rust\"]}\n";
 
     for argv in [
         &[b"gh".as_slice(), b"api", b"repos/nkootstra/tapas"][..],
@@ -234,7 +294,8 @@ fn gh_api_and_json_selection_compact_json_but_jq_stays_exact() {
         ][..],
     ] {
         let output = infra::dispatch_streams_argv(argv, &json, b"", 0, false).unwrap();
-        assert_eq!(output.stdout, expected);
+        assert_eq!(output.stdout, json, "{argv:?}");
+        assert_eq!(output.evidence, EvidenceClass::ByteExact, "{argv:?}");
     }
 
     let jq_output = b"nkootstra/tapas\n";
@@ -253,6 +314,109 @@ fn gh_api_and_json_selection_compact_json_but_jq_stays_exact() {
     )
     .unwrap();
     assert_eq!(output.stdout, jq_output);
+    assert_eq!(output.evidence, EvidenceClass::ByteExact);
+}
+
+#[test]
+fn gh_issue_view_compacts_only_framing_and_preserves_content_bytes() {
+    let input = concat!(
+        "title:\tWhitespace-sensitive report\n",
+        "state:\tOPEN\n",
+        "author:\tcontributor\n",
+        "labels:\tbug\n",
+        "comments:\t1\n",
+        "assignees:\t\n",
+        "number:\t42\n",
+        "--\n",
+        "## Body\n",
+        "\n",
+        "    let value =  one +  two;\n",
+        "\n",
+        "author:\tmaintainer\n",
+        "association:\tmember\n",
+        "edited:\tfalse\n",
+        "status:\tnone\n",
+        "--\n",
+        "Keep  the  two spaces.\n",
+        "\n",
+        "```text\n",
+        "  indented  code\n",
+        "```\n",
+    );
+    let expected = concat!(
+        "#42 OPEN Whitespace-sensitive report\n",
+        "author:\tcontributor\n",
+        "labels:\tbug\n",
+        "comments:\t1\n",
+        "## Body\n",
+        "\n",
+        "    let value =  one +  two;\n",
+        "\n",
+        "author:\tmaintainer\n",
+        "association:\tmember\n",
+        "edited:\tfalse\n",
+        "status:\tnone\n",
+        "--\n",
+        "Keep  the  two spaces.\n",
+        "\n",
+        "```text\n",
+        "  indented  code\n",
+        "```\n",
+    );
+    let stderr = b"warning: cached result\n";
+    let output = infra::dispatch_streams_argv(
+        &[b"gh", b"issue", b"view", b"42", b"--comments"],
+        input.as_bytes(),
+        stderr,
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(output.stdout, expected.as_bytes());
+    assert_eq!(output.stderr, stderr);
+    assert_eq!(output.evidence, EvidenceClass::FactComplete);
+}
+
+#[test]
+fn gh_dedicated_routes_fail_closed_on_unknown_shapes_and_failures() {
+    type Case<'a> = (&'a [&'a [u8]], &'a [u8], i32);
+    let cases: &[Case<'_>] = &[
+        (
+            &[b"gh", b"pr", b"view", b"1"],
+            b"title without metadata\n",
+            0,
+        ),
+        (
+            &[b"gh", b"issue", b"view", b"1"],
+            b"title:\tMissing separator\n",
+            0,
+        ),
+        (
+            &[b"gh", b"pr", b"checks", b"1"],
+            b"not\ta\tcheck\trow\textra\n",
+            0,
+        ),
+        (&[b"gh", b"run", b"list"], b"NAME  VALUE\nrun   one\n", 0),
+        (
+            &[b"gh", b"pr", b"list"],
+            b"123\tAdd feature\tfeature-branch\tOPEN\n",
+            0,
+        ),
+        (
+            &[b"gh", b"run", b"list"],
+            b"STATUS TITLE WORKFLOW BRANCH EVENT ID ELAPSED AGE\n",
+            1,
+        ),
+    ];
+    let stderr = b"diagnostic\n";
+    for (argv, stdout, exit_code) in cases {
+        let output = infra::dispatch_streams_argv(argv, stdout, stderr, *exit_code, false).unwrap();
+        assert_eq!(
+            output,
+            StreamFilterOutput::new(stdout.to_vec(), stderr.to_vec(), EvidenceClass::ByteExact),
+            "{argv:?}",
+        );
+    }
 }
 
 #[test]

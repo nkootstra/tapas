@@ -155,6 +155,9 @@ pub fn classify_stream(argv: &[OsString]) -> StreamDecision {
         return StreamDecision::Capture;
     };
     let command = basename(command);
+    if let Some(decision) = compose_stream_decision(command, argv) {
+        return decision;
+    }
     if is_follow_logs(command, argv)
         || (command == b"tsc" && has_any_arg(argv, &[b"--watch", b"-w"]))
         || (is_any(command, &[b"jest", b"vitest"])
@@ -217,6 +220,30 @@ pub fn classify_stream(argv: &[OsString]) -> StreamDecision {
 }
 
 fn inherits_lifecycle(command: &[u8], argv: &[OsString]) -> bool {
+    if command == b"prisma" {
+        return argv
+            .windows(2)
+            .take_while(|pair| bytes(&pair[0]) != b"--")
+            .any(|pair| {
+                bytes(&pair[0]) == b"migrate" && is_any(bytes(&pair[1]), &[b"dev", b"reset"])
+            });
+    }
+    if command == b"rspec" {
+        return long_option_enabled(argv, b"--bisect");
+    }
+    if command == b"rubocop" {
+        return has_enabled_option(argv, &[b"--lsp", b"--mcp", b"--server"]);
+    }
+    if command == b"psql" {
+        return !psql_is_non_interactive(argv);
+    }
+    if command == b"nextest" || command == b"cargo" && equals_at(argv, 1, b"nextest") {
+        return has_enabled_option(argv, &[b"--debugger", b"--no-capture", b"--nocapture"])
+            || option_value(argv, b"--stress-count").is_some_and(|value| value == b"infinite");
+    }
+    if is_any(command, &[b"gt", b"graphite"]) {
+        return long_option_enabled(argv, b"--interactive");
+    }
     if command == b"vite" {
         if has_any_arg(argv, &[b"--help", b"-h", b"--version", b"-v"]) {
             return false;
@@ -267,20 +294,43 @@ fn inherits_lifecycle(command: &[u8], argv: &[OsString]) -> bool {
         if equals_at(argv, 1, b"run") {
             return true;
         }
-        if equals_at(argv, 1, b"compose") {
-            return compose_inherits_lifecycle(argv, 2);
-        }
         if equals_at(argv, 1, b"stats") {
             return !boolean_option_enabled(argv, b"--no-stream", None).unwrap_or(false);
         }
-    }
-    if command == b"docker-compose" {
-        return compose_inherits_lifecycle(argv, 1);
     }
     if is_any(command, &[b"bat", b"batcat"]) {
         return option_value(argv, b"--paging").is_some_and(|value| value == b"always");
     }
     command == b"ctest" && option_value(argv, b"--repeat").is_some()
+}
+
+fn psql_is_non_interactive(argv: &[OsString]) -> bool {
+    for argument in argv
+        .iter()
+        .skip(1)
+        .take_while(|argument| bytes(argument) != b"--")
+    {
+        let argument = bytes(argument);
+        if matches!(
+            argument,
+            b"--command" | b"--file" | b"--list" | b"--help" | b"--version"
+        ) || argument.starts_with(b"--command=")
+            || argument.starts_with(b"--file=")
+        {
+            return true;
+        }
+        if let Some(options) = argument
+            .strip_prefix(b"-")
+            .filter(|value| !value.is_empty())
+            && !argument.starts_with(b"--")
+            && options
+                .iter()
+                .any(|option| matches!(option, b'c' | b'f' | b'l' | b'?' | b'V'))
+        {
+            return true;
+        }
+    }
+    false
 }
 
 fn pnpm_exec_candidate(argv: &[OsString]) -> bool {
@@ -308,13 +358,30 @@ fn pnpm_exec_candidate(argv: &[OsString]) -> bool {
     false
 }
 
-fn compose_inherits_lifecycle(argv: &[OsString], start: usize) -> bool {
+fn compose_stream_decision(command: &[u8], argv: &[OsString]) -> Option<StreamDecision> {
+    let start = if command == b"docker" && equals_at(argv, 1, b"compose") {
+        2
+    } else if command == b"docker-compose" {
+        1
+    } else {
+        return None;
+    };
     match scan_subcommand(argv, start, COMPOSE_VALUE_OPTIONS, COMPOSE_BOOLEAN_OPTIONS) {
         SubcommandScan::Found(b"up") => {
-            !boolean_option_enabled(argv, b"--detach", Some(b'd')).unwrap_or(false)
+            if boolean_option_enabled(argv, b"--detach", Some(b'd')).unwrap_or(false)
+                || long_option_enabled(argv, b"--wait")
+                || long_option_enabled(argv, b"--no-start")
+            {
+                Some(StreamDecision::Capture)
+            } else if long_option_enabled(argv, b"--watch") || long_option_enabled(argv, b"--menu")
+            {
+                Some(StreamDecision::Inherit)
+            } else {
+                Some(StreamDecision::StreamFilter)
+            }
         }
-        SubcommandScan::Ambiguous => true,
-        SubcommandScan::Found(_) | SubcommandScan::Missing => false,
+        SubcommandScan::Ambiguous => Some(StreamDecision::Inherit),
+        SubcommandScan::Found(_) | SubcommandScan::Missing => None,
     }
 }
 

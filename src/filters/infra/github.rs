@@ -1,20 +1,22 @@
-pub(super) fn compact_gh(argv: &[&[u8]], stdout: &[u8]) -> Vec<u8> {
+pub(super) fn compact_gh(argv: &[&[u8]], stdout: &[u8]) -> Option<Vec<u8>> {
     let arg1 = argv.get(1).copied().unwrap_or_default();
     let arg2 = argv.get(2).copied().unwrap_or_default();
-    // `--jq`/`--template` already pass through via the invocation policy. A
-    // plain `--json` selection is still JSON, so collapse its whitespace while
-    // keeping every fact. `gh api` returns JSON by default.
+    // Machine and caller-shaped output is an exact contract. In particular,
+    // parsing and reserializing JSON can change bytes while preserving data.
     if has_json_selection(argv) || arg1 == b"api" {
-        return compact_json(stdout).unwrap_or_else(|| stdout.to_vec());
+        return None;
     }
     if arg1 == b"pr" && arg2 == b"view" {
-        return compact_gh_pr_view(stdout);
+        return compact_gh_detail_view(stdout);
+    }
+    if arg1 == b"issue" && arg2 == b"view" {
+        return compact_gh_detail_view(stdout);
     }
     if arg1 == b"pr" && arg2 == b"checks" {
         return compact_gh_checks(stdout);
     }
     if arg1 == b"run" && arg2 == b"view" {
-        return compact_gh_run_view(stdout);
+        return Some(compact_gh_run_view(stdout));
     }
     if arg1 == b"pr" && arg2 == b"list" {
         let mut output = Vec::with_capacity(stdout.len());
@@ -24,23 +26,24 @@ pub(super) fn compact_gh(argv: &[&[u8]], stdout: &[u8]) -> Vec<u8> {
                 append_line(&mut output, line.trim_ascii_end());
             }
         }
-        return output;
+        return (!output.is_empty()).then_some(output);
     }
     if arg1 == b"run" && arg2 == b"list" {
-        return collapse_table(stdout);
+        return compact_gh_run_list(stdout);
     }
     // Tabular listings keep every row; only alignment padding is collapsed.
     if arg1 == b"search"
         || (arg1 == b"release" && arg2 == b"list")
         || (arg1 == b"issue" && arg2 == b"list")
     {
-        return compact_gh_table(stdout).unwrap_or_else(|| stdout.to_vec());
+        return compact_gh_table(stdout);
     }
-    stdout.to_vec()
+    None
 }
 
 fn has_json_selection(argv: &[&[u8]]) -> bool {
-    argv.iter()
+    crate::invocation_policy::options(argv)
+        .iter()
         .any(|argument| *argument == b"--json" || argument.starts_with(b"--json="))
 }
 
@@ -199,39 +202,50 @@ fn column_starts(header: &[u8]) -> Vec<usize> {
     starts
 }
 
-fn compact_gh_pr_view(stdout: &[u8]) -> Vec<u8> {
+fn compact_gh_detail_view(stdout: &[u8]) -> Option<Vec<u8>> {
     let lines = stdout.split(|byte| *byte == b'\n').collect::<Vec<_>>();
     if !lines
         .first()
         .is_some_and(|line| metadata_key(line).is_some())
     {
-        return stdout.to_vec();
+        return None;
     }
-    let Some(separator) = lines.iter().position(|line| *line == b"--") else {
-        return stdout.to_vec();
-    };
+    let separator = lines.iter().position(|line| *line == b"--")?;
+    if separator == 0
+        || lines[..separator]
+            .iter()
+            .any(|line| metadata_key(line).is_none())
+    {
+        return None;
+    }
     let value = |wanted: &[u8]| {
-        lines[..separator].iter().find_map(|line| {
+        let mut matches = lines[..separator].iter().filter_map(|line| {
             let key = metadata_key(line)?;
             (key == wanted).then_some(&line[key.len() + 2..])
-        })
+        });
+        let value = matches.next()?;
+        matches.next().is_none().then_some(value)
     };
+    let (Some(number), Some(state), Some(title)) =
+        (value(b"number"), value(b"state"), value(b"title"))
+    else {
+        return None;
+    };
+    if number.is_empty()
+        || !number.iter().all(u8::is_ascii_digit)
+        || state.is_empty()
+        || title.is_empty()
+    {
+        return None;
+    }
     let mut output = Vec::with_capacity(stdout.len());
-    if let Some(number) = value(b"number") {
-        output.push(b'#');
-        output.extend_from_slice(number);
-    }
-    for field in [b"state".as_slice(), b"title"] {
-        if let Some(value) = value(field) {
-            if !output.is_empty() {
-                output.push(b' ');
-            }
-            output.extend_from_slice(value);
-        }
-    }
-    if !output.is_empty() {
-        output.push(b'\n');
-    }
+    output.push(b'#');
+    output.extend_from_slice(number);
+    output.push(b' ');
+    output.extend_from_slice(state);
+    output.push(b' ');
+    output.extend_from_slice(title);
+    output.push(b'\n');
     for line in &lines[..separator] {
         if let Some(key) = metadata_key(line) {
             let value = &line[key.len() + 2..];
@@ -246,7 +260,7 @@ fn compact_gh_pr_view(stdout: &[u8]) -> Vec<u8> {
             output.push(b'\n');
         }
     }
-    output
+    Some(output)
 }
 
 fn metadata_key(line: &[u8]) -> Option<&[u8]> {
@@ -260,7 +274,7 @@ fn metadata_key(line: &[u8]) -> Option<&[u8]> {
         .then_some(key)
 }
 
-fn compact_gh_checks(stdout: &[u8]) -> Vec<u8> {
+fn compact_gh_checks(stdout: &[u8]) -> Option<Vec<u8>> {
     let mut states = Vec::<(Vec<u8>, usize)>::new();
     let mut details = Vec::new();
     let mut total = 0usize;
@@ -269,8 +283,13 @@ fn compact_gh_checks(stdout: &[u8]) -> Vec<u8> {
         .filter(|line| !line.is_empty())
     {
         let fields = line.split(|byte| *byte == b'\t').collect::<Vec<_>>();
-        if fields.len() < 2 {
-            return stdout.to_vec();
+        if !matches!(fields.as_slice(), [name, state, duration, url] | [name, state, duration, url, b""]
+            if !name.is_empty()
+                && matches!(*state, b"pass" | b"fail" | b"pending" | b"skipping" | b"cancel")
+                && !duration.is_empty()
+                && (url.is_empty() || url.starts_with(b"http://") || url.starts_with(b"https://")))
+        {
+            return None;
         }
         total += 1;
         if let Some((_, count)) = states.iter_mut().find(|(state, _)| state == fields[1]) {
@@ -283,7 +302,7 @@ fn compact_gh_checks(stdout: &[u8]) -> Vec<u8> {
         }
     }
     if total == 0 {
-        return stdout.to_vec();
+        return None;
     }
     let mut output = total.to_string().into_bytes();
     output.extend_from_slice(b" checks:");
@@ -295,7 +314,36 @@ fn compact_gh_checks(stdout: &[u8]) -> Vec<u8> {
     }
     output.push(b'\n');
     output.extend_from_slice(&details);
-    output
+    Some(output)
+}
+
+fn compact_gh_run_list(stdout: &[u8]) -> Option<Vec<u8>> {
+    const HEADER: &[u8] = b"STATUS TITLE WORKFLOW BRANCH EVENT ID ELAPSED AGE";
+    let table = compact_gh_table(stdout)?;
+    let mut lines = table
+        .split(|byte| *byte == b'\n')
+        .filter(|line| !line.is_empty());
+    let header = lines.next()?;
+    let header = collapse_table(header);
+    if header.strip_suffix(b"\n") != Some(HEADER) {
+        return None;
+    }
+    let mut rows = 0usize;
+    for line in lines {
+        let fields = line.split(|byte| *byte == b'\t').collect::<Vec<_>>();
+        if fields.len() != 8
+            || fields.iter().any(|field| field.is_empty())
+            || !matches!(
+                fields[0],
+                b"completed" | b"in_progress" | b"queued" | b"failure" | b"cancelled"
+            )
+            || !fields[5].iter().all(u8::is_ascii_digit)
+        {
+            return None;
+        }
+        rows += 1;
+    }
+    (rows > 0).then(|| collapse_table(&table))
 }
 
 fn compact_gh_run_view(stdout: &[u8]) -> Vec<u8> {
@@ -471,4 +519,3 @@ fn gh_footer(line: &[u8]) -> bool {
 }
 use super::table::collapse_table;
 use super::{append_line, find_subslice};
-use crate::filters::data::compact_json;

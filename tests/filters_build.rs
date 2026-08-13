@@ -263,6 +263,240 @@ fn dotnet_build_test_format_and_restore_match_the_pinned_oracles() {
 }
 
 #[test]
+fn dotnet_build_and_format_require_recognizable_output() {
+    for argv in [
+        &[b"dotnet".as_slice(), b"build"][..],
+        &[b"dotnet".as_slice(), b"format"][..],
+    ] {
+        let stdout = b"NAME       VALUE\nexample    arbitrary\n";
+        let stderr = b"diagnostic descriptor\n";
+        assert_eq!(
+            build::dispatch_streams_argv(argv, stdout, stderr, 0, false).unwrap(),
+            StreamFilterOutput::passthrough(stdout, stderr),
+            "argv {argv:?}",
+        );
+    }
+
+    let unknown = b"NAME       VALUE\nexample    arbitrary\n";
+    for argv in [
+        &[b"dotnet".as_slice(), b"build"][..],
+        &[b"dotnet".as_slice(), b"format"][..],
+    ] {
+        assert_eq!(
+            build::dispatch_streams_argv(argv, unknown, b"", 0, false).unwrap(),
+            StreamFilterOutput::passthrough(unknown, b""),
+            "argv {argv:?}",
+        );
+    }
+
+    let recognized = b"Determining projects to restore...\n  demo -> /tmp/demo.dll\nBuild succeeded.\n    0 Warning(s)\n    0 Error(s)\n";
+    let output =
+        build::dispatch_streams_argv(&[b"dotnet", b"build"], recognized, b"", 0, false).unwrap();
+    assert_eq!(output.evidence, EvidenceClass::PotentiallyLossy);
+    assert_eq!(
+        output.stdout,
+        b"Build succeeded.\n    0 Warning(s)\n    0 Error(s)\n"
+    );
+}
+
+#[test]
+fn prisma_migrate_bounded_human_routes_preserve_actionable_state() {
+    let status = concat!(
+        "Environment variables loaded from .env\n",
+        "Prisma schema loaded from prisma/schema.prisma\n",
+        "Datasource \"db\": PostgreSQL database \"app\"\n",
+        "\n",
+        "3 migrations found in prisma/migrations\n",
+        "The following migration have not yet been applied:\n",
+        "20260813090000_add_accounts\n",
+        "To apply migrations in development run prisma migrate dev.\n",
+    );
+    let output = build::dispatch_streams_argv(
+        &[b"prisma", b"migrate", b"status"],
+        status.as_bytes(),
+        b"",
+        1,
+        false,
+    )
+    .unwrap();
+    assert_eq!(output.evidence, EvidenceClass::FactComplete);
+    assert_eq!(
+        output.stdout,
+        concat!(
+            "3 migrations found in prisma/migrations\n",
+            "The following migration have not yet been applied:\n",
+            "20260813090000_add_accounts\n",
+            "To apply migrations in development run prisma migrate dev.\n",
+        )
+        .as_bytes()
+    );
+
+    let failed = concat!(
+        "Prisma schema loaded from prisma/schema.prisma\n",
+        "Error: P3009\n",
+        "migrate found failed migrations in the target database.\n",
+        "The `20260813090000_add_accounts` migration failed at 2026-08-13.\n",
+    );
+    let output = build::dispatch_streams_argv(
+        &[b"prisma", b"migrate", b"deploy"],
+        b"",
+        failed.as_bytes(),
+        7,
+        false,
+    )
+    .unwrap();
+    assert!(output.stdout.is_empty());
+    assert_eq!(
+        output.stderr,
+        concat!(
+            "Error: P3009\n",
+            "migrate found failed migrations in the target database.\n",
+            "The `20260813090000_add_accounts` migration failed at 2026-08-13.\n",
+        )
+        .as_bytes()
+    );
+    assert_eq!(output.evidence, EvidenceClass::FactComplete);
+
+    let diff = b"[+] Added tables\n  - Account\n\n[*] Changed the `User` table\n  [+] Added column `email`\n";
+    let output = build::dispatch_streams_argv(
+        &[
+            b"prisma",
+            b"migrate",
+            b"diff",
+            b"--from-empty",
+            b"--to-schema",
+            b"schema.prisma",
+        ],
+        diff,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(output.stdout, diff);
+    assert_eq!(output.evidence, EvidenceClass::PotentiallyLossy);
+
+    let resolved = b"Migration 20260813090000_add_accounts marked as applied.\n";
+    let output = build::dispatch_streams_argv(
+        &[
+            b"prisma",
+            b"migrate",
+            b"resolve",
+            b"--applied",
+            b"20260813090000_add_accounts",
+        ],
+        resolved,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(output.stdout, resolved);
+}
+
+#[test]
+fn prisma_machine_malformed_and_unbounded_routes_are_byte_exact() {
+    let stdout = b"CREATE TABLE account (id integer);\n";
+    let stderr = b"descriptor\n";
+    for argv in [
+        &[b"prisma".as_slice(), b"migrate", b"diff", b"--script"][..],
+        &[
+            b"prisma".as_slice(),
+            b"migrate",
+            b"diff",
+            b"--output",
+            b"diff.sql",
+        ][..],
+        &[b"prisma".as_slice(), b"migrate", b"dev"][..],
+        &[b"prisma".as_slice(), b"migrate", b"status", b"--bogus"][..],
+        &[b"prisma".as_slice(), b"migrate", b"deploy", b"--", b"extra"][..],
+        &[b"prisma".as_slice(), b"migrate", b"diff", b"--from-empty"][..],
+        &[
+            b"prisma".as_slice(),
+            b"migrate",
+            b"resolve",
+            b"--applied",
+            b"one",
+            b"--rolled-back",
+            b"two",
+        ][..],
+    ] {
+        assert_eq!(
+            build::dispatch_streams_argv(argv, stdout, stderr, 0, false).unwrap(),
+            StreamFilterOutput::passthrough(stdout, stderr),
+            "argv {argv:?}",
+        );
+    }
+
+    let non_utf8 = b"Error: P3009\n\xffstate\n";
+    assert_eq!(
+        build::dispatch_streams_argv(&[b"prisma", b"migrate", b"status"], non_utf8, b"", 1, false,)
+            .unwrap(),
+        StreamFilterOutput::passthrough(non_utf8, b""),
+    );
+}
+
+#[test]
+fn rake_only_compacts_recognizable_metadata_routes() {
+    for argv in [
+        &[b"rake".as_slice(), b"-T"][..],
+        &[b"rake".as_slice(), b"--tasks"][..],
+        &[b"rake".as_slice(), b"-D", b"db:migrate"][..],
+        &[b"rake".as_slice(), b"--describe", b"db:migrate"][..],
+        &[b"rake".as_slice(), b"-P"][..],
+        &[b"rake".as_slice(), b"--prereqs"][..],
+        &[b"rake".as_slice(), b"-W", b"db:migrate"][..],
+        &[b"rake".as_slice(), b"--where", b"db:migrate"][..],
+    ] {
+        let stdout = b"rake db:migrate  # Migrate the database without losing this descriptor\n";
+        let output = build::dispatch_streams_argv(argv, stdout, b"", 0, false).unwrap();
+        assert_eq!(output.stdout, stdout, "argv {argv:?}");
+        assert_eq!(
+            output.evidence,
+            EvidenceClass::PotentiallyLossy,
+            "argv {argv:?}"
+        );
+    }
+
+    let described =
+        b"rake db:migrate\n    Migrate the database\n    across every configured shard\n";
+    let output = build::dispatch_streams_argv(
+        &[b"rake", b"--describe", b"db:migrate"],
+        described,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(output.stdout, described);
+}
+
+#[test]
+fn rake_tasks_machine_and_malformed_output_are_route_owned_passthrough() {
+    let cases: &[(&[&[u8]], &[u8])] = &[
+        (&[b"rake", b"db:report"], b"name,total\nexample,42\n"),
+        (
+            &[b"rake", b"db:report"],
+            b"{\"name\":\"example\",\"total\":42}\n",
+        ),
+        (
+            &[b"rake", b"-T", b"--", b"unexpected"],
+            b"rake db:migrate # migrate\n",
+        ),
+        (&[b"rake", b"-T"], b"arbitrary table\nvalue 42\n"),
+        (&[b"rake", b"-T"], b"rake task # descriptor\n\xff"),
+    ];
+    for &(argv, stdout) in cases {
+        let stderr = b"descriptor on stderr\n";
+        assert_eq!(
+            build::dispatch_streams_argv(argv, stdout, stderr, 0, false).unwrap(),
+            StreamFilterOutput::passthrough(stdout, stderr),
+            "argv {argv:?}",
+        );
+    }
+}
+
+#[test]
 fn gradle_and_maven_wrappers_match_the_pinned_failure_oracles() {
     let gradle_cases: &[(&[&[u8]], &str, &str)] = &[
         (

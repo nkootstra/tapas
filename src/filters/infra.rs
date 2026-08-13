@@ -67,20 +67,27 @@ pub(crate) fn dispatch_streams_decision(
         )));
     }
 
-    if exit_code != 0 && !stderr.is_empty() {
-        return Ok(StreamFilterDecision::Unchanged);
-    }
-
-    if command == b"curl" && has_verbose_flag(argv) {
+    let gh_pending_checks = command == b"gh"
+        && arg1 == b"pr"
+        && arg2 == b"checks"
+        && exit_code == 8
+        && stderr.is_empty();
+    let gh_owned_failure = command == b"gh"
+        && (arg1 == b"pr" && matches!(arg2, b"view" | b"checks")
+            || arg1 == b"issue" && arg2 == b"view"
+            || arg1 == b"run" && arg2 == b"list");
+    if command == b"curl"
+        && is_single_verbose_invocation(argv)
+        && matches_classic_verbose_trace(stderr)
+    {
         return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
             stdout.to_vec(),
-            if stderr.is_empty() {
-                Vec::new()
-            } else {
-                compact_curl(b"", stderr)
-            },
+            compact_curl(b"", stderr),
             EvidenceClass::FactComplete,
         )));
+    }
+    if exit_code != 0 && (!stderr.is_empty() || gh_owned_failure) && !gh_pending_checks {
+        return Ok(StreamFilterDecision::Unchanged);
     }
     if is_logs_invocation(command, argv) {
         let compose = command == b"docker-compose" || command == b"docker" && arg1 == b"compose";
@@ -105,8 +112,8 @@ pub(crate) fn dispatch_streams_decision(
         Some(compact_docker_images(stdout))
     } else if command == b"kubectl" && matches_kubectl(stdout) {
         Some(compact_kubectl(stdout))
-    } else if command == b"gh" {
-        Some(compact_gh(argv, stdout))
+    } else if command == b"gh" && std::str::from_utf8(stdout).is_ok() {
+        compact_gh(argv, stdout)
     } else if command == b"acli" {
         compact_acli(arg1, arg2, arg3, stdout)
     } else {
@@ -170,6 +177,8 @@ use containers::{
     compact_docker_images, compact_docker_ps, compact_kubectl, is_docker_images,
     matches_docker_images, matches_kubectl,
 };
-use curl::{compact_curl, compact_curl_trace, has_verbose_flag};
+use curl::{
+    compact_curl, compact_curl_trace, is_single_verbose_invocation, matches_classic_verbose_trace,
+};
 use github::compact_gh;
 use logs::{compact_logs, is_docker_ps, is_logs_invocation, matches_docker_ps};

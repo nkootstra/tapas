@@ -5,6 +5,9 @@ use super::{
 
 pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
     crate::catalog::filter_family_handles(argv, crate::catalog::LISTING_FILTER_COMMANDS)
+        || argv
+            .first()
+            .is_some_and(|command| matches!(command_basename(command), b"diff" | b"head" | b"tail"))
 }
 
 pub fn matches(input: &[u8]) -> bool {
@@ -69,6 +72,9 @@ pub(crate) fn dispatch_streams_decision(
     } = input;
     if argv.is_empty() {
         return Err(FilterError::InvalidInput);
+    }
+    if matches!(command_basename(argv[0]), b"diff" | b"head" | b"tail") {
+        return Ok(direct::dispatch(input));
     }
     if lossless || crate::invocation_policy::requests_passthrough(argv) {
         return Ok(StreamFilterDecision::Unchanged);
@@ -168,6 +174,7 @@ pub(crate) fn dispatch_streams_decision(
     Ok(StreamFilterDecision::Unchanged)
 }
 
+mod direct;
 mod du;
 mod find;
 mod grep;

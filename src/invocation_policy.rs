@@ -328,6 +328,24 @@ pub(crate) fn requests_exact_output(argv: &[&[u8]]) -> bool {
     };
     let arguments = options(argv);
     match command {
+        b"cargo" => {
+            has_any(arguments, &[b"--json"])
+                || option_values(arguments, b"--message-format", b"")
+                    .any(|value| value.starts_with(b"json") || value.starts_with(b"libtest-json"))
+        }
+        b"nextest" => option_values(arguments, b"--message-format", b"")
+            .any(|value| value.starts_with(b"json") || value.starts_with(b"libtest-json")),
+        b"go" => {
+            has_any(arguments, &[b"-json"])
+                || option_values(arguments, b"-json", b"").any(|value| value != b"false")
+        }
+        b"jest" | b"vitest" => {
+            has_any(arguments, &[b"--json"])
+                || has_option(arguments, b"--outputFile", b"", false)
+                || option_values(arguments, b"--reporter", b"")
+                    .chain(option_values(arguments, b"--reporters", b""))
+                    .any(is_custom_reporter)
+        }
         b"pip" | b"pip3" => argv.get(1).is_some_and(|subcommand| {
             matches!(*subcommand, b"freeze" | b"show" | b"check" | b"inspect")
         }),
@@ -347,11 +365,79 @@ pub(crate) fn requests_exact_output(argv: &[&[u8]]) -> bool {
         }),
         b"playwright" => {
             has_any(options(argv), &[b"--list"])
-                || options(argv).iter().any(|argument| {
-                    argument
-                        .strip_prefix(b"--reporter=")
-                        .is_some_and(|reporter| !matches!(reporter, b"list" | b"line" | b"dot"))
-                })
+                || option_values(arguments, b"--reporter", b"").any(is_custom_reporter)
+                || has_option(arguments, b"--output", b"", false)
+        }
+        b"prisma" => {
+            arguments.contains(&b"migrate".as_slice())
+                && (has_any(arguments, &[b"--script"])
+                    || has_option(arguments, b"--output", b"-o", true))
+        }
+        b"rspec" => {
+            option_values(arguments, b"--format", b"-f").any(is_custom_rspec_formatter)
+                || has_option(arguments, b"--out", b"-o", true)
+        }
+        b"rubocop" => {
+            option_values(arguments, b"--format", b"-f").any(is_custom_reporter)
+                || has_option(arguments, b"--out", b"-o", true)
+        }
+        b"golangci-lint" => arguments.iter().any(|argument| {
+            long_option(argument, b"--out-format") || argument.starts_with(b"--output.")
+        }),
+        b"dotnet" => {
+            has_option(arguments, b"--logger", b"-l", true)
+                || has_option(arguments, b"--results-directory", b"", false)
+                || has_option(arguments, b"--output", b"-o", true)
+                || has_option(arguments, b"--artifacts-path", b"", false)
+                || has_option(arguments, b"--report", b"", false)
+                || has_option(arguments, b"--report-formats", b"", false)
+        }
+        b"gt" | b"graphite" => {
+            has_any(arguments, &[b"--json"]) || has_option(arguments, b"--format", b"", false)
+        }
+        b"diff" => diff_requests_exact(arguments),
+        b"head" | b"tail" => arguments.iter().any(|argument| {
+            matches!(
+                *argument,
+                b"-c"
+                    | b"--bytes"
+                    | b"-n"
+                    | b"--lines"
+                    | b"-q"
+                    | b"--quiet"
+                    | b"--silent"
+                    | b"-v"
+                    | b"--verbose"
+                    | b"-z"
+                    | b"--zero-terminated"
+            ) || long_option(argument, b"--bytes")
+                || long_option(argument, b"--lines")
+                || short_option_joined(argument, b"-c")
+                || short_option_joined(argument, b"-n")
+        }),
+        b"psql" => {
+            has_option(arguments, b"--output", b"-o", true)
+                || has_option(arguments, b"--log-file", b"-L", true)
+                || has_any(
+                    arguments,
+                    &[
+                        b"--echo-all",
+                        b"--echo-errors",
+                        b"--echo-hidden",
+                        b"--single-line",
+                    ],
+                )
+                || option_values(arguments, b"--command", b"-c").any(psql_copy_command)
+                || requests_machine_output(argv)
+        }
+        b"curl" => {
+            repeated_curl_verbose(arguments)
+                || has_option(arguments, b"--trace", b"", false)
+                || has_option(arguments, b"--trace-ascii", b"", false)
+                || has_option(arguments, b"--trace-config", b"", false)
+                || has_option(arguments, b"--write-out", b"-w", true)
+                || has_option(arguments, b"--config", b"-K", true)
+                || has_option(arguments, b"--stderr", b"", false)
         }
         b"cat" | b"bat" | b"batcat" => arguments.iter().any(|argument| argument.starts_with(b"-")),
         b"grep" => arguments.iter().any(|argument| {
@@ -450,6 +536,119 @@ fn has_option(arguments: &[&[u8]], long: &[u8], short: &[u8], joined_short: bool
                 && (*argument == short
                     || joined_short && argument.starts_with(short) && argument.len() > short.len())
     })
+}
+
+fn option_values<'a>(
+    arguments: &'a [&'a [u8]],
+    long: &'a [u8],
+    short: &'a [u8],
+) -> impl Iterator<Item = &'a [u8]> + 'a {
+    arguments
+        .iter()
+        .enumerate()
+        .filter_map(move |(index, argument)| {
+            if *argument == long || !short.is_empty() && *argument == short {
+                return arguments.get(index + 1).copied();
+            }
+            if !long.is_empty()
+                && let Some(value) = argument
+                    .strip_prefix(long)
+                    .and_then(|rest| rest.strip_prefix(b"="))
+            {
+                return Some(value);
+            }
+            if !short.is_empty() && short.len() == 2 && argument.starts_with(short) {
+                return argument
+                    .get(short.len()..)
+                    .filter(|value| !value.is_empty());
+            }
+            None
+        })
+}
+
+fn is_custom_reporter(reporter: &[u8]) -> bool {
+    !matches!(reporter, b"list" | b"line" | b"dot")
+}
+
+fn is_custom_rspec_formatter(formatter: &[u8]) -> bool {
+    !matches!(formatter, b"progress" | b"documentation")
+}
+
+fn short_option_joined(argument: &[u8], option: &[u8]) -> bool {
+    argument.starts_with(option) && argument.len() > option.len()
+}
+
+fn diff_requests_exact(arguments: &[&[u8]]) -> bool {
+    arguments.iter().any(|argument| {
+        matches!(
+            *argument,
+            b"-c"
+                | b"--context"
+                | b"-C"
+                | b"-u"
+                | b"--unified"
+                | b"-U"
+                | b"-e"
+                | b"--ed"
+                | b"-f"
+                | b"--forward-ed"
+                | b"-n"
+                | b"--rcs"
+                | b"-y"
+                | b"--side-by-side"
+                | b"--left-column"
+                | b"--suppress-common-lines"
+                | b"-q"
+                | b"--brief"
+                | b"--normal"
+                | b"--color"
+                | b"--expand-tabs"
+                | b"-t"
+                | b"--initial-tab"
+                | b"-T"
+                | b"--strip-trailing-cr"
+                | b"-D"
+                | b"--ifdef"
+        ) || long_option(argument, b"--context")
+            || long_option(argument, b"--unified")
+            || long_option(argument, b"--color")
+            || long_option(argument, b"--palette")
+            || long_option(argument, b"--tabsize")
+            || long_option(argument, b"--line-format")
+            || long_option(argument, b"--old-line-format")
+            || long_option(argument, b"--new-line-format")
+            || long_option(argument, b"--unchanged-line-format")
+            || short_option_joined(argument, b"-C")
+            || short_option_joined(argument, b"-U")
+            || short_option_joined(argument, b"-D")
+    })
+}
+
+fn repeated_curl_verbose(arguments: &[&[u8]]) -> bool {
+    curl_verbosity(arguments) > 1
+}
+
+pub(crate) fn curl_verbosity(arguments: &[&[u8]]) -> usize {
+    let mut verbosity = 0usize;
+    for argument in arguments.iter().take_while(|argument| **argument != b"--") {
+        if *argument == b"--no-verbose" {
+            return 0;
+        }
+        if *argument == b"--verbose" {
+            verbosity += 1;
+        } else if argument.starts_with(b"-") && !argument.starts_with(b"--") {
+            verbosity += argument[1..].iter().filter(|byte| **byte == b'v').count();
+        }
+    }
+    verbosity
+}
+
+fn psql_copy_command(command: &[u8]) -> bool {
+    let command = command.trim_ascii_start();
+    command.starts_with(b"\\copy")
+        || command
+            .get(..4)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(b"copy"))
 }
 
 fn long_option(argument: &[u8], option: &[u8]) -> bool {

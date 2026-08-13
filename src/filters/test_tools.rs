@@ -16,13 +16,19 @@ const PIPE_FILTERS: &[(Matcher, Apply)] = &[
 ];
 
 pub(crate) fn handles_argv(argv: &[&[u8]]) -> bool {
-    if !crate::catalog::filter_family_handles(argv, crate::catalog::TEST_TOOLS_FILTER_COMMANDS) {
-        return false;
-    }
     let Some(command) = argv.first().copied().map(command_basename) else {
         return false;
     };
     let arg1 = argv.get(1).copied().unwrap_or_default();
+    if matches!(command, b"nextest" | b"rspec")
+        || command == b"cargo" && arg1 == b"nextest" && argv.get(2) == Some(&b"run".as_slice())
+        || command == b"dotnet" && arg1 == b"test"
+    {
+        return true;
+    }
+    if !crate::catalog::filter_family_handles(argv, crate::catalog::TEST_TOOLS_FILTER_COMMANDS) {
+        return false;
+    }
     matches!(
         command,
         b"pytest" | b"jest" | b"vitest" | b"mocha" | b"tsc" | b"ctest" | b"playwright"
@@ -73,6 +79,54 @@ pub(crate) fn dispatch_streams_decision(
     if argv.is_empty() {
         return Err(FilterError::InvalidInput);
     }
+    let command = command_basename(argv[0]);
+    let arg1 = argv.get(1).copied().unwrap_or_default();
+    if nextest::route(argv) {
+        if lossless
+            || !streams_are_utf8(stdout, stderr)
+            || crate::invocation_policy::requests_passthrough(argv)
+        {
+            return Ok(StreamFilterDecision::Passthrough);
+        }
+        return Ok(compact_owned_streams(stdout, stderr, nextest::compact));
+    }
+    if command == b"rspec" {
+        if lossless
+            || !streams_are_utf8(stdout, stderr)
+            || crate::invocation_policy::requests_passthrough(argv)
+            || !rspec::human_route(argv)
+        {
+            return Ok(StreamFilterDecision::Passthrough);
+        }
+        return Ok(compact_owned_streams(stdout, stderr, rspec::compact));
+    }
+    if command == b"dotnet" && arg1 == b"test" {
+        if lossless
+            || !streams_are_utf8(stdout, stderr)
+            || crate::invocation_policy::requests_passthrough(argv)
+        {
+            return Ok(StreamFilterDecision::Passthrough);
+        }
+        return Ok(compact_owned_streams(stdout, stderr, dotnet::compact));
+    }
+    if command == b"playwright" && arg1 == b"test" {
+        if lossless
+            || exit_code != 0
+            || crate::invocation_policy::requests_passthrough(argv)
+            || !catalog_routes::playwright_route(argv)
+            || std::str::from_utf8(stdout).is_err()
+            || std::str::from_utf8(stderr).is_err()
+            || !catalog_routes::matches_playwright(stdout, stderr)
+        {
+            return Ok(StreamFilterDecision::Passthrough);
+        }
+        return Ok(StreamFilterDecision::compact_single_stream(
+            stdout,
+            stderr,
+            EvidenceClass::PotentiallyLossy,
+            catalog_routes::compact_playwright,
+        ));
+    }
     if lossless
         || std::str::from_utf8(stdout).is_err()
         || std::str::from_utf8(stderr).is_err()
@@ -80,33 +134,19 @@ pub(crate) fn dispatch_streams_decision(
     {
         return Ok(StreamFilterDecision::Unchanged);
     }
-    let command = command_basename(argv[0]);
-    let arg1 = argv.get(1).copied().unwrap_or_default();
     let script_test = arg1 == b"test" && matches!(command, b"npm" | b"pnpm" | b"yarn" | b"bun");
 
-    if exit_code == 0 {
-        if command == b"ctest"
-            && catalog_routes::ctest_route(argv)
-            && catalog_routes::matches_ctest(stdout, stderr)
-        {
-            return Ok(StreamFilterDecision::compact_single_stream(
-                stdout,
-                stderr,
-                EvidenceClass::PotentiallyLossy,
-                catalog_routes::compact_ctest,
-            ));
-        }
-        if command == b"playwright"
-            && catalog_routes::playwright_route(argv)
-            && catalog_routes::matches_playwright(stdout, stderr)
-        {
-            return Ok(StreamFilterDecision::compact_single_stream(
-                stdout,
-                stderr,
-                EvidenceClass::PotentiallyLossy,
-                catalog_routes::compact_playwright,
-            ));
-        }
+    if exit_code == 0
+        && command == b"ctest"
+        && catalog_routes::ctest_route(argv)
+        && catalog_routes::matches_ctest(stdout, stderr)
+    {
+        return Ok(StreamFilterDecision::compact_single_stream(
+            stdout,
+            stderr,
+            EvidenceClass::PotentiallyLossy,
+            catalog_routes::compact_ctest,
+        ));
     }
 
     let compact: Option<Apply> = if command == b"pytest"
@@ -152,12 +192,47 @@ fn stream_matches(stdout: &[u8], stderr: &[u8], matcher: fn(&[u8]) -> bool) -> b
     matcher(stdout) || matcher(stderr)
 }
 
+fn streams_are_utf8(stdout: &[u8], stderr: &[u8]) -> bool {
+    std::str::from_utf8(stdout).is_ok() && std::str::from_utf8(stderr).is_ok()
+}
+
+fn compact_owned_streams(
+    stdout: &[u8],
+    stderr: &[u8],
+    compact: fn(&[u8]) -> Option<Vec<u8>>,
+) -> StreamFilterDecision {
+    let compacted_stdout = if stdout.is_empty() {
+        Some(Vec::new())
+    } else {
+        compact(stdout)
+    };
+    let compacted_stderr = if stderr.is_empty() {
+        Some(Vec::new())
+    } else {
+        compact(stderr)
+    };
+
+    match (compacted_stdout, compacted_stderr) {
+        (Some(stdout), Some(stderr)) if !stdout.is_empty() || !stderr.is_empty() => {
+            StreamFilterDecision::Applied(StreamFilterOutput::new(
+                stdout,
+                stderr,
+                EvidenceClass::FactComplete,
+            ))
+        }
+        _ => StreamFilterDecision::Passthrough,
+    }
+}
+
 mod cargo;
 mod catalog_routes;
+mod dotnet;
 mod go;
 mod javascript;
 mod jest;
+mod nextest;
 mod pytest;
+mod rspec;
 mod tsc;
 
 use cargo::{apply_cargo_test, matches_cargo_test};

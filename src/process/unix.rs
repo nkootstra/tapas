@@ -4,6 +4,7 @@ use std::os::unix::process::{CommandExt, ExitStatusExt};
 use std::process::{Child, Command, ExitStatus};
 use std::sync::atomic::{AtomicI32, AtomicU32, Ordering};
 use std::sync::{Mutex, MutexGuard};
+use std::time::Duration;
 
 const FORWARDED_SIGNALS: [(libc::c_int, u32); 4] = [
     (libc::SIGINT, 1 << 0),
@@ -109,7 +110,7 @@ impl Drop for SignalForwarder {
 pub fn spawn_process_group(command: &mut Command) -> io::Result<(Child, SignalForwarder)> {
     let forwarder = SignalForwarder::install()?;
     command.process_group(0);
-    let mut child = command.spawn()?;
+    let mut child = spawn_with_text_busy_retry(command)?;
     let process_group = match libc::pid_t::try_from(child.id()) {
         Ok(process_group) => process_group,
         Err(_) => {
@@ -125,6 +126,21 @@ pub fn spawn_process_group(command: &mut Command) -> io::Result<(Child, SignalFo
         return Err(error);
     }
     Ok((child, forwarder))
+}
+
+fn spawn_with_text_busy_retry(command: &mut Command) -> io::Result<Child> {
+    const RETRIES: usize = 5;
+    const RETRY_DELAY: Duration = Duration::from_millis(10);
+
+    for attempt in 0..=RETRIES {
+        match command.spawn() {
+            Err(error) if error.raw_os_error() == Some(libc::ETXTBSY) && attempt < RETRIES => {
+                std::thread::sleep(RETRY_DELAY);
+            }
+            result => return result,
+        }
+    }
+    unreachable!("the bounded spawn loop always returns")
 }
 
 pub fn wait_for_child(child: &mut Child, forwarder: &SignalForwarder) -> io::Result<ExitStatus> {

@@ -128,3 +128,121 @@ pub(super) fn looks_like_bun_yarn(input: &[u8]) -> bool {
 use super::exact::trim_ascii;
 use super::npm::{deprecated_package_name, write_name_summary};
 use super::{append_line, find_subslice, strip_ansi, trim_end};
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum Route {
+    List,
+    Outdated,
+    Exact,
+    Other,
+}
+
+impl Route {
+    pub(super) fn is_human(self) -> bool {
+        matches!(self, Self::List | Self::Outdated)
+    }
+}
+
+pub(super) fn classify(argv: &[&[u8]]) -> Route {
+    let subcommand = argv.get(1).copied().unwrap_or_default();
+    if !matches!(subcommand, b"list" | b"ls" | b"outdated") {
+        return Route::Other;
+    }
+    let arguments = crate::invocation_policy::options(argv);
+    if arguments.iter().any(|argument| {
+        matches!(
+            *argument,
+            b"--json"
+                | b"--parseable"
+                | b"--ndjson"
+                | b"--porcelain"
+                | b"--json-stream"
+                | b"--reporter"
+        ) || argument.starts_with(b"--json=")
+            || argument.starts_with(b"--parseable=")
+            || argument.starts_with(b"--reporter=")
+    }) {
+        return Route::Exact;
+    }
+
+    let mut format = None;
+    let mut index = 0usize;
+    while index < arguments.len() {
+        let argument = arguments[index];
+        if argument == b"--format" {
+            let Some(value) = arguments.get(index + 1).copied() else {
+                return Route::Exact;
+            };
+            if format.replace(value).is_some() {
+                return Route::Exact;
+            }
+            index += 2;
+            continue;
+        }
+        if let Some(value) = argument.strip_prefix(b"--format=")
+            && (value.is_empty() || format.replace(value).is_some())
+        {
+            return Route::Exact;
+        }
+        index += 1;
+    }
+    if matches!(subcommand, b"list" | b"ls") && format.is_some()
+        || format.is_some_and(|format| format != b"table")
+    {
+        return Route::Exact;
+    }
+
+    if matches!(subcommand, b"list" | b"ls") {
+        Route::List
+    } else {
+        Route::Outdated
+    }
+}
+
+pub(super) fn compact_outdated(input: &[u8]) -> Option<Vec<u8>> {
+    let input = std::str::from_utf8(input).ok()?;
+    let lines = input
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .collect::<Vec<_>>();
+    if lines.len() < 5 || !box_border(lines[0], '┌', '┐') || !box_border(lines.last()?, '└', '┘')
+    {
+        return None;
+    }
+    let header = box_cells(lines[1])?;
+    if header != ["Package", "Current", "Latest"] || !box_border(lines[2], '├', '┤') {
+        return None;
+    }
+
+    let mut output = b"Package Current Latest\n".to_vec();
+    let rows = &lines[3..lines.len() - 1];
+    if rows.is_empty() {
+        return None;
+    }
+    for line in rows {
+        let cells = box_cells(line)?;
+        if cells.len() != 3 || cells.iter().any(|cell| cell.is_empty()) {
+            return None;
+        }
+        output.extend_from_slice(cells.join(" ").as_bytes());
+        output.push(b'\n');
+    }
+    Some(output)
+}
+
+fn box_cells(line: &str) -> Option<Vec<&str>> {
+    if !line.starts_with('│') || !line.ends_with('│') {
+        return None;
+    }
+    Some(line.trim_matches('│').split('│').map(str::trim).collect())
+}
+
+fn box_border(line: &str, start: char, end: char) -> bool {
+    line.starts_with(start)
+        && line.ends_with(end)
+        && line
+            .chars()
+            .skip(1)
+            .take(line.chars().count().saturating_sub(2))
+            .all(|character| matches!(character, '─' | '┬' | '┼' | '┴'))
+}

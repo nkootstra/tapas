@@ -51,6 +51,30 @@ fn should_keep_dotnet(line: &[u8]) -> bool {
         || contains_ignore_ascii_case(trimmed, b"would be formatted")
 }
 
+pub(super) fn matches_command_output(command: &[u8], input: &[u8]) -> bool {
+    input.split(|byte| *byte == b'\n').any(|raw| {
+        let line = trim_ascii(raw);
+        match command {
+            b"build" => {
+                contains_ignore_ascii_case(line, b"build failed")
+                    || contains_ignore_ascii_case(line, b"build succeeded")
+                    || contains_ignore_ascii_case(line, b": error ")
+                    || contains_ignore_ascii_case(line, b": warning ")
+                    || find_subslice(line, b" error CS").is_some()
+                    || find_subslice(line, b" warning CS").is_some()
+            }
+            b"format" => {
+                contains_ignore_ascii_case(line, b"format complete")
+                    || contains_ignore_ascii_case(line, b"formatted code file")
+                    || contains_ignore_ascii_case(line, b"would be formatted")
+                    || line.starts_with(b"Formatting code files in workspace")
+                    || line.starts_with(b"Warnings were encountered while loading the workspace")
+            }
+            _ => false,
+        }
+    })
+}
+
 pub(super) fn compact_evidence(exit_code: i32) -> EvidenceClass {
     if exit_code == 0 {
         EvidenceClass::PotentiallyLossy
