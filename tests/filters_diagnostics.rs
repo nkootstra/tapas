@@ -5,7 +5,6 @@ use common::fixture;
 #[test]
 fn mypy_keeps_diagnostics_summaries_and_pretty_carets() {
     let input = concat!(
-        "LOG: processing\n",
         "\x1b[31msrc/a.py:10:5: error: Incompatible types [assignment]\x1b[0m\n",
         "\x1b[36m    x: int = \"foo\"\x1b[0m\n",
         "\x1b[36m             ^~~~~\x1b[0m\n",
@@ -26,6 +25,22 @@ fn mypy_keeps_diagnostics_summaries_and_pretty_carets() {
             EvidenceClass::FactComplete,
         )
     );
+}
+
+#[test]
+fn mypy_rejects_unknown_preambles_before_recognized_diagnostics() {
+    let input = concat!(
+        "wrapper: preparing mypy\n",
+        "src/a.py:10:5: error: Incompatible types [assignment]\n",
+        "Found 1 error in 1 file\n",
+    );
+
+    let filtered =
+        diagnostics::dispatch_streams_argv(&[b"mypy", b"src"], input.as_bytes(), b"", 1, false)
+            .unwrap();
+
+    assert_eq!(filtered.stdout, input.as_bytes());
+    assert_eq!(filtered.evidence, EvidenceClass::ByteExact);
 }
 
 #[test]

@@ -9,6 +9,7 @@ pub(super) fn classify_mypy(input: &[u8]) -> Option<RecognizedStream> {
     let mut output = Vec::with_capacity(input.len());
     let mut found_diagnostic = false;
     let mut found_clean_summary = false;
+    let mut unknown_shape = false;
     let mut in_diagnostic = false;
     for raw in input.split(|byte| *byte == b'\n') {
         let clean = strip_ansi_csi(raw);
@@ -28,10 +29,13 @@ pub(super) fn classify_mypy(input: &[u8]) -> Option<RecognizedStream> {
             in_diagnostic = false;
         } else if !line.is_empty() {
             in_diagnostic = false;
+            unknown_shape = true;
         }
     }
 
-    if found_diagnostic {
+    if unknown_shape {
+        None
+    } else if found_diagnostic {
         Some(RecognizedStream::Diagnostics(output))
     } else if found_clean_summary {
         Some(RecognizedStream::Clean(output))
