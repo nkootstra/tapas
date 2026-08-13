@@ -138,7 +138,11 @@ pub(super) fn run(
 
 #[derive(Clone, Copy)]
 enum StreamKind {
-    Logs { compose: bool, docker: bool },
+    Logs {
+        compose: bool,
+        docker: bool,
+        preserve_metadata: bool,
+    },
     Tsc,
     Jest,
     Gh,
@@ -161,9 +165,27 @@ impl StreamKind {
         }
         let compose = command == b"docker-compose"
             || command == b"docker" && argv.get(1).is_some_and(|value| value == "compose");
+        let preserve_metadata = argv.iter().any(|argument| {
+            let argument = argument.as_encoded_bytes();
+            argument == b"-t"
+                || [
+                    b"--timestamps".as_slice(),
+                    b"--details",
+                    b"--prefix",
+                    b"--no-log-prefix",
+                ]
+                .iter()
+                .any(|option| {
+                    argument == *option
+                        || argument
+                            .strip_prefix(*option)
+                            .is_some_and(|rest| rest.starts_with(b"="))
+                })
+        });
         Self::Logs {
             compose,
             docker: matches!(command, b"docker" | b"docker-compose"),
+            preserve_metadata,
         }
     }
 
@@ -209,7 +231,11 @@ struct StreamSide {
 impl StreamSide {
     fn new(kind: StreamKind) -> Self {
         let processor = match kind {
-            StreamKind::Logs { compose, .. } => Processor::Logs(LogState::new(compose)),
+            StreamKind::Logs {
+                compose,
+                preserve_metadata,
+                ..
+            } => Processor::Logs(LogState::new(compose, preserve_metadata)),
             StreamKind::Tsc => Processor::Tsc(TscState::default()),
             StreamKind::Jest => Processor::Jest(JestState::default()),
             StreamKind::Gh => Processor::Gh(GhState::default()),
@@ -315,6 +341,7 @@ mod tests {
         let mut side = StreamSide::new(StreamKind::Logs {
             compose: false,
             docker: true,
+            preserve_metadata: false,
         });
         let mut output = Vec::new();
         side.feed(b"2026-08-01 10:00:00 INFO rea", &mut output)
@@ -327,6 +354,7 @@ mod tests {
         let mut side = StreamSide::new(StreamKind::Logs {
             compose: false,
             docker: false,
+            preserve_metadata: false,
         });
         let mut output = Vec::new();
         side.feed(&vec![b'x'; MAX_LINE_BYTES], &mut output).unwrap();

@@ -155,6 +155,9 @@ pub fn classify_stream(argv: &[OsString]) -> StreamDecision {
         return StreamDecision::Capture;
     };
     let command = basename(command);
+    if let Some(decision) = compose_stream_decision(command, argv) {
+        return decision;
+    }
     if is_follow_logs(command, argv)
         || (command == b"tsc" && has_any_arg(argv, &[b"--watch", b"-w"]))
         || (is_any(command, &[b"jest", b"vitest"])
@@ -291,15 +294,9 @@ fn inherits_lifecycle(command: &[u8], argv: &[OsString]) -> bool {
         if equals_at(argv, 1, b"run") {
             return true;
         }
-        if equals_at(argv, 1, b"compose") {
-            return compose_inherits_lifecycle(argv, 2);
-        }
         if equals_at(argv, 1, b"stats") {
             return !boolean_option_enabled(argv, b"--no-stream", None).unwrap_or(false);
         }
-    }
-    if command == b"docker-compose" {
-        return compose_inherits_lifecycle(argv, 1);
     }
     if is_any(command, &[b"bat", b"batcat"]) {
         return option_value(argv, b"--paging").is_some_and(|value| value == b"always");
@@ -332,13 +329,30 @@ fn pnpm_exec_candidate(argv: &[OsString]) -> bool {
     false
 }
 
-fn compose_inherits_lifecycle(argv: &[OsString], start: usize) -> bool {
+fn compose_stream_decision(command: &[u8], argv: &[OsString]) -> Option<StreamDecision> {
+    let start = if command == b"docker" && equals_at(argv, 1, b"compose") {
+        2
+    } else if command == b"docker-compose" {
+        1
+    } else {
+        return None;
+    };
     match scan_subcommand(argv, start, COMPOSE_VALUE_OPTIONS, COMPOSE_BOOLEAN_OPTIONS) {
         SubcommandScan::Found(b"up") => {
-            !boolean_option_enabled(argv, b"--detach", Some(b'd')).unwrap_or(false)
+            if boolean_option_enabled(argv, b"--detach", Some(b'd')).unwrap_or(false)
+                || long_option_enabled(argv, b"--wait")
+                || long_option_enabled(argv, b"--no-start")
+            {
+                Some(StreamDecision::Capture)
+            } else if long_option_enabled(argv, b"--watch") || long_option_enabled(argv, b"--menu")
+            {
+                Some(StreamDecision::Inherit)
+            } else {
+                Some(StreamDecision::StreamFilter)
+            }
         }
-        SubcommandScan::Ambiguous => true,
-        SubcommandScan::Found(_) | SubcommandScan::Missing => false,
+        SubcommandScan::Ambiguous => Some(StreamDecision::Inherit),
+        SubcommandScan::Found(_) | SubcommandScan::Missing => None,
     }
 }
 

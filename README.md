@@ -57,12 +57,24 @@ Explain the selected filter and reduction for one command:
 tapas --explain git status
 ```
 
-Continuous logs and supported watch modes remain raw by default. Opt into bounded live compaction with:
+Recognized continuous logs, supported watch modes, and attached `docker compose up`
+use bounded live compaction by default when Tapas output is redirected or piped:
 
 ```sh
-TAPAS_STREAM=1 tapas docker logs --follow api
-TAPAS_STREAM=1 tapas tsc --watch
+tapas docker logs --follow api
+tapas tsc --watch
+tapas docker compose up
 ```
+
+Interactive terminal runs still inherit the terminal. Use `--raw` or
+`TAPAS_LOSSLESS=1` for byte-exact redirected output; the legacy `TAPAS_STREAM`
+variable is accepted but has no effect. Metadata requested with flags such as
+`--timestamps`, `--details`, or `--prefix` is preserved.
+
+Live filtering is necessarily incremental: if a command fails after already
+emitting compacted output, Tapas cannot reconstruct bytes it has already
+displayed. Unrecognized live frames fail open independently on stdout and
+stderr from the point they are observed.
 
 Tapas never invokes a shell to run a wrapped command. Shell execution happens only when the caller explicitly requests a shell, such as `tapas sh -c '...'`.
 

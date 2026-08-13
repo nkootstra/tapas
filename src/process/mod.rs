@@ -46,7 +46,6 @@ pub fn run(
     // runner can hide a development/watch command after argv unwrapping.
     let stream = merge_stream_decisions(classify_stream(logical), classify_stream(argv));
     let stream_filtering = stream == StreamDecision::StreamFilter
-        && crate::environment::flag_on("TAPAS_STREAM")
         && !unix::stdout_is_tty()
         && !options.raw
         && !lossless

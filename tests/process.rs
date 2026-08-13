@@ -509,12 +509,10 @@ fn lifecycle_policies_inherit_interactive_and_unbounded_commands() {
         &["playwright", "show-trace", "trace.zip"][..],
         &["playwright", "codegen", "example.com"][..],
         &["docker", "run", "alpine"][..],
-        &["docker", "compose", "up"][..],
-        &["docker", "compose", "-f", "compose.yml", "up"][..],
         &["docker", "compose", "--future", "value", "up"][..],
-        &["docker", "compose", "up", "--detach=false"][..],
-        &["docker", "compose", "up", "--detach", "false"][..],
-        &["docker-compose", "up"][..],
+        &["docker", "compose", "up", "--watch"][..],
+        &["docker", "compose", "up", "--menu"][..],
+        &["docker", "compose", "up", "--menu=true"][..],
         &["docker", "stats"][..],
         &["docker", "stats", "--no-stream=false"][..],
         &["docker", "stats", "--no-stream", "false"][..],
@@ -537,6 +535,8 @@ fn lifecycle_policies_inherit_interactive_and_unbounded_commands() {
         &["docker", "compose", "-f", "compose.yml", "ps"][..],
         &["docker", "compose", "up", "--detach"][..],
         &["docker", "compose", "up", "--detach=true"][..],
+        &["docker", "compose", "up", "--wait"][..],
+        &["docker", "compose", "up", "--no-start"][..],
         &["docker", "stats", "--no-stream"][..],
         &["docker", "stats", "--no-stream=true"][..],
         &["bat", "--paging=auto", "README.md"][..],
@@ -544,6 +544,23 @@ fn lifecycle_policies_inherit_interactive_and_unbounded_commands() {
     ] {
         let args = args.iter().map(OsString::from).collect::<Vec<_>>();
         assert_eq!(classify_stream(&args), StreamDecision::Capture, "{args:?}");
+    }
+
+    for args in [
+        &["docker", "compose", "up"][..],
+        &["docker", "compose", "-f", "compose.yml", "up"][..],
+        &["docker", "compose", "up", "--detach=false"][..],
+        &["docker", "compose", "up", "--detach", "false"][..],
+        &["docker", "compose", "up", "--watch=false"][..],
+        &["docker", "compose", "up", "--menu=false"][..],
+        &["docker-compose", "up"][..],
+    ] {
+        let args = args.iter().map(OsString::from).collect::<Vec<_>>();
+        assert_eq!(
+            classify_stream(&args),
+            StreamDecision::StreamFilter,
+            "{args:?}"
+        );
     }
 
     let nested = ["npx", "vite", "dev"]
@@ -557,41 +574,88 @@ fn lifecycle_policies_inherit_interactive_and_unbounded_commands() {
 }
 
 #[test]
-fn streaming_is_raw_by_default_and_opt_in_deduplicates_each_stream() {
+fn recognized_non_tty_streaming_compacts_by_default_and_legacy_env_is_a_no_op() {
     let command = FakeCommand::new(
         "docker",
         b"#!/bin/sh\nprintf '2026-08-01 10:00:00 INFO ready\\n2026-08-01 10:00:01 INFO ready\\n'\nprintf '2026-08-01 10:00:00 WARN retry\\n2026-08-01 10:00:01 WARN retry\\n' >&2\nexit 42\n",
     );
     let program = command.path().to_str().expect("UTF-8 fake command path");
-    let raw = tapas(&[program, "logs", "-f", "api"], b"", &[]);
-    assert_eq!(raw.status.code(), Some(42));
-    assert_eq!(
-        raw.stdout,
-        b"2026-08-01 10:00:00 INFO ready\n2026-08-01 10:00:01 INFO ready\n"
-    );
-    assert_eq!(
-        raw.stderr,
-        b"2026-08-01 10:00:00 WARN retry\n2026-08-01 10:00:01 WARN retry\n"
-    );
-
-    let filtered = tapas(
-        &[program, "logs", "-f", "api"],
-        b"",
-        &[("TAPAS_STREAM", "1")],
-    );
+    let filtered = tapas(&[program, "logs", "-f", "api"], b"", &[]);
     assert_eq!(filtered.status.code(), Some(42));
     assert_eq!(filtered.stdout, "INFO ready ×2\n".as_bytes());
     assert_eq!(filtered.stderr, "WARN retry ×2\n".as_bytes());
 
-    for env in [
-        &[("SMLL_STREAM", "1")][..],
-        &[("TAPAS_STREAM", "1"), ("TAPAS_LOSSLESS", "1")][..],
-    ] {
-        let bypassed = tapas(&[program, "logs", "-f", "api"], b"", env);
-        assert_eq!(bypassed.status.code(), Some(42));
-        assert_eq!(bypassed.stdout, raw.stdout);
-        assert_eq!(bypassed.stderr, raw.stderr);
+    for legacy_value in ["0", "1", "false", "anything"] {
+        let legacy = tapas(
+            &[program, "logs", "-f", "api"],
+            b"",
+            &[("TAPAS_STREAM", legacy_value)],
+        );
+        assert_eq!(legacy.status.code(), Some(42));
+        assert_eq!(legacy.stdout, filtered.stdout);
+        assert_eq!(legacy.stderr, filtered.stderr);
     }
+
+    let expected_stdout = b"2026-08-01 10:00:00 INFO ready\n2026-08-01 10:00:01 INFO ready\n";
+    let expected_stderr = b"2026-08-01 10:00:00 WARN retry\n2026-08-01 10:00:01 WARN retry\n";
+    for (prefix, env) in [
+        (&["--raw", "--"][..], &[][..]),
+        (&[][..], &[("TAPAS_LOSSLESS", "1")][..]),
+    ] {
+        let mut args = prefix.to_vec();
+        args.extend([program, "logs", "-f", "api"]);
+        let raw = tapas(&args, b"", env);
+        assert_eq!(raw.status.code(), Some(42));
+        assert_eq!(raw.stdout, expected_stdout);
+        assert_eq!(raw.stderr, expected_stderr);
+    }
+}
+
+#[test]
+fn compose_up_streams_state_and_deduplicates_prefixed_logs_per_side() {
+    let command = FakeCommand::new(
+        "docker",
+        b"#!/bin/sh\nprintf '[+] Running 1/1\n Container demo-api-1 Started\napi-1 | 2026-08-01 10:00:00 INFO ready\napi-1 | 2026-08-01 10:00:01 INFO ready\n'\nprintf 'custom compose extension\napi-1 | stderr detail\n' >&2\nexit 23\n",
+    );
+    let program = command.path().to_str().expect("UTF-8 fake command path");
+    let output = tapas(&[program, "compose", "up"], b"", &[]);
+
+    assert_eq!(output.status.code(), Some(23));
+    assert_eq!(
+        output.stdout,
+        "[+] Running 1/1\n Container demo-api-1 Started\napi-1| INFO ready ×2\n".as_bytes()
+    );
+    assert_eq!(
+        output.stderr,
+        b"custom compose extension\napi-1 | stderr detail\n"
+    );
+}
+
+#[test]
+fn requested_live_log_metadata_is_preserved() {
+    let command = FakeCommand::new(
+        "docker",
+        b"#!/bin/sh\nprintf '2026-08-01 10:00:00 label=blue INFO ready\n2026-08-01 10:00:01 label=blue INFO ready\n'\n",
+    );
+    let program = command.path().to_str().expect("UTF-8 fake command path");
+    let output = tapas(
+        &[
+            program,
+            "logs",
+            "--follow",
+            "--timestamps",
+            "--details",
+            "api",
+        ],
+        b"",
+        &[],
+    );
+
+    assert!(output.status.success());
+    assert_eq!(
+        output.stdout,
+        b"2026-08-01 10:00:00 label=blue INFO ready\n2026-08-01 10:00:01 label=blue INFO ready\n"
+    );
 }
 
 #[test]
@@ -601,7 +665,7 @@ fn jest_watch_unknown_frame_before_recognized_output_fails_open_losslessly() {
         b"#!/bin/sh\nprintf 'custom watch status\\n\\033[2J\\033[HTest Suites: 1 passed, 1 total\\nTests: 1 passed, 1 total\\n'\n",
     );
     let program = jest.path().to_str().expect("UTF-8 fake command path");
-    let output = tapas(&[program, "--watch"], b"", &[("TAPAS_STREAM", "1")]);
+    let output = tapas(&[program, "--watch"], b"", &[]);
 
     assert!(output.status.success());
     assert_eq!(
@@ -618,7 +682,7 @@ fn vitest_watch_unknown_frame_after_recognized_output_only_opens_its_stream_side
         b"#!/bin/sh\nprintf 'Test Suites: 1 passed, 1 total\\nTests: 1 passed, 1 total\\n\\033[2J\\033[Hcustom watch status\\n\\033[2J\\033[HTest Suites: 1 passed, 1 total\\nTests: 1 passed, 1 total\\n'\nprintf 'Test Suites: 1 passed, 1 total\\nTests: 1 passed, 1 total\\n' >&2\n",
     );
     let program = vitest.path().to_str().expect("UTF-8 fake command path");
-    let output = tapas(&[program, "--watch"], b"", &[("TAPAS_STREAM", "1")]);
+    let output = tapas(&[program, "--watch"], b"", &[]);
 
     assert!(output.status.success());
     assert_eq!(
@@ -632,11 +696,7 @@ fn vitest_watch_unknown_frame_after_recognized_output_only_opens_its_stream_side
 fn streaming_preserves_signals_and_descendant_pipe_diagnostics() {
     let signaled = FakeCommand::new("docker", b"#!/bin/sh\nkill -TERM $$\n");
     let program = signaled.path().to_str().expect("UTF-8 fake command path");
-    let output = tapas(
-        &[program, "logs", "-f", "api"],
-        b"",
-        &[("TAPAS_STREAM", "1")],
-    );
+    let output = tapas(&[program, "logs", "-f", "api"], b"", &[]);
     assert_eq!(output.status.code(), Some(143));
     assert!(output.stdout.is_empty());
     assert!(output.stderr.is_empty());
@@ -647,11 +707,7 @@ fn streaming_preserves_signals_and_descendant_pipe_diagnostics() {
     );
     let program = retained.path().to_str().expect("UTF-8 fake command path");
     let started = Instant::now();
-    let output = tapas(
-        &[program, "logs", "-f", "api"],
-        b"",
-        &[("TAPAS_STREAM", "1")],
-    );
+    let output = tapas(&[program, "logs", "-f", "api"], b"", &[]);
     assert!(started.elapsed() < Duration::from_secs(3));
     assert_eq!(output.stdout, b"ready\n");
     assert_eq!(
