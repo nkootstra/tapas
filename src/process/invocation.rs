@@ -217,6 +217,30 @@ pub fn classify_stream(argv: &[OsString]) -> StreamDecision {
 }
 
 fn inherits_lifecycle(command: &[u8], argv: &[OsString]) -> bool {
+    if command == b"prisma" {
+        return argv
+            .windows(2)
+            .take_while(|pair| bytes(&pair[0]) != b"--")
+            .any(|pair| {
+                bytes(&pair[0]) == b"migrate" && is_any(bytes(&pair[1]), &[b"dev", b"reset"])
+            });
+    }
+    if command == b"rspec" {
+        return long_option_enabled(argv, b"--bisect");
+    }
+    if command == b"rubocop" {
+        return has_enabled_option(argv, &[b"--lsp", b"--mcp", b"--server"]);
+    }
+    if command == b"psql" {
+        return argv.len() == 1;
+    }
+    if command == b"nextest" || command == b"cargo" && equals_at(argv, 1, b"nextest") {
+        return has_enabled_option(argv, &[b"--debugger", b"--no-capture", b"--nocapture"])
+            || option_value(argv, b"--stress-count").is_some_and(|value| value == b"infinite");
+    }
+    if is_any(command, &[b"gt", b"graphite"]) {
+        return long_option_enabled(argv, b"--interactive");
+    }
     if command == b"vite" {
         if has_any_arg(argv, &[b"--help", b"-h", b"--version", b"-v"]) {
             return false;

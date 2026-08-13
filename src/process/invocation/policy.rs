@@ -5,13 +5,16 @@ pub fn requests_exact_output(argv: &[OsString]) -> bool {
 pub fn is_raw_curl(argv: &[OsString]) -> bool {
     argv.first()
         .is_some_and(|command| basename(command) == b"curl")
-        && !argv.iter().any(|argument| {
-            let argument = bytes(argument);
-            argument == b"--verbose"
-                || (argument.starts_with(b"-")
-                    && !argument.starts_with(b"--")
-                    && argument[1..].contains(&b'v'))
-        })
+        && !argv
+            .iter()
+            .take_while(|argument| bytes(argument) != b"--")
+            .any(|argument| {
+                let argument = bytes(argument);
+                argument == b"--verbose"
+                    || (argument.starts_with(b"-")
+                        && !argument.starts_with(b"--")
+                        && argument[1..].contains(&b'v'))
+            })
 }
 
 pub(super) fn exact_output_reason(_command: &[u8], argv: &[OsString]) -> Option<PassthroughReason> {

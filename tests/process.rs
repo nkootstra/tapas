@@ -754,6 +754,101 @@ fn invocation_policy_is_byte_safe_and_stops_option_scans_at_the_terminator() {
 }
 
 #[test]
+fn expanded_output_shaping_policies_remain_byte_exact() {
+    fn exact(values: &[&str]) -> bool {
+        requests_exact_output(&values.iter().map(OsString::from).collect::<Vec<_>>())
+    }
+
+    for values in [
+        &["cargo", "test", "--message-format=json"] as &[&str],
+        &["cargo", "metadata", "--json"],
+        &[
+            "cargo",
+            "nextest",
+            "run",
+            "--message-format",
+            "libtest-json",
+        ],
+        &["nextest", "run", "--message-format=libtest-json-plus"],
+        &["go", "test", "-json", "./..."],
+        &["jest", "--json"],
+        &["jest", "--reporters", "jest-junit"],
+        &["vitest", "--reporter=json", "--outputFile=results.json"],
+        &["playwright", "test", "--reporter", "junit"],
+        &["prisma", "migrate", "diff", "--script"],
+        &[
+            "prisma",
+            "--schema",
+            "db.prisma",
+            "migrate",
+            "diff",
+            "--output=diff.sql",
+        ],
+        &["rspec", "--format", "json"],
+        &["rubocop", "--format=json", "--out", "offenses.json"],
+        &["golangci-lint", "run", "--out-format", "json"],
+        &["dotnet", "test", "--logger", "trx"],
+        &["gt", "log", "--format=json"],
+        &["diff", "--unified=3", "old", "new"],
+        &["head", "--bytes=20", "file"],
+        &["tail", "-n20", "file"],
+        &["psql", "--output", "rows.txt"],
+        &["psql", "--command", "\\copy records to stdout with csv"],
+        &["curl", "-vv", "https://example.test"],
+        &["curl", "--trace-ascii", "trace.log", "https://example.test"],
+        &["curl", "--write-out=%{json}", "https://example.test"],
+    ] {
+        assert!(exact(values), "{values:?}");
+    }
+
+    for values in [
+        &["playwright", "test", "--reporter=line"] as &[&str],
+        &["vitest", "--reporter=dot"],
+        &["cargo", "test", "--", "--message-format=json"],
+        &["curl", "https://example.test", "--", "--trace", "trace.log"],
+    ] {
+        assert!(!exact(values), "{values:?}");
+    }
+}
+
+#[test]
+fn expanded_interactive_lifecycle_policies_inherit_the_terminal() {
+    fn stream(values: &[&str]) -> StreamDecision {
+        classify_stream(&values.iter().map(OsString::from).collect::<Vec<_>>())
+    }
+
+    for values in [
+        &["prisma", "migrate", "dev"] as &[&str],
+        &["prisma", "migrate", "reset"],
+        &["prisma", "--schema", "db.prisma", "migrate", "dev"],
+        &["rspec", "--bisect"],
+        &["rubocop", "--lsp"],
+        &["rubocop", "--mcp"],
+        &["rubocop", "--server"],
+        &["psql"],
+        &["nextest", "run", "--debugger"],
+        &["cargo", "nextest", "run", "--no-capture"],
+        &["cargo", "nextest", "run", "--stress-count=infinite"],
+        &["gt", "stack", "--interactive"],
+        &["graphite", "--interactive", "submit"],
+    ] {
+        assert_eq!(stream(values), StreamDecision::Inherit, "{values:?}");
+    }
+
+    for values in [
+        &["prisma", "migrate", "deploy"] as &[&str],
+        &["rspec", "--", "--bisect"],
+        &["rubocop", "--", "--lsp"],
+        &["psql", "--command", "select 1"],
+        &["nextest", "run", "--stress-count=10"],
+        &["cargo", "nextest", "run", "--", "--no-capture"],
+        &["gt", "stack", "--interactive=false"],
+    ] {
+        assert_eq!(stream(values), StreamDecision::Capture, "{values:?}");
+    }
+}
+
+#[test]
 fn explain_reports_the_process_outcome_without_state_claims() {
     let output = tapas(
         &["--explain", "/bin/sh", "-c", "printf 'visible\\n'"],
