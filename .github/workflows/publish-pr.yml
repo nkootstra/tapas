@@ -8,7 +8,6 @@ on:
 permissions: {}
 
 env:
-  TAPAS_VERSION: 0.3.0
   REPOSITORY: ${{ github.repository }}
 
 jobs:
@@ -37,10 +36,39 @@ jobs:
               --repo "$REPOSITORY" \
               --name "tapas-${target}" \
               --dir "work/${target}"
-            metadata="work/${target}/BUILD-METADATA.json"
-            actual="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source_sha"])' "$metadata")"
-            test "$actual" = "$SOURCE_SHA"
           done
+          python3 - "$SOURCE_SHA" "$GITHUB_ENV" work/*/BUILD-METADATA.json <<'PY'
+          # pr-build-metadata-validator:start
+          import json
+          import pathlib
+          import re
+          import sys
+
+          source_sha, github_env, *metadata_paths = sys.argv[1:]
+          if re.fullmatch(r"[0-9a-f]{40}", source_sha) is None or not metadata_paths:
+              raise SystemExit("invalid PR build metadata inputs")
+
+          builds = set()
+          for metadata_path in metadata_paths:
+              metadata = json.loads(pathlib.Path(metadata_path).read_text(encoding="utf-8"))
+              version = metadata.get("version")
+              version_label = metadata.get("version_label")
+              if (
+                  metadata.get("source_sha") != source_sha
+                  or not isinstance(version, str)
+                  or re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version) is None
+                  or version_label != f"{version}-dev.{source_sha[:8]}"
+              ):
+                  raise SystemExit(f"invalid PR build metadata: {metadata_path}")
+              builds.add((version, version_label))
+
+          if len(builds) != 1:
+              raise SystemExit("PR build targets disagree on version metadata")
+          _, version_label = builds.pop()
+          with pathlib.Path(github_env).open("a", encoding="utf-8") as output:
+              output.write(f"TAPAS_BUILD_LABEL={version_label}\n")
+          # pr-build-metadata-validator:end
+          PY
 
       - name: Create public PR archives
         env:
@@ -85,6 +113,8 @@ jobs:
           pinned_installer_url="https://github.com/${REPOSITORY}/raw/${main_sha}/install.sh"
           pinned_windows_installer_url="https://github.com/${REPOSITORY}/raw/${main_sha}/install.ps1"
           release_url="https://github.com/${REPOSITORY}/releases/tag/pr-${PR_NUMBER}-${SOURCE_SHA}"
+          # The escaped backticks below are Markdown delimiters, not command substitution.
+          # shellcheck disable=SC2006
           cat > comment.md <<EOF
           <!-- tapas-pr-build -->
           ### Tapas PR build ready
@@ -97,7 +127,7 @@ jobs:
           curl -fsSL ${installer_pr_url} | sh -s -- ${PR_NUMBER}
           \`\`\`
 
-          The installed command is \`tapas-pr-${short_sha}\` and reports \`tapas ${TAPAS_VERSION}-dev.${short_sha}\`.
+          The installed command is \`tapas-pr-${short_sha}\` and reports \`tapas ${TAPAS_BUILD_LABEL}\`.
 
           Clean local PR builds without affecting stable \`tapas\`:
 

@@ -190,7 +190,7 @@ To test a pull request before it is merged, install the exact build for its curr
 curl -fsSL https://github.com/nkootstra/tapas/raw/refs/heads/main/install-pr.sh | sh -s -- 123
 ```
 
-The installer verifies the release checksum and source commit, then places the development binary at `~/.local/bin/tapas-pr-<commit>`. A PR build reports a version such as `tapas 0.3.0-dev.332d7176` so it is distinguishable from a stable build. PR builds are temporary and are removed remotely when the pull request is merged or after the retention window.
+The installer verifies the release checksum and source commit, then places the development binary at `~/.local/bin/tapas-pr-<commit>`. A PR build reports `tapas <package-version>-dev.<commit>` using the version from its verified build metadata, so it is distinguishable from a stable build. PR builds are temporary and are removed remotely when the pull request is merged or after the retention window.
 
 Remove local PR builds without affecting the stable `tapas` executable:
 
