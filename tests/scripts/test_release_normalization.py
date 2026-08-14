@@ -109,6 +109,132 @@ class ReleaseNormalizationTests(unittest.TestCase):
             self.assertEqual(status, 0)
             self.assertEqual(json.loads(output_json.read_text()), {})
 
+    def test_inspect_binds_release_plz_output_to_the_live_trusted_pull_request(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            pulls_json = root / "pulls.json"
+            release_plz_json = root / "release-plz-prs.json"
+            output_json = root / "selected.json"
+            trusted = self._trusted_open_pull_request()
+            pulls_json.write_text(json.dumps([trusted]), encoding="utf-8")
+            release_plz_json.write_text(
+                json.dumps(
+                    [
+                        {
+                            "head_branch": trusted["head"]["ref"],
+                            "base_branch": "main",
+                            "html_url": "https://github.com/nkootstra/tapas/pull/21",
+                            "number": 21,
+                            "releases": [
+                                {"package_name": "tapas", "version": "0.6.0"}
+                            ],
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            status = release_normalization.main(
+                [
+                    "inspect",
+                    "--pulls-json",
+                    str(pulls_json),
+                    "--release-plz-prs-json",
+                    str(release_plz_json),
+                    "--expected-version",
+                    "0.6.0",
+                    "--repository",
+                    "nkootstra/tapas",
+                    "--app-login",
+                    "tapas-release[bot]",
+                    "--output-json",
+                    str(output_json),
+                ]
+            )
+
+            self.assertEqual(status, 0)
+            self.assertEqual(json.loads(output_json.read_text()), trusted)
+
+    def test_inspect_rejects_empty_or_mismatched_release_plz_output(self) -> None:
+        trusted = self._trusted_open_pull_request()
+        valid_output = {
+            "head_branch": trusted["head"]["ref"],
+            "base_branch": "main",
+            "html_url": "https://github.com/nkootstra/tapas/pull/21",
+            "number": 21,
+            "releases": [{"package_name": "tapas", "version": "0.6.0"}],
+        }
+        invalid_outputs = (
+            [],
+            [valid_output, valid_output],
+            [{**valid_output, "number": 22}],
+            [{**valid_output, "head_branch": "release-plz-other"}],
+            [{**valid_output, "base_branch": "develop"}],
+            [{**valid_output, "releases": []}],
+            [
+                {
+                    **valid_output,
+                    "releases": [{"package_name": "other", "version": "0.6.0"}],
+                }
+            ],
+        )
+
+        for release_plz_output in invalid_outputs:
+            with self.subTest(release_plz_output=release_plz_output):
+                with tempfile.TemporaryDirectory() as directory:
+                    root = pathlib.Path(directory)
+                    pulls_json = root / "pulls.json"
+                    release_plz_json = root / "release-plz-prs.json"
+                    output_json = root / "selected.json"
+                    pulls_json.write_text(json.dumps([trusted]), encoding="utf-8")
+                    release_plz_json.write_text(
+                        json.dumps(release_plz_output), encoding="utf-8"
+                    )
+
+                    status = release_normalization.main(
+                        [
+                            "inspect",
+                            "--pulls-json",
+                            str(pulls_json),
+                            "--release-plz-prs-json",
+                            str(release_plz_json),
+                            "--expected-version",
+                            "0.6.0",
+                            "--repository",
+                            "nkootstra/tapas",
+                            "--app-login",
+                            "tapas-release[bot]",
+                            "--output-json",
+                            str(output_json),
+                        ]
+                    )
+
+                    self.assertEqual(status, 2)
+                    self.assertFalse(output_json.exists())
+
+    def test_empty_release_plz_output_names_the_pending_version(self) -> None:
+        with self.assertRaisesRegex(ValueError, "desired version 0.6.0"):
+            release_normalization.validate_release_plz_output(
+                [], expected_version="0.6.0"
+            )
+
+    def test_release_plz_version_may_differ_before_normalization(self) -> None:
+        reported = {
+            "head_branch": "release-plz-2026-08-11",
+            "base_branch": "main",
+            "html_url": "https://github.com/nkootstra/tapas/pull/21",
+            "number": 21,
+            "releases": [{"package_name": "tapas", "version": "0.5.1"}],
+        }
+
+        selected = release_normalization.validate_release_plz_output(
+            [reported], expected_version="0.6.0"
+        )
+
+        self.assertEqual(selected, reported)
+
     def test_validates_release_pull_request_before_auto_merge(self) -> None:
         pull_request = self._trusted_open_pull_request()
         files = self._release_files()
