@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import os
 import pathlib
 import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
 
 
@@ -31,27 +33,66 @@ def write_version_files(
 
 
 class PullRequestTitleTests(unittest.TestCase):
-    def test_accepts_release_and_skip_titles(self) -> None:
+    def test_accepts_release_skip_and_ordinary_titles(self) -> None:
         for title in (
             "major: remove the legacy protocol",
             "minor: add release automation",
             "patch: repair tag validation",
             "skip: update internal documentation",
+            "feat: add release automation",
+            "Improve contributor documentation",
         ):
             with self.subTest(title=title):
                 self.assertEqual(release_policy.validate_title(title), None)
 
     def test_rejects_titles_outside_the_release_contract(self) -> None:
         for title in (
-            "feat: add release automation",
             "Major: remove the legacy protocol",
             "patch:no separating space",
             "skip: ",
             "minor: first line\nsecond line",
+            "   ",
         ):
             with self.subTest(title=title):
                 with self.assertRaises(ValueError):
                     release_policy.validate_title(title)
+
+    def test_checkout_free_workflow_validator_matches_release_policy(self) -> None:
+        workflow = (ROOT / ".github/workflows/pr-title.yml").read_text(
+            encoding="utf-8"
+        )
+        validator = textwrap.dedent(
+            workflow.split("# release-title-validator:start", 1)[1].split(
+                "# release-title-validator:end", 1
+            )[0]
+        )
+        titles = (
+            "minor: add release automation",
+            "Improve contributor documentation",
+            "Major: wrong case",
+            "patch:no separating space",
+            "skip: ",
+            "minor: first line\nsecond line",
+            "   ",
+        )
+
+        for title in titles:
+            with self.subTest(title=title):
+                try:
+                    release_policy.validate_title(title)
+                except ValueError:
+                    expected = 1
+                else:
+                    expected = 0
+                result = subprocess.run(
+                    ["python3", "-"],
+                    input=validator,
+                    env={**os.environ, "PR_TITLE": title},
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, expected, result.stderr)
 
 
 class VersionPolicyTests(unittest.TestCase):
@@ -69,6 +110,19 @@ class VersionPolicyTests(unittest.TestCase):
         self.assertIsNone(
             release_policy.select_bump(
                 ["skip: update docs (#1)", "chore: historical commit (#2)"]
+            )
+        )
+
+    def test_only_exact_valid_release_intent_triggers_a_bump(self) -> None:
+        self.assertIsNone(
+            release_policy.select_bump(
+                [
+                    "minor:no separating space",
+                    "Minor: wrong case",
+                    "patch: ",
+                    "major: first line\nsecond line",
+                    "ordinary maintenance",
+                ]
             )
         )
 
@@ -180,7 +234,7 @@ class CommandLineTests(unittest.TestCase):
                 "python3",
                 str(SCRIPTS / "release_policy.py"),
                 "validate-title",
-                "feat: unsupported title",
+                "Minor: malformed reserved prefix",
             ],
             check=False,
             capture_output=True,
@@ -188,7 +242,7 @@ class CommandLineTests(unittest.TestCase):
         )
 
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("major:, minor:, patch:, or skip:", result.stderr)
+        self.assertIn("release-intent prefixes must use lowercase", result.stderr)
 
 
 if __name__ == "__main__":

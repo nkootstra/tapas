@@ -6,7 +6,7 @@ git_release_enable = false
 changelog_update = true
 dependencies_update = false
 semver_check = false
-release_commits = "^(major|minor|patch):"
+release_commits = "^(major|minor|patch): .*\\S.*$"
 custom_minor_increment_regex = "^minor$"
 custom_major_increment_regex = "^major$"
 pr_name = "skip: prepare v{{ version }}"
@@ -14,12 +14,12 @@ pr_name = "skip: prepare v{{ version }}"
 [changelog]
 protect_breaking_commits = false
 commit_parsers = [
-  { message = "^major:", group = "Major changes" },
-  { message = "^minor:", group = "Minor changes" },
-  { message = "^patch:", group = "Patch changes" },
+  { message = "^major: .*\\S.*$", group = "Major changes" },
+  { message = "^minor: .*\\S.*$", group = "Minor changes" },
+  { message = "^patch: .*\\S.*$", group = "Patch changes" },
   { message = "^feat[(:]", group = "Added" },
   { message = "^fix[(:]", group = "Fixed" },
   { message = "^perf[(:]", group = "Performance" },
-  { message = "^skip:", skip = true },
-  { message = ".*", skip = true },
+  { message = "^skip: .*\\S.*$", skip = true },
+  { message = ".*", group = "Other changes" },
 ]

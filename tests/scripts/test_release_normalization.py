@@ -84,6 +84,162 @@ class ReleaseNormalizationTests(unittest.TestCase):
             self.assertEqual(status, 2)
             self.assertFalse(output_json.exists())
 
+    def test_inspect_allows_no_existing_release_pull_request(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            pulls_json = root / "pulls.json"
+            output_json = root / "selected.json"
+            pulls_json.write_text("[]\n", encoding="utf-8")
+
+            status = release_normalization.main(
+                [
+                    "inspect",
+                    "--pulls-json",
+                    str(pulls_json),
+                    "--repository",
+                    "nkootstra/tapas",
+                    "--app-login",
+                    "tapas-release[bot]",
+                    "--output-json",
+                    str(output_json),
+                    "--allow-none",
+                ]
+            )
+
+            self.assertEqual(status, 0)
+            self.assertEqual(json.loads(output_json.read_text()), {})
+
+    def test_validates_release_pull_request_before_auto_merge(self) -> None:
+        pull_request = self._trusted_open_pull_request()
+        files = self._release_files()
+
+        candidate = release_normalization.validate_auto_merge_candidate(
+            pull_request,
+            files,
+            repository="nkootstra/tapas",
+            app_login="tapas-release[bot]",
+        )
+
+        self.assertEqual(candidate.number, 21)
+        self.assertEqual(candidate.head_sha, "a" * 40)
+        self.assertEqual(candidate.title, "skip: prepare v0.4.0")
+
+    def test_validates_existing_app_owned_squash_auto_merge(self) -> None:
+        pull_request = {
+            **self._trusted_open_pull_request(),
+            "auto_merge": {
+                "merge_method": "squash",
+                "enabled_by": {
+                    "login": "tapas-release[bot]",
+                    "type": "Bot",
+                },
+            },
+        }
+
+        candidate = release_normalization.validate_auto_merge_candidate(
+            pull_request,
+            self._release_files(),
+            repository="nkootstra/tapas",
+            app_login="tapas-release[bot]",
+        )
+
+        self.assertTrue(candidate.disable_existing)
+
+    def test_auto_merge_command_serializes_validated_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            pr_json = root / "pr.json"
+            files_json = root / "files.json"
+            output_json = root / "candidate.json"
+            pr_json.write_text(json.dumps(self._trusted_open_pull_request()))
+            files_json.write_text(json.dumps(self._release_files()))
+
+            status = release_normalization.main(
+                [
+                    "auto-merge",
+                    "--pr-json",
+                    str(pr_json),
+                    "--files-json",
+                    str(files_json),
+                    "--repository",
+                    "nkootstra/tapas",
+                    "--app-login",
+                    "tapas-release[bot]",
+                    "--output-json",
+                    str(output_json),
+                ]
+            )
+
+            self.assertEqual(status, 0)
+            self.assertEqual(
+                json.loads(output_json.read_text()),
+                {
+                    "disable_existing": False,
+                    "head_sha": "a" * 40,
+                    "number": 21,
+                    "title": "skip: prepare v0.4.0",
+                },
+            )
+
+    def test_rejects_drifted_release_pull_request_before_auto_merge(self) -> None:
+        trusted = self._trusted_open_pull_request()
+        files = self._release_files()
+        mutations = (
+            {**trusted, "draft": True},
+            {**trusted, "title": "skip: prepare v0.4"},
+            {**trusted, "state": "closed"},
+            {**trusted, "auto_merge": {"merge_method": "merge"}},
+            {**trusted, "head": {**trusted["head"], "ref": ["not", "text"]}},
+        )
+
+        for pull_request in mutations:
+            with self.subTest(pull_request=pull_request), self.assertRaises(ValueError):
+                release_normalization.validate_auto_merge_candidate(
+                    pull_request,
+                    files,
+                    repository="nkootstra/tapas",
+                    app_login="tapas-release[bot]",
+                )
+        with self.assertRaises(ValueError):
+            release_normalization.validate_auto_merge_candidate(
+                trusted,
+                [*files, {"filename": "src/main.rs"}],
+                repository="nkootstra/tapas",
+                app_login="tapas-release[bot]",
+            )
+        with self.assertRaises(ValueError):
+            release_normalization.validate_auto_merge_candidate(
+                trusted,
+                [*files[:2], {"filename": ["not", "text"]}],
+                repository="nkootstra/tapas",
+                app_login="tapas-release[bot]",
+            )
+
+    @staticmethod
+    def _trusted_open_pull_request() -> dict[str, object]:
+        return {
+            "number": 21,
+            "title": "skip: prepare v0.4.0",
+            "state": "open",
+            "draft": False,
+            "base": {"ref": "main"},
+            "user": {"login": "tapas-release[bot]", "type": "Bot"},
+            "head": {
+                "ref": "release-plz-2026-08-11",
+                "sha": "a" * 40,
+                "repo": {"full_name": "nkootstra/tapas"},
+            },
+            "auto_merge": None,
+        }
+
+    @staticmethod
+    def _release_files() -> list[dict[str, str]]:
+        return [
+            {"filename": "Cargo.toml"},
+            {"filename": "Cargo.lock"},
+            {"filename": "CHANGELOG.md"},
+        ]
+
     def test_builds_expected_head_graphql_commit_from_exact_release_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)

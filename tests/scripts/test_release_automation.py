@@ -15,11 +15,14 @@ class ReleaseAutomationContractTests(unittest.TestCase):
         self.assertIn("git_only = true", config)
         self.assertIn("git_tag_enable = false", config)
         self.assertIn("git_release_enable = false", config)
-        self.assertIn('release_commits = "^(major|minor|patch):"', config)
+        self.assertIn(
+            'release_commits = "^(major|minor|patch): .*\\\\S.*$"', config
+        )
         self.assertIn('custom_minor_increment_regex = "^minor$"', config)
         self.assertIn('custom_major_increment_regex = "^major$"', config)
-        self.assertIn('message = "^skip:"', config)
+        self.assertIn('message = "^skip: .*\\\\S.*$", skip = true', config)
         self.assertIn("skip = true", config)
+        self.assertIn('message = ".*", group = "Other changes"', config)
 
     def test_merged_release_pr_delegates_to_the_shared_tag_workflow(self) -> None:
         workflow = (ROOT / ".github/workflows/release-plz.yml").read_text(
@@ -45,6 +48,37 @@ class ReleaseAutomationContractTests(unittest.TestCase):
         self.assertNotIn("pull_request_target", workflow)
         self.assertIn("group: release-automation-${{ github.event_name }}-${{ github.ref }}", workflow)
         self.assertIn("cancel-in-progress: false", workflow)
+
+    def test_ci_exposes_one_stable_required_gate(self) -> None:
+        workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+        self.assertIn("gate:", workflow)
+        self.assertIn("name: CI gate", workflow)
+        self.assertIn(
+            "needs: [quality, regression-parity, harness-contracts, test-and-package]",
+            workflow,
+        )
+        self.assertIn("if: always()", workflow)
+        for result in (
+            "needs.quality.result",
+            "needs.regression-parity.result",
+            "needs.harness-contracts.result",
+            "needs.test-and-package.result",
+        ):
+            self.assertIn(result, workflow)
+
+    def test_release_pr_auto_merge_is_fail_closed(self) -> None:
+        workflow = (ROOT / ".github/workflows/release-plz.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("release_normalization.py auto-merge", workflow)
+        self.assertIn("--auto --squash", workflow)
+        self.assertIn("--match-head-commit", workflow)
+        self.assertIn("--subject", workflow)
+        self.assertIn("--disable-auto", workflow)
+        self.assertNotIn("--admin", workflow)
+        self.assertNotIn("--delete-branch", workflow)
 
     def test_shared_tag_workflow_validates_before_writing_the_signing_key(self) -> None:
         workflow = (ROOT / ".github/workflows/release-tag.yml").read_text(
@@ -171,7 +205,10 @@ class ReleaseAutomationContractTests(unittest.TestCase):
             guide,
         )
         self.assertIn("it validates the actual merged commit subject", guide)
-        self.assertIn("fails closed unless that subject starts with", guide)
+        self.assertIn(
+            "fails closed only when a reserved release-intent prefix is malformed",
+            guide,
+        )
         self.assertNotIn(
             "The release workflow checks these settings before calculating a version",
             guide,
@@ -185,6 +222,7 @@ class ReleaseAutomationContractTests(unittest.TestCase):
 
         self.assertIn("pull_request:", workflow)
         self.assertIn("major|minor|patch|skip", workflow)
+        self.assertIn("reserved release-intent prefix is malformed", workflow)
         self.assertNotIn("actions/checkout", workflow)
         self.assertNotIn("pull_request_target", workflow)
 
@@ -245,8 +283,12 @@ class ReleaseAutomationContractTests(unittest.TestCase):
         self.assertIn(
             "release-plz prepares version and changelog pull requests", guide
         )
-        self.assertIn("Tapas creates the signed release tag", guide)
-        self.assertIn("Merging a release PR is the release approval", guide)
+        self.assertIn("Tapas workflow creates a signed `vX.Y.Z` tag", guide)
+        self.assertIn(
+            "Merging an ordinary pull request with a valid `major:`, `minor:`, "
+            "or `patch:` title authorizes the resulting automated release",
+            guide,
+        )
         self.assertIn("repository_dispatch", guide)
         self.assertIn("github.actor == github.repository_owner", guide)
         self.assertIn(

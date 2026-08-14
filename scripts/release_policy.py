@@ -12,6 +12,7 @@ from collections.abc import Iterable
 
 
 TITLE_PATTERN = re.compile(r"^(major|minor|patch|skip): [^\r\n]*\S[^\r\n]*$")
+RESERVED_PREFIX_PATTERN = re.compile(r"^(major|minor|patch|skip):", re.IGNORECASE)
 VERSION_PATTERN = re.compile(
     r"^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$"
 )
@@ -19,18 +20,23 @@ RELEASE_RANK = {"patch": 1, "minor": 2, "major": 3}
 
 
 def validate_title(title: str) -> None:
-    if TITLE_PATTERN.fullmatch(title) is None:
+    if not title.strip() or "\n" in title or "\r" in title:
+        raise ValueError("pull request titles must be nonblank and single-line")
+    if RESERVED_PREFIX_PATTERN.match(title) and TITLE_PATTERN.fullmatch(title) is None:
         raise ValueError(
-            "pull request titles must start with major:, minor:, patch:, or skip: "
-            "followed by a description"
+            "release-intent prefixes must use lowercase major:, minor:, patch:, "
+            "or skip:, followed by a space and nonblank description"
         )
 
 
 def select_bump(subjects: Iterable[str]) -> str | None:
     selected: str | None = None
     for subject in subjects:
-        prefix, separator, _ = subject.partition(":")
-        if not separator or prefix not in RELEASE_RANK:
+        match = TITLE_PATTERN.fullmatch(subject)
+        if match is None:
+            continue
+        prefix = match.group(1)
+        if prefix not in RELEASE_RANK:
             continue
         if selected is None or RELEASE_RANK[prefix] > RELEASE_RANK[selected]:
             selected = prefix

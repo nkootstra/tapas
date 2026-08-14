@@ -80,6 +80,32 @@ class CandidateValidationTests(unittest.TestCase):
             candidate.merge_sha, "e06fa6388fe9ae24a51db09314c873ddbe6816bf"
         )
 
+    def test_accepts_exact_release_app_as_merger(self) -> None:
+        pull_request = {
+            "number": 15,
+            "state": "closed",
+            "merged": True,
+            "merged_at": "2026-08-11T10:00:00Z",
+            "title": "skip: prepare v0.4.0",
+            "base": {"ref": "main"},
+            "head": {
+                "ref": "release-plz-2026-08-11T09-00-00Z",
+                "repo": {"full_name": "nkootstra/tapas"},
+            },
+            "user": {"login": "tapas-release[bot]", "type": "Bot"},
+            "merged_by": {"login": "tapas-release[bot]", "type": "Bot"},
+            "merge_commit_sha": "e06fa6388fe9ae24a51db09314c873ddbe6816bf",
+        }
+
+        candidate = release_tag.validate_pull_request(
+            pull_request,
+            expected_number=15,
+            repository="nkootstra/tapas",
+            app_login="tapas-release[bot]",
+        )
+
+        self.assertEqual(candidate.version, "0.4.0")
+
     def test_rejects_untrusted_pull_request_metadata(self) -> None:
         valid = {
             "number": 15,

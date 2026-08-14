@@ -312,3 +312,23 @@ jobs:
           if-no-files-found: error
           retention-days: 30
           compression-level: 9
+
+  gate:
+    name: CI gate
+    needs: [quality, regression-parity, harness-contracts, test-and-package]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every mandatory CI job
+        env:
+          QUALITY: ${{ needs.quality.result }}
+          REGRESSION_PARITY: ${{ needs.regression-parity.result }}
+          HARNESS_CONTRACTS: ${{ needs.harness-contracts.result }}
+          TEST_AND_PACKAGE: ${{ needs.test-and-package.result }}
+        run: |
+          set -euo pipefail
+          test "$QUALITY" = success
+          test "$REGRESSION_PARITY" = success
+          test "$HARNESS_CONTRACTS" = success
+          test "$TEST_AND_PACKAGE" = success
