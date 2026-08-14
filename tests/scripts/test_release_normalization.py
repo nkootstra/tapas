@@ -189,6 +189,7 @@ class ReleaseNormalizationTests(unittest.TestCase):
             {**trusted, "title": "skip: prepare v0.4"},
             {**trusted, "state": "closed"},
             {**trusted, "auto_merge": {"merge_method": "merge"}},
+            {**trusted, "head": {**trusted["head"], "ref": ["not", "text"]}},
         )
 
         for pull_request in mutations:
@@ -203,6 +204,13 @@ class ReleaseNormalizationTests(unittest.TestCase):
             release_normalization.validate_auto_merge_candidate(
                 trusted,
                 [*files, {"filename": "src/main.rs"}],
+                repository="nkootstra/tapas",
+                app_login="tapas-release[bot]",
+            )
+        with self.assertRaises(ValueError):
+            release_normalization.validate_auto_merge_candidate(
+                trusted,
+                [*files[:2], {"filename": ["not", "text"]}],
                 repository="nkootstra/tapas",
                 app_login="tapas-release[bot]",
             )

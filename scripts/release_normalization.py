@@ -74,9 +74,12 @@ def validate_auto_merge_candidate(
     number = pull_request.get("number")
     title = pull_request.get("title")
     head_sha = head.get("sha") if isinstance(head, dict) else None
-    filenames = {
-        item.get("filename") for item in files if isinstance(item, dict)
-    }
+    head_ref = head.get("ref") if isinstance(head, dict) else None
+    valid_files = all(
+        isinstance(item, dict) and isinstance(item.get("filename"), str)
+        for item in files
+    )
+    filenames = {item["filename"] for item in files} if valid_files else set()
     valid_auto_merge = auto_merge is None
     if isinstance(auto_merge, dict):
         enabled_by = auto_merge.get("enabled_by")
@@ -101,9 +104,11 @@ def validate_auto_merge_candidate(
         or user.get("login") != app_login
         or user.get("type") != "Bot"
         or repo.get("full_name") != repository
-        or RELEASE_BRANCH.fullmatch(head.get("ref", "")) is None
+        or not isinstance(head_ref, str)
+        or RELEASE_BRANCH.fullmatch(head_ref) is None
         or not isinstance(head_sha, str)
         or SHA.fullmatch(head_sha) is None
+        or not valid_files
         or filenames != RELEASE_FILES
         or len(files) != len(RELEASE_FILES)
         or not valid_auto_merge

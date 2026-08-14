@@ -18,6 +18,7 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           python3 - <<'PY'
+          # release-title-validator:start
           import os, re
           title = os.environ["PR_TITLE"]
           valid_intent = r"^(major|minor|patch|skip): [^\r\n]*\S[^\r\n]*$"
@@ -28,4 +29,5 @@ jobs:
               valid_intent, title
           ):
               raise SystemExit("reserved release-intent prefix is malformed")
+          # release-title-validator:end
           PY

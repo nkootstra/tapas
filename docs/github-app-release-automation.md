@@ -101,7 +101,7 @@ Pull request titles may use one release-intent prefix:
 - `patch:` increments the third component.
 - `skip:` does not create a release and is omitted from the changelog.
 
-An unprefixed title does not create a release. It remains pending and appears under **Other changes** when a later `major:`, `minor:`, or `patch:` pull request creates one. A reserved prefix must be lowercase, followed by `: `, and have a nonblank single-line description; malformed reserved prefixes fail the required title check.
+An unprefixed title does not create a release. It remains pending and appears under **Other changes** when a later `major:`, `minor:`, or `patch:` pull request creates one. A reserved prefix must be lowercase, followed by a colon and one space, then a nonblank single-line description; malformed reserved prefixes fail the required title check.
 
 When several pull requests are awaiting release, the highest intent wins. Release-plz maintains one release PR containing the accumulated version, lockfile, and changelog changes. The release App suspends any earlier auto-merge request before updating that PR, validates its final head and exact file set, and re-enables squash auto-merge against that head only.
 

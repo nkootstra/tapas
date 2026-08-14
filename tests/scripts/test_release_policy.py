@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import os
 import pathlib
 import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
 
 
@@ -54,6 +56,43 @@ class PullRequestTitleTests(unittest.TestCase):
             with self.subTest(title=title):
                 with self.assertRaises(ValueError):
                     release_policy.validate_title(title)
+
+    def test_checkout_free_workflow_validator_matches_release_policy(self) -> None:
+        workflow = (ROOT / ".github/workflows/pr-title.yml").read_text(
+            encoding="utf-8"
+        )
+        validator = textwrap.dedent(
+            workflow.split("# release-title-validator:start", 1)[1].split(
+                "# release-title-validator:end", 1
+            )[0]
+        )
+        titles = (
+            "minor: add release automation",
+            "Improve contributor documentation",
+            "Major: wrong case",
+            "patch:no separating space",
+            "skip: ",
+            "minor: first line\nsecond line",
+            "   ",
+        )
+
+        for title in titles:
+            with self.subTest(title=title):
+                try:
+                    release_policy.validate_title(title)
+                except ValueError:
+                    expected = 1
+                else:
+                    expected = 0
+                result = subprocess.run(
+                    ["python3", "-"],
+                    input=validator,
+                    env={**os.environ, "PR_TITLE": title},
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, expected, result.stderr)
 
 
 class VersionPolicyTests(unittest.TestCase):
