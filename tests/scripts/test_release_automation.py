@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pathlib
 import re
+import tomllib
 import unittest
 
 
@@ -15,12 +16,23 @@ class ReleaseAutomationContractTests(unittest.TestCase):
         self.assertIn("git_only = true", config)
         self.assertIn("git_tag_enable = false", config)
         self.assertIn("git_release_enable = false", config)
-        self.assertIn(
-            'release_commits = "^(major|minor|patch): .*\\\\S.*$"', config
+        parsed = tomllib.loads(config)
+        release_commits = re.compile(parsed["workspace"]["release_commits"])
+        self.assertIsNotNone(
+            release_commits.search("minor: automate releases\n\nDetailed PR body")
+        )
+        self.assertIsNone(
+            release_commits.search("Improve docs\n\nminor: only appears in the body")
+        )
+        self.assertIsNone(release_commits.search("skip: do not release\n\nDetails"))
+        parsers = parsed["changelog"]["commit_parsers"]
+        skip_parser = next(parser for parser in parsers if parser.get("skip"))
+        self.assertIsNotNone(
+            re.search(skip_parser["message"], "skip: internal change\n\nDetails")
         )
         self.assertIn('custom_minor_increment_regex = "^minor$"', config)
         self.assertIn('custom_major_increment_regex = "^major$"', config)
-        self.assertIn('message = "^skip: .*\\\\S.*$", skip = true', config)
+        self.assertTrue(skip_parser["skip"])
         self.assertIn("skip = true", config)
         self.assertIn('message = ".*", group = "Other changes"', config)
 
@@ -90,7 +102,8 @@ class ReleaseAutomationContractTests(unittest.TestCase):
         self.assertIn("type: number", workflow)
         self.assertIn("RELEASE_APP_PRIVATE_KEY:", workflow)
         self.assertIn("RELEASE_SIGNING_KEY:", workflow)
-        self.assertIn("app-id: ${{ vars.RELEASE_APP_ID }}", workflow)
+        self.assertIn("client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}", workflow)
+        self.assertNotIn("app-id:", workflow)
         self.assertIn("permissions: {}", workflow)
         self.assertIn("group: tapas-signed-release-tag", workflow)
         self.assertIn("cancel-in-progress: false", workflow)
@@ -141,6 +154,8 @@ class ReleaseAutomationContractTests(unittest.TestCase):
         self.assertIn("permission-contents: write", workflow)
         self.assertIn("permission-pull-requests: write", workflow)
         self.assertNotIn("permission-workflows: write", workflow)
+        self.assertIn("client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}", workflow)
+        self.assertNotIn("app-id:", workflow)
         self.assertEqual(
             workflow.count(
                 "RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}"
@@ -157,6 +172,9 @@ class ReleaseAutomationContractTests(unittest.TestCase):
         self.assertNotIn("commit -S", workflow[fallback:])
         self.assertNotIn("if: steps.release-plz.outputs.prs_created", workflow)
         self.assertIn("release_normalization.py inspect", workflow[fallback:])
+        self.assertIn("steps.release-plz.outputs.prs", workflow[fallback:])
+        self.assertIn("--release-plz-prs-json", workflow[fallback:])
+        self.assertIn("--expected-version", workflow[fallback:])
         self.assertIn("release_normalization.py mutation", workflow[fallback:])
         self.assertIn("release_normalization.py body", workflow[fallback:])
 
@@ -169,6 +187,21 @@ class ReleaseAutomationContractTests(unittest.TestCase):
             self.assertTrue(
                 all(re.fullmatch(r"[0-9a-f]{40}", ref) for ref in action_refs), path
             )
+
+        all_workflows = "\n".join(
+            path.read_text(encoding="utf-8") for path in workflows
+        )
+        expected_node24_actions = {
+            "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "actions/setup-node": "820762786026740c76f36085b0efc47a31fe5020",
+            "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "oven-sh/setup-bun": "0c5077e51419868618aeaa5fe8019c62421857d6",
+        }
+        for action, commit in expected_node24_actions.items():
+            with self.subTest(action=action):
+                refs = re.findall(rf"uses:\s+{re.escape(action)}@([0-9a-f]{{40}})", all_workflows)
+                self.assertGreater(len(refs), 0)
+                self.assertEqual(set(refs), {commit})
 
         for filename in (
             "release-plz.yml",
@@ -253,7 +286,8 @@ class ReleaseAutomationContractTests(unittest.TestCase):
             encoding="utf-8"
         )
 
-        self.assertIn("RELEASE_APP_ID", guide)
+        self.assertIn("RELEASE_APP_CLIENT_ID", guide)
+        self.assertIn("obsolete `RELEASE_APP_ID`", guide)
         self.assertIn("RELEASE_APP_PRIVATE_KEY", guide)
         self.assertIn("RELEASE_SIGNING_KEY", guide)
         self.assertNotIn("BEGIN OPENSSH PRIVATE KEY", guide)

@@ -24,7 +24,7 @@ jobs:
       version: ${{ steps.policy.outputs.version }}
     steps:
       - name: Check out the complete release history
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -75,7 +75,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ vars.RELEASE_APP_ID }}
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
@@ -83,7 +83,7 @@ jobs:
           permission-pull-requests: write
 
       - name: Check out the complete release history
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: true
@@ -138,14 +138,19 @@ jobs:
           APP_LOGIN: ${{ steps.app-token.outputs.app-slug }}[bot]
           DESIRED_VERSION: ${{ needs.policy.outputs.version }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          RELEASE_PLZ_PRS: ${{ steps.release-plz.outputs.prs }}
         run: |
           set -euo pipefail
           pulls_file="${RUNNER_TEMP}/release-pulls.json"
+          release_plz_prs_file="${RUNNER_TEMP}/release-plz-prs.json"
           release_pr_file="${RUNNER_TEMP}/release-pull.json"
+          printf '%s\n' "$RELEASE_PLZ_PRS" > "$release_plz_prs_file"
           gh api "repos/${GITHUB_REPOSITORY}/pulls?state=open&base=main&per_page=100" \
             > "$pulls_file"
           python3 scripts/release_normalization.py inspect \
             --pulls-json "$pulls_file" \
+            --release-plz-prs-json "$release_plz_prs_file" \
+            --expected-version "$DESIRED_VERSION" \
             --repository "$GITHUB_REPOSITORY" \
             --app-login "$APP_LOGIN" \
             --output-json "$release_pr_file"

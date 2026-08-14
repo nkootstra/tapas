@@ -16,6 +16,7 @@ from release_contract import RELEASE_BRANCH, RELEASE_FILES, RELEASE_TITLE, SHA
 
 
 VERSION = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+PACKAGE_NAME = "tapas"
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,62 @@ def select_release_pull_request(
     if len(matches) != 1:
         raise ValueError("expected exactly one open release-plz pull request")
     return matches[0]
+
+
+def validate_release_plz_output(
+    release_plz_pull_requests: list[Any],
+    *,
+    expected_version: str,
+) -> dict[str, Any]:
+    error = (
+        "release-plz did not create or update exactly one valid pull request "
+        f"for desired version {expected_version}"
+    )
+    if VERSION.fullmatch(expected_version) is None or len(release_plz_pull_requests) != 1:
+        raise ValueError(error)
+
+    reported = release_plz_pull_requests[0]
+    if not isinstance(reported, dict):
+        raise ValueError(error)
+
+    releases = reported.get("releases")
+    valid_release = (
+        isinstance(releases, list)
+        and len(releases) == 1
+        and isinstance(releases[0], dict)
+        and releases[0].get("package_name") == PACKAGE_NAME
+        and isinstance(releases[0].get("version"), str)
+        and VERSION.fullmatch(releases[0]["version"]) is not None
+    )
+    if (
+        type(reported.get("number")) is not int
+        or reported["number"] < 1
+        or reported.get("base_branch") != "main"
+        or not isinstance(reported.get("head_branch"), str)
+        or RELEASE_BRANCH.fullmatch(reported["head_branch"]) is None
+        or not valid_release
+    ):
+        raise ValueError(error)
+    return reported
+
+
+def bind_release_plz_output(
+    reported: dict[str, Any],
+    live_pull_request: dict[str, Any],
+    *,
+    expected_version: str,
+) -> dict[str, Any]:
+    live_head = live_pull_request.get("head")
+    if (
+        not isinstance(live_head, dict)
+        or reported["number"] != live_pull_request.get("number")
+        or reported["head_branch"] != live_head.get("ref")
+    ):
+        raise ValueError(
+            "release-plz output does not match the live trusted pull request "
+            f"for desired version {expected_version}"
+        )
+    return live_pull_request
 
 
 def validate_auto_merge_candidate(
@@ -199,6 +256,8 @@ def argument_parser() -> argparse.ArgumentParser:
     inspect.add_argument("--app-login", required=True)
     inspect.add_argument("--output-json", type=pathlib.Path, required=True)
     inspect.add_argument("--allow-none", action="store_true")
+    inspect.add_argument("--release-plz-prs-json", type=pathlib.Path)
+    inspect.add_argument("--expected-version")
 
     mutation = commands.add_parser("mutation")
     mutation.add_argument("--repository", required=True)
@@ -230,12 +289,44 @@ def main(argv: list[str] | None = None) -> int:
             pull_requests = json.loads(args.pulls_json.read_text(encoding="utf-8"))
             if not isinstance(pull_requests, list):
                 raise ValueError("GitHub pull request response must be a list")
+            binding_requested = (
+                args.release_plz_prs_json is not None
+                or args.expected_version is not None
+            )
+            reported_release_pull_request = None
+            if binding_requested:
+                if (
+                    args.allow_none
+                    or args.release_plz_prs_json is None
+                    or args.expected_version is None
+                ):
+                    raise ValueError(
+                        "release-plz output binding requires both output and expected version"
+                    )
+                release_plz_pull_requests = json.loads(
+                    args.release_plz_prs_json.read_text(encoding="utf-8")
+                )
+                if not isinstance(release_plz_pull_requests, list):
+                    raise ValueError("release-plz pull request output must be a list")
+                reported_release_pull_request = validate_release_plz_output(
+                    release_plz_pull_requests,
+                    expected_version=args.expected_version,
+                )
             selected = select_release_pull_request(
                 pull_requests,
                 repository=args.repository,
                 app_login=args.app_login,
                 allow_none=args.allow_none,
             )
+            if (
+                reported_release_pull_request is not None
+                and args.expected_version is not None
+            ):
+                selected = bind_release_plz_output(
+                    reported_release_pull_request,
+                    selected,
+                    expected_version=args.expected_version,
+                )
             args.output_json.write_text(
                 json.dumps(selected, sort_keys=True) + "\n", encoding="utf-8"
             )
