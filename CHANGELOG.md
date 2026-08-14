@@ -2,6 +2,16 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.6.0](https://github.com/nkootstra/tapas/compare/v0.5.0...v0.6.0) - 2026-08-14
+
+### Minor changes
+
+- automate trusted release pull request merges ([#21](https://github.com/nkootstra/tapas/pull/21))
+
+### Patch changes
+
+- repair release automation ([#22](https://github.com/nkootstra/tapas/pull/22))
+
 ## [0.5.0](https://github.com/nkootstra/tapas/compare/v0.4.0...v0.5.0) - 2026-08-13
 
 ### Minor changes
