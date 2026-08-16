@@ -810,9 +810,6 @@ fn run_plugin(
         }
         std::thread::sleep(Duration::from_millis(10));
     };
-    // A conforming plugin is one process. Descendants must not retain protocol
-    // pipes after that process exits and thereby bypass the total deadline.
-    kill_group(pid);
     writer
         .join()
         .map_err(|_| io::Error::other("plugin writer panicked"))??;
@@ -938,7 +935,7 @@ fn check_conformance(path: &Path, id: &str, stdout: &mut dyn Write) -> io::Resul
             &["acme", "test"],
             1,
             binary,
-            b"WARN deprecated flag\nWARN deprecated flag\n",
+            b"WARN deprecated \xff\nWARN deprecated \xff\n",
             Expected::Transform,
         ),
         (
@@ -956,11 +953,16 @@ fn check_conformance(path: &Path, id: &str, stdout: &mut dyn Write) -> io::Resul
             Expected::Decline,
         ),
     ];
+    let path = trusted_plugin_path(path)?;
+    let digest = sha256(&path)?;
+    let directory = state_dir()?;
+    fs::create_dir_all(&directory)?;
+    let snapshot = ExecutableSnapshot::create(&path, &digest, &directory)?;
     for (argv, status, out, err, transform) in cases {
         let argv = argv.iter().map(OsString::from).collect::<Vec<_>>();
         match (
             run_plugin(
-                path,
+                snapshot.path(),
                 id,
                 &argv,
                 *status,
@@ -980,6 +982,7 @@ fn check_conformance(path: &Path, id: &str, stdout: &mut dyn Write) -> io::Resul
                 }
                 if (out.contains(&0) && !result.stdout.contains(&0))
                     || (out.contains(&0xff) && !result.stdout.contains(&0xff))
+                    || (err.contains(&0xff) && !result.stderr.contains(&0xff))
                 {
                     return Err(invalid_protocol(
                         "transform did not preserve arbitrary bytes",

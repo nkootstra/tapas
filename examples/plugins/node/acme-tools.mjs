@@ -39,9 +39,13 @@ input.once("line", (record) => {
   ]);
   const warningPrefix = Buffer.from("WARN ");
   const warnings = stderr.filter((line) => line.subarray(0, warningPrefix.length).equals(warningPrefix));
+  let firstWarning = warnings[0];
+  while (firstWarning?.length && (firstWarning.at(-1) === 10 || firstWarning.at(-1) === 13)) {
+    firstWarning = firstWarning.subarray(0, -1);
+  }
   const compactStderr = Buffer.concat([
     ...(warnings.length
-      ? [Buffer.from(warnings[0].toString("utf8").trimEnd() + ` (repeated ${warnings.length} times)\n`)]
+      ? [firstWarning, Buffer.from(` (repeated ${warnings.length} times)\n`)]
       : []),
     ...stderr.filter((line) => !line.subarray(0, warningPrefix.length).equals(warningPrefix)),
   ]);

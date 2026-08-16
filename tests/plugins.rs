@@ -324,7 +324,7 @@ fn mutable_path_trust_records_and_refreshes_the_last_conformed_digest() {
         .unwrap()
         .write_all(b"\n# conformant update\n")
         .unwrap();
-    let output = tapas(&home, &[command_path]);
+    let output = tapas(&home, &[command_path, "test"]);
     assert!(output.status.success());
     assert_eq!(output.stdout, b"PASS 1 cases\nSUMMARY tests=1 failures=0\n");
     let after =
@@ -468,7 +468,7 @@ fn project_binding_is_inactive_until_its_exact_config_is_approved() {
         .unwrap()
     );
 
-    let inactive = tapas_in(&home, &nested, &bin, &["acme"]);
+    let inactive = tapas_in(&home, &nested, &bin, &["acme", "test"]);
     assert_eq!(
         inactive.stdout,
         b"PASS case-1 details details details\nSUMMARY tests=1 failures=0\n"
@@ -479,7 +479,7 @@ fn project_binding_is_inactive_until_its_exact_config_is_approved() {
         "{}",
         String::from_utf8_lossy(&approve.stderr)
     );
-    let active = tapas_in(&home, &nested, &bin, &["acme"]);
+    let active = tapas_in(&home, &nested, &bin, &["acme", "test"]);
     assert_eq!(
         active.stdout,
         b"PASS 1 cases\nSUMMARY tests=1 failures=0\n",
@@ -492,7 +492,7 @@ fn project_binding_is_inactive_until_its_exact_config_is_approved() {
         .unwrap()
         .write_all(b"\n")
         .unwrap();
-    let changed = tapas_in(&home, &nested, &bin, &["acme"]);
+    let changed = tapas_in(&home, &nested, &bin, &["acme", "test"]);
     assert_eq!(
         changed.stdout,
         b"PASS case-1 details details details\nSUMMARY tests=1 failures=0\n"
@@ -866,10 +866,22 @@ fn plugin_hello_timeout_returns_original_output_promptly() {
         .success()
     );
 
+    let search_path = std::env::join_paths(
+        std::iter::once(bin.clone())
+            .chain(std::env::split_paths(&std::env::var_os("PATH").unwrap())),
+    )
+    .unwrap();
     let started = std::time::Instant::now();
-    let output = tapas_in(&home, &directory, &bin, &["slowcmd"]);
+    let output = Command::new(env!("CARGO_BIN_EXE_tapas"))
+        .arg("slowcmd")
+        .env("HOME", &home)
+        .env("PATH", search_path)
+        .env("TAPAS_PLUGIN_TIMEOUT_MS", "100")
+        .current_dir(&directory)
+        .output()
+        .unwrap();
 
-    assert!(started.elapsed() < std::time::Duration::from_secs(4));
+    assert!(started.elapsed() < std::time::Duration::from_secs(2));
     assert_eq!(output.stdout, b"original stdout\n");
     assert_eq!(output.stderr, b"original stderr\n");
     std::fs::remove_dir_all(directory).unwrap();
@@ -1288,5 +1300,47 @@ fn protocol_failures_are_terminal_raw_for_crash_malformed_extra_truncated_and_di
             "mode={mode}"
         );
     }
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn empty_plugin_transform_emits_the_standard_no_output_hint() {
+    let directory = temp_dir();
+    let home = directory.join("home");
+    let bin = directory.join("bin");
+    std::fs::create_dir(&home).unwrap();
+    std::fs::create_dir(&bin).unwrap();
+    let plugin = directory.join("empty.py");
+    executable(
+        &plugin,
+        b"#!/usr/bin/env python3\nimport json,sys\nprint(json.dumps({'protocol':'tapas-filter','versions':[1]}),flush=True)\njson.loads(sys.stdin.readline())\nprint(json.dumps({'version':1,'result':'transform','evidence':'fact-complete','stdout_b64':'','stderr_b64':''}),flush=True)\n",
+    );
+    executable(
+        &bin.join("emptycmd"),
+        b"#!/bin/sh\nprintf 'output removed by plugin\n'\n",
+    );
+    assert!(
+        tapas(
+            &home,
+            &["--plugin", "trust", "empty", "--", plugin.to_str().unwrap()]
+        )
+        .status
+        .success()
+    );
+    assert!(
+        tapas(
+            &home,
+            &["--plugin", "bind", "--user", "empty", "--", "emptycmd"]
+        )
+        .status
+        .success()
+    );
+
+    let output = tapas_in(&home, &directory, &bin, &["emptycmd"]);
+    assert_eq!(
+        output.stdout,
+        b"(tapas: emptycmd exited 0 with no output)\n"
+    );
+    assert!(output.stderr.is_empty());
     std::fs::remove_dir_all(directory).unwrap();
 }

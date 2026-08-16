@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fmt;
 use std::ops::{Index, IndexMut};
 
@@ -270,6 +271,7 @@ impl Parser<'_> {
     fn object(&mut self) -> Result<Value, Error> {
         self.expect(b'{')?;
         let mut fields: Vec<(Vec<u8>, Value)> = Vec::new();
+        let mut seen = HashSet::new();
         self.whitespace();
         if self.take(b'}') {
             return Ok(Value::Object(fields));
@@ -280,7 +282,7 @@ impl Parser<'_> {
             self.whitespace();
             self.expect(b':')?;
             let value = self.value()?;
-            if fields.iter().any(|(existing, _)| existing == &key) {
+            if !seen.insert(key.clone()) {
                 return Err(Error);
             }
             fields.push((key, value));

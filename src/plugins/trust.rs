@@ -140,11 +140,19 @@ pub(super) fn trusted_plugin_path(path: &Path) -> io::Result<PathBuf> {
             "plugin must be owned by the current user",
         ));
     }
+    let current_uid = unsafe { libc::geteuid() };
     for ancestor in path.ancestors() {
-        if fs::metadata(ancestor)?.permissions().mode() & 0o022 != 0 {
+        let metadata = fs::metadata(ancestor)?;
+        if metadata.permissions().mode() & 0o022 != 0 {
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
                 "plugin and its path ancestors must not be group- or world-writable",
+            ));
+        }
+        if ancestor.parent().is_some() && metadata.uid() != current_uid && metadata.uid() != 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "plugin path ancestors must be owned by the current user or root",
             ));
         }
     }

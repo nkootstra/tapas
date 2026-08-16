@@ -41,9 +41,6 @@ pub fn run(
     stderr: &mut dyn Write,
     options: RunOptions,
 ) -> io::Result<RunReport> {
-    // Route selection is a pre-execution decision. The wrapped command cannot
-    // redirect its captured output by mutating plugin configuration.
-    let plugin_route = crate::plugins::resolve_route(argv);
     let invocation = classify(argv);
     let logical = invocation.logical_argv;
     let lossless = crate::environment::flag_on("TAPAS_LOSSLESS");
@@ -99,6 +96,14 @@ pub fn run(
         return return_report(report, stderr, options.explain);
     }
 
+    // Route selection remains a pre-execution decision, but modes that cannot
+    // dispatch plugins avoid plugin state and executable I/O entirely.
+    let plugin_route = if unfiltered {
+        Ok(None)
+    } else {
+        crate::plugins::resolve_route(argv)
+    };
+
     let mode = if unfiltered {
         CaptureMode::Passthrough
     } else {
@@ -145,10 +150,7 @@ pub fn run(
         return return_report(report, stderr, options.explain);
     }
 
-    if !options.raw && !lossless && !exact_output && matches!(&plugin_route, Ok(Some(_))) {
-        let Ok(Some(route)) = plugin_route else {
-            unreachable!("no route was excluded by the condition")
-        };
+    if let Ok(Some(route)) = plugin_route {
         let id = route.id().to_owned();
         let dispatched = crate::plugins::dispatch(
             &route,
@@ -175,13 +177,20 @@ pub fn run(
                     Some("fallback"),
                 ),
             };
-        stdout.write_all(&visible_stdout)?;
-        stderr.write_all(&visible_stderr)?;
+        let diagnostic_bytes = if visible_stdout.is_empty() && visible_stderr.is_empty() {
+            let hint = no_output_hint(argv, captured.exit_code);
+            stdout.write_all(&hint)?;
+            hint.len()
+        } else {
+            stdout.write_all(&visible_stdout)?;
+            stderr.write_all(&visible_stderr)?;
+            0
+        };
         let report = RunReport {
             exit_code: captured.exit_code,
             input_bytes: captured.input_bytes,
-            displayed_bytes: visible_stdout.len() + visible_stderr.len(),
-            diagnostic_bytes: 0,
+            displayed_bytes: visible_stdout.len() + visible_stderr.len() + diagnostic_bytes,
+            diagnostic_bytes,
             filter_name,
             plugin_disposition,
             plugin_id: Some(id),
