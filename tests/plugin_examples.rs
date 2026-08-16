@@ -9,7 +9,10 @@ static NEXT_TEMP_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 
 fn temp_dir() -> PathBuf {
     let sequence = NEXT_TEMP_DIRECTORY.fetch_add(1, Ordering::Relaxed);
-    let path = std::env::temp_dir().join(format!(
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("target/plugin-example-test-tmp");
+    std::fs::create_dir_all(&root).expect("create safe plugin example test root");
+    std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let path = root.join(format!(
         "tapas-plugin-example-test-{}-{sequence}",
         std::process::id()
     ));
@@ -44,8 +47,16 @@ fn exercise_example(runtime: &str, plugin: &Path, action: &str) {
     let directory = temp_dir();
     let home = directory.join("home");
     let bin = directory.join("bin");
+    let plugins = directory.join("plugins");
     std::fs::create_dir_all(&home).unwrap();
     std::fs::create_dir_all(&bin).unwrap();
+    std::fs::create_dir_all(&plugins).unwrap();
+    let plugin_copy = plugins.join(plugin.file_name().unwrap());
+    std::fs::copy(plugin, &plugin_copy).unwrap();
+    let plugin = plugin_copy;
+    let mut plugin_permissions = std::fs::metadata(&plugin).unwrap().permissions();
+    plugin_permissions.set_mode(0o755);
+    std::fs::set_permissions(&plugin, plugin_permissions).unwrap();
     let command = bin.join("acme");
     std::fs::write(
         &command,
