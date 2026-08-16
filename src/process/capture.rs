@@ -19,10 +19,26 @@ pub struct CapturedOutput {
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
     pub exit_code: i32,
+    pub outcome: CommandOutcome,
     pub incomplete: bool,
     pub streamed: bool,
     pub overflowed: bool,
     pub input_bytes: usize,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CommandOutcome {
+    Exited(i32),
+    Signaled(i32),
+}
+
+impl CommandOutcome {
+    fn from_status(status: ExitStatus) -> Self {
+        use std::os::unix::process::ExitStatusExt;
+        status
+            .signal()
+            .map_or_else(|| Self::Exited(status.code().unwrap_or(1)), Self::Signaled)
+    }
 }
 
 pub fn run_inherited(argv: &[OsString]) -> io::Result<i32> {
@@ -136,7 +152,11 @@ fn drain_child(
         Some(status) => status,
         None => unix::wait_for_child(child, forwarder)?,
     };
-    Ok(state.finish(unix::exit_code(status), incomplete))
+    Ok(state.finish(
+        unix::exit_code(status),
+        CommandOutcome::from_status(status),
+        incomplete,
+    ))
 }
 
 pub(super) fn read_available(
@@ -229,13 +249,14 @@ impl<'a> DrainState<'a> {
         }
     }
 
-    fn finish(self, exit_code: i32, incomplete: bool) -> CapturedOutput {
+    fn finish(self, exit_code: i32, outcome: CommandOutcome, incomplete: bool) -> CapturedOutput {
         let streamed = !matches!(self.mode, DrainMode::Buffered { .. });
         let overflowed = matches!(self.mode, DrainMode::Overflowed);
         CapturedOutput {
             stdout: self.stdout,
             stderr: self.stderr,
             exit_code,
+            outcome,
             incomplete,
             streamed,
             overflowed,

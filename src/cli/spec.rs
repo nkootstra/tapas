@@ -8,6 +8,7 @@ pub enum Mode {
     Help,
     Version,
     Filters,
+    Plugin,
     Raw,
     Explain,
     Rewrite,
@@ -22,6 +23,7 @@ pub enum ValueSet {
     Shells,
     Targets,
     RawSeparator,
+    PluginActions,
 }
 
 #[derive(Clone, Copy)]
@@ -64,6 +66,25 @@ pub const COMMANDS: &[Command] = &[
         description: "List the static compatibility catalogs",
         show_in_options: true,
         completion: Completion::None,
+    },
+    Command {
+        mode: Mode::Plugin,
+        names: &["--plugin"],
+        usage: &[
+            "tapas --plugin check -- <absolute-path>",
+            "tapas --plugin test <id>",
+            "tapas --plugin resolve [--json] -- <cmd...>",
+            "tapas --plugin trust <id> [--pin] [--replace] [--sha256 <hex>] -- <absolute-path>",
+            "tapas --plugin bind <--user|--project> <id> -- <prefix...>",
+            "tapas --plugin pin <id> [--sha256 <hex>]",
+            "tapas --plugin <unpin|untrust|test> <id>",
+            "tapas --plugin approve-project [--sha256 <hex>]",
+            "tapas --plugin revoke-project",
+            "tapas --plugin list [--json]",
+        ],
+        description: "Manage and inspect process-filter plugins",
+        show_in_options: true,
+        completion: Completion::Values(ValueSet::PluginActions),
     },
     Command {
         mode: Mode::Raw,

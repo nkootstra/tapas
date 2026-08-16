@@ -1,7 +1,10 @@
 use std::io::{self, Read, Write};
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 
 use super::Target;
-use super::hooks::{codex_command, codex_read_only, eligible, event_command, shell_escape};
+use super::hooks::{
+    codex_command, codex_read_only, eligible, event_command, shell_escape, shell_words,
+};
 use super::json::{self, Value};
 
 const MAX_HOOK_INPUT: u64 = 64 * 1024;
@@ -39,8 +42,29 @@ pub fn hook_eval_for_target(
     let Some(command) = event_command(&value) else {
         return Ok(0);
     };
+    let dynamic = target != Target::Codex
+        && !accepts_command(target, command)
+        && value
+            .get(b"cwd")
+            .and_then(|cwd| match cwd {
+                Value::String(cwd) => Some(cwd),
+                _ => None,
+            })
+            .is_some_and(|cwd| {
+                let Some(words) = shell_words(command) else {
+                    return false;
+                };
+                let argv = words
+                    .into_iter()
+                    .map(std::ffi::OsString::from_vec)
+                    .collect::<Vec<_>>();
+                crate::plugins::hook_should_wrap(
+                    &argv,
+                    std::path::Path::new(std::ffi::OsStr::from_bytes(cwd)),
+                )
+            });
     let (environment, command) = match target {
-        Target::OpenCode if accepts_command(target, command) => {
+        Target::OpenCode if accepts_command(target, command) || dynamic => {
             let executable = std::env::current_exe()?;
             let mut updated = shell_escape(executable.as_os_str());
             updated.push(b' ');
@@ -49,7 +73,9 @@ pub fn hook_eval_for_target(
             stdout.write_all(b"\n")?;
             return Ok(0);
         }
-        Target::Claude if accepts_command(target, command) => (b"".as_slice(), command.to_vec()),
+        Target::Claude if accepts_command(target, command) || dynamic => {
+            (b"".as_slice(), command.to_vec())
+        }
         Target::Codex => {
             let Some(Value::String(cwd)) = value.get(b"cwd") else {
                 return Ok(0);

@@ -1,0 +1,5 @@
+COMPILE widget_spec debug
+COMPILE widget_spec release
+COMPILE widget_cli debug
+ERROR widget_spec unresolved symbol owner_name
+build failed: 1 error

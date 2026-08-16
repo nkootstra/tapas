@@ -38,6 +38,23 @@ pub(super) fn run(
             crate::setup::hook_eval_for_target(target, stdin, stdout, stderr, self_check)
         }
         Invocation::Setup(request) => crate::setup::configure_request(request, stdout, stderr),
+        Invocation::Plugin(action) => match crate::plugins::manage(action, stdout) {
+            Ok(code) => Ok(code),
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    io::ErrorKind::InvalidInput
+                        | io::ErrorKind::NotFound
+                        | io::ErrorKind::AlreadyExists
+                        | io::ErrorKind::PermissionDenied
+                        | io::ErrorKind::InvalidData
+                ) =>
+            {
+                writeln!(stderr, "tapas: plugin: {error}")?;
+                Ok(2)
+            }
+            Err(error) => Err(error),
+        },
         Invocation::Deferred(flag) => {
             stderr.write_all(b"tapas: option ")?;
             write!(stderr, "{flag:?}")?;
