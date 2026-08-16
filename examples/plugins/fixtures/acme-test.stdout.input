@@ -1,0 +1,5 @@
+PASS widget_spec creates widgets
+PASS widget_spec updates widgets
+PASS widget_spec deletes widgets
+FAIL widget_spec preserves owner: expected alice, got bob
+summary: 3 passed, 1 failed

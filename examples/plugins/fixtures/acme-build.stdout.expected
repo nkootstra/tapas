@@ -1,0 +1,3 @@
+COMPILE 3 targets
+ERROR widget_spec unresolved symbol owner_name
+build failed: 1 error

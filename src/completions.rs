@@ -179,6 +179,23 @@ fn write_values(output: &mut dyn Write, values: spec::ValueSet) -> io::Result<()
         }
         spec::ValueSet::Targets => write_target_names(output),
         spec::ValueSet::RawSeparator => output.write_all(b"--"),
+        spec::ValueSet::PluginActions => write_words(
+            output,
+            [
+                "check",
+                "test",
+                "trust",
+                "bind",
+                "resolve",
+                "approve-project",
+                "revoke-project",
+                "pin",
+                "unpin",
+                "untrust",
+                "list",
+            ]
+            .into_iter(),
+        ),
     }
 }
 

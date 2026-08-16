@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::ffi::OsString;
 use std::io::{self, Write};
 
-mod capture;
+pub(crate) mod capture;
 pub mod invocation;
 mod stream;
 mod unix;
@@ -28,6 +28,8 @@ pub struct RunReport {
     pub displayed_bytes: usize,
     pub diagnostic_bytes: usize,
     pub filter_name: &'static str,
+    pub plugin_id: Option<String>,
+    pub plugin_disposition: Option<&'static str>,
     pub evidence: EvidenceClass,
     pub capture_complete: bool,
     pub capture_overflowed: bool,
@@ -63,6 +65,8 @@ pub fn run(
             displayed_bytes: streamed.displayed_bytes + diagnostic_bytes,
             diagnostic_bytes,
             filter_name: streamed.filter_name,
+            plugin_id: None,
+            plugin_disposition: None,
             evidence: EvidenceClass::FactComplete,
             capture_complete: !streamed.incomplete,
             capture_overflowed: false,
@@ -83,12 +87,22 @@ pub fn run(
             displayed_bytes: 0,
             diagnostic_bytes: 0,
             filter_name: "passthrough",
+            plugin_id: None,
+            plugin_disposition: None,
             evidence: EvidenceClass::ByteExact,
             capture_complete: true,
             capture_overflowed: false,
         };
         return return_report(report, stderr, options.explain);
     }
+
+    // Route selection remains a pre-execution decision, but modes that cannot
+    // dispatch plugins avoid plugin state and executable I/O entirely.
+    let plugin_route = if unfiltered {
+        Ok(None)
+    } else {
+        crate::plugins::resolve_route(argv)
+    };
 
     let mode = if unfiltered {
         CaptureMode::Passthrough
@@ -108,6 +122,8 @@ pub fn run(
             displayed_bytes: captured.input_bytes + diagnostic_bytes,
             diagnostic_bytes,
             filter_name: "passthrough",
+            plugin_id: None,
+            plugin_disposition: None,
             evidence: EvidenceClass::ByteExact,
             capture_complete: !captured.incomplete,
             capture_overflowed: captured.overflowed,
@@ -125,8 +141,61 @@ pub fn run(
             displayed_bytes: captured.input_bytes + diagnostic_bytes,
             diagnostic_bytes,
             filter_name: "passthrough",
+            plugin_id: None,
+            plugin_disposition: None,
             evidence: EvidenceClass::ByteExact,
             capture_complete: false,
+            capture_overflowed: false,
+        };
+        return return_report(report, stderr, options.explain);
+    }
+
+    if let Ok(Some(route)) = plugin_route {
+        let id = route.id().to_owned();
+        let dispatched = crate::plugins::dispatch(
+            &route,
+            argv,
+            captured.exit_code,
+            captured.outcome,
+            &captured.stdout,
+            &captured.stderr,
+        );
+        let (visible_stdout, visible_stderr, filter_name, evidence, plugin_disposition) =
+            match dispatched {
+                crate::plugins::Dispatch::Transformed(output) => (
+                    output.stdout,
+                    output.stderr,
+                    "plugin",
+                    output.evidence,
+                    Some("active"),
+                ),
+                crate::plugins::Dispatch::Original => (
+                    captured.stdout,
+                    captured.stderr,
+                    "passthrough",
+                    EvidenceClass::ByteExact,
+                    Some("fallback"),
+                ),
+            };
+        let diagnostic_bytes = if visible_stdout.is_empty() && visible_stderr.is_empty() {
+            let hint = no_output_hint(argv, captured.exit_code);
+            stdout.write_all(&hint)?;
+            hint.len()
+        } else {
+            stdout.write_all(&visible_stdout)?;
+            stderr.write_all(&visible_stderr)?;
+            0
+        };
+        let report = RunReport {
+            exit_code: captured.exit_code,
+            input_bytes: captured.input_bytes,
+            displayed_bytes: visible_stdout.len() + visible_stderr.len() + diagnostic_bytes,
+            diagnostic_bytes,
+            filter_name,
+            plugin_disposition,
+            plugin_id: Some(id),
+            evidence,
+            capture_complete: true,
             capture_overflowed: false,
         };
         return return_report(report, stderr, options.explain);
@@ -179,6 +248,8 @@ pub fn run(
         displayed_bytes: visible_stdout.len() + visible_stderr.len() + diagnostic_bytes,
         diagnostic_bytes,
         filter_name,
+        plugin_id: None,
+        plugin_disposition: None,
         evidence,
         capture_complete: true,
         capture_overflowed: false,
@@ -413,10 +484,14 @@ fn write_explain(report: &RunReport, stderr: &mut dyn Write) -> io::Result<()> {
         .saturating_mul(100)
         .checked_div(report.input_bytes)
         .unwrap_or(0);
+    let plugin = report.plugin_id.as_deref().unwrap_or("none");
+    let disposition = report.plugin_disposition.unwrap_or("none");
     writeln!(
         stderr,
-        "\n(tapas explain: filter={} raw={} displayed={} omitted={} diagnostics={} saved={}% exit={} history=not-recorded)",
+        "\n(tapas explain: filter={} plugin={} disposition={} raw={} displayed={} omitted={} diagnostics={} saved={}% exit={} history=not-recorded)",
         report.filter_name,
+        plugin,
+        disposition,
         report.input_bytes,
         report.displayed_bytes,
         omitted,
@@ -478,6 +553,7 @@ mod tests {
             stdout: table.clone(),
             stderr: b"retained diagnostic\n".to_vec(),
             exit_code: 0,
+            outcome: capture::CommandOutcome::Exited(0),
             incomplete: false,
             streamed: false,
             overflowed: false,

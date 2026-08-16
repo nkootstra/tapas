@@ -83,6 +83,21 @@ stderr from the point they are observed.
 
 Tapas never invokes a shell to run a wrapped command. Shell execution happens only when the caller explicitly requests a shell, such as `tapas sh -c '...'`.
 
+## Process-filter plugins
+
+Local process-filter plugins can compact commands outside Tapas's static catalog. Check an executable without persisting anything, trust it by path (optionally pinned to a SHA-256), bind one or more user or approved-project command prefixes, and inspect routing before execution:
+
+```sh
+tapas --plugin check -- /absolute/path/to/filter
+tapas --plugin trust my-filter -- /absolute/path/to/filter
+tapas --plugin bind --user my-filter -- my-tool test
+tapas --plugin resolve --json -- my-tool test
+tapas --plugin test my-filter
+tapas my-tool test
+```
+
+See [`examples/plugins/README.md`](examples/plugins/README.md) for the v1 JSON-lines/base64 author protocol, Node and Python examples, multiple bindings, project approval, pinning, updating, and removal. Plugins reduce decoded bytes sent to agents; exact tokenizer reductions are model-dependent.
+
 Invalid Tapas options print an explanation followed by the complete help text. Options that appear after a wrapped command belong to that command and pass through unchanged.
 
 ## Shell completions
@@ -156,7 +171,7 @@ cargo build --locked --profile z
 cargo test --locked
 ```
 
-The only runtime crate is `libc`, used at the Unix process boundary. Tapas makes no telemetry or network calls at runtime.
+Runtime crates are limited to `libc` at the Unix process boundary and vetted `sha2` for plugin integrity. Tapas makes no telemetry or network calls at runtime.
 
 CI produces checksummed release-profile artifacts for:
 
@@ -221,6 +236,7 @@ Run the standard gates:
 cargo fmt --all -- --check
 cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked
+TAPAS_REQUIRE_PLUGIN_EXAMPLES=1 cargo test --locked --test plugin_examples
 python3 -m unittest discover --start-directory tests/scripts --pattern 'test_*.py'
 python3 scripts/audit_catalog.py
 ```

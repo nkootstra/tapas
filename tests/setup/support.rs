@@ -102,7 +102,8 @@ const hook = (await plugin.Tapas())["tool.execute.before"];
 let calls = 0;
 Bun.spawnSync = (_argv, options) => {
   calls += 1;
-  if (!new TextDecoder().decode(options.stdin).includes('"command":"git status"')) throw new Error("bad stdin");
+  const stdin = new TextDecoder().decode(options.stdin);
+  if (!stdin.includes('"command":"git status"') || !stdin.includes('"cwd":"/work"')) throw new Error("bad stdin");
   return { exitCode: 0, stdout: { toString: () => "'/tmp/tapas' git status\n" } };
 };
 const other = { args: { command: "git status", workdir: "/work", timeout: 123 } };
@@ -120,6 +121,14 @@ Bun.spawnSync = () => { throw new Error("spawn failed"); };
 const thrown = { args: { command: "git status", workdir: "/work" } };
 await hook({ tool: "bash" }, thrown);
 if (thrown.args.command !== "git status") throw new Error("exception did not fail open");
+Bun.spawnSync = (_argv, options) => {
+  const stdin = new TextDecoder().decode(options.stdin);
+  if (stdin.includes('"cwd"')) throw new Error("cwd sent without workdir");
+  return { exitCode: 0, stdout: { toString: () => "'/tmp/tapas' git status\n" } };
+};
+const noWorkdir = { args: { command: "git status" } };
+await hook({ tool: "bash" }, noWorkdir);
+if (noWorkdir.args.command !== "'/tmp/tapas' git status") throw new Error("static rewrite missing without workdir");
 "#;
     let output = Command::new("bun")
         .args(["-e", script])

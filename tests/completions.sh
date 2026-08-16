@@ -67,7 +67,7 @@ assert_scenario() {
 assert_scenario \
   'top level' \
   'tapas -' \
-  $'-h\n--help\n--version\n--filters\n--raw\n--explain\n--rewrite\n--hook-eval\n--setup\n--unsetup\n--completions'
+  $'-h\n--help\n--version\n--filters\n--raw\n--explain\n--rewrite\n--hook-eval\n--setup\n--unsetup\n--completions\n--plugin'
 assert_scenario 'completion shells' 'tapas --completions b' 'bash'
 assert_scenario 'hook targets' 'tapas --hook-eval c' $'claude\ncodex'
 assert_scenario 'attached setup target' 'tapas --setup=o' '--setup=opencode'

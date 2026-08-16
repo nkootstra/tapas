@@ -1,10 +1,9 @@
-mod json;
-
 use std::io::{self, Write};
 use std::path::Path;
 use std::sync::atomic::AtomicU64;
 
-use json::Value;
+pub(super) use crate::json;
+use crate::json::Value;
 
 const MAX_CONFIG_BYTES: u64 = 8 * 1024 * 1024;
 const OWNERSHIP_HEADER: &[u8] = b"tapas-setup-v3\n";

@@ -282,7 +282,7 @@ fn git_read_only(arguments: &[Vec<u8>]) -> bool {
     })
 }
 
-fn shell_words(command: &[u8]) -> Option<Vec<Vec<u8>>> {
+pub(crate) fn shell_words(command: &[u8]) -> Option<Vec<Vec<u8>>> {
     #[derive(Clone, Copy, Eq, PartialEq)]
     enum Quote {
         Unquoted,

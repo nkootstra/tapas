@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt;
+use std::ops::{Index, IndexMut};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Value {
@@ -27,7 +28,6 @@ impl Value {
             .map(|(_, value)| value)
     }
 
-    #[cfg(test)]
     pub fn get_mut(&mut self, key: &[u8]) -> Option<&mut Self> {
         let Self::Object(fields) = self else {
             return None;
@@ -48,6 +48,124 @@ impl Value {
             fields.push((key.to_vec(), value));
         }
         Ok(())
+    }
+
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            Self::String(v) => std::str::from_utf8(v).ok(),
+            _ => None,
+        }
+    }
+    pub fn as_array(&self) -> Option<&Vec<Self>> {
+        match self {
+            Self::Array(v) => Some(v),
+            _ => None,
+        }
+    }
+    pub fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> {
+        match self {
+            Self::Array(v) => Some(v),
+            _ => None,
+        }
+    }
+    pub fn as_object(&self) -> Option<&Vec<(Vec<u8>, Self)>> {
+        match self {
+            Self::Object(v) => Some(v),
+            _ => None,
+        }
+    }
+    pub fn as_object_mut(&mut self) -> Option<&mut Vec<(Vec<u8>, Self)>> {
+        match self {
+            Self::Object(v) => Some(v),
+            _ => None,
+        }
+    }
+    pub fn is_string(&self) -> bool {
+        matches!(self, Self::String(_))
+    }
+    pub fn is_array(&self) -> bool {
+        matches!(self, Self::Array(_))
+    }
+    pub fn remove(&mut self, key: &str) -> Option<Self> {
+        let fields = self.as_object_mut()?;
+        let at = fields.iter().position(|(k, _)| k == key.as_bytes())?;
+        Some(fields.remove(at).1)
+    }
+}
+
+static NULL: Value = Value::Null;
+impl Index<&str> for Value {
+    type Output = Value;
+    fn index(&self, key: &str) -> &Value {
+        self.get(key.as_bytes()).unwrap_or(&NULL)
+    }
+}
+impl IndexMut<&str> for Value {
+    fn index_mut(&mut self, key: &str) -> &mut Value {
+        if self.get(key.as_bytes()).is_none() {
+            self.insert(key.as_bytes(), Value::Null).expect("object");
+        }
+        self.get_mut(key.as_bytes()).unwrap()
+    }
+}
+impl PartialEq<&str> for Value {
+    fn eq(&self, v: &&str) -> bool {
+        self.as_str() == Some(*v)
+    }
+}
+impl PartialEq<i32> for Value {
+    fn eq(&self, v: &i32) -> bool {
+        matches!(self, Self::Number(n) if n == v.to_string().as_bytes())
+    }
+}
+impl PartialEq<bool> for Value {
+    fn eq(&self, v: &bool) -> bool {
+        matches!(self, Self::Bool(b) if b == v)
+    }
+}
+impl From<&str> for Value {
+    fn from(v: &str) -> Self {
+        Self::String(v.as_bytes().to_vec())
+    }
+}
+impl From<String> for Value {
+    fn from(v: String) -> Self {
+        Self::String(v.into_bytes())
+    }
+}
+impl From<bool> for Value {
+    fn from(v: bool) -> Self {
+        Self::Bool(v)
+    }
+}
+impl From<i32> for Value {
+    fn from(v: i32) -> Self {
+        Self::Number(v.to_string().into_bytes())
+    }
+}
+impl From<Vec<String>> for Value {
+    fn from(v: Vec<String>) -> Self {
+        Self::Array(v.into_iter().map(Value::from).collect())
+    }
+}
+impl From<&Value> for Value {
+    fn from(v: &Value) -> Self {
+        v.clone()
+    }
+}
+impl From<Option<&Value>> for Value {
+    fn from(v: Option<&Value>) -> Self {
+        v.map_or(Self::Null, Clone::clone)
+    }
+}
+impl From<Option<&str>> for Value {
+    fn from(v: Option<&str>) -> Self {
+        v.map_or(Self::Null, Value::from)
+    }
+}
+impl From<Option<String>> for Value {
+    fn from(v: Option<String>) -> Self {
+        v.map_or(Self::Null, Value::from)
     }
 }
 
@@ -153,7 +271,7 @@ impl Parser<'_> {
     fn object(&mut self) -> Result<Value, Error> {
         self.expect(b'{')?;
         let mut fields: Vec<(Vec<u8>, Value)> = Vec::new();
-        let mut positions: HashMap<Vec<u8>, usize> = HashMap::new();
+        let mut seen = HashSet::new();
         self.whitespace();
         if self.take(b'}') {
             return Ok(Value::Object(fields));
@@ -164,10 +282,9 @@ impl Parser<'_> {
             self.whitespace();
             self.expect(b':')?;
             let value = self.value()?;
-            if positions.contains_key(&key) {
+            if !seen.insert(key.clone()) {
                 return Err(Error);
             }
-            positions.insert(key.clone(), fields.len());
             fields.push((key, value));
             self.whitespace();
             if self.take(b'}') {
@@ -200,7 +317,10 @@ impl Parser<'_> {
         loop {
             let byte = self.next().ok_or(Error)?;
             match byte {
-                b'"' => return Ok(value),
+                b'"' => {
+                    std::str::from_utf8(&value).map_err(|_| Error)?;
+                    return Ok(value);
+                }
                 b'\\' => match self.next().ok_or(Error)? {
                     b'"' => value.push(b'"'),
                     b'\\' => value.push(b'\\'),
@@ -305,7 +425,10 @@ impl Parser<'_> {
     }
 
     fn whitespace(&mut self) {
-        while self.peek().is_some_and(|byte| byte.is_ascii_whitespace()) {
+        while self
+            .peek()
+            .is_some_and(|byte| matches!(byte, b' ' | b'\t' | b'\r' | b'\n'))
+        {
             self.position += 1;
         }
     }
@@ -378,6 +501,9 @@ mod tests {
             b"-.5",
             b"\"unterminated",
             b"\"\\ud800x\"",
+            b"\"\xff\"",
+            b"{\x0b}",
+            b"{\x0c}",
         ] {
             assert!(parse(input).is_err(), "{input:?}");
         }

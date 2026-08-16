@@ -50,6 +50,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes fish zsh
 
+      - name: Install Node.js for process-filter examples
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
       - name: Check formatting
         run: cargo fmt --all -- --check
 
@@ -66,6 +71,11 @@ jobs:
         run: |
           cargo build --locked
           bash tests/completions.sh target/debug/tapas
+
+      - name: Exercise process-filter examples
+        env:
+          TAPAS_REQUIRE_PLUGIN_EXAMPLES: 1
+        run: cargo test --locked --test plugin_examples
 
       - name: Test release tooling
         run: |

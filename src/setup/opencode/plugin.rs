@@ -23,7 +23,7 @@ export const Tapas = async () => ({
     try {
       const result = Bun.spawnSync([tapas, "--hook-eval", "opencode"], {
         stdin: new TextEncoder().encode(
-          JSON.stringify({ tool_input: { command: output.args.command } }),
+          JSON.stringify({ cwd: output.args.workdir, tool_input: { command: output.args.command } }),
         ),
         stdout: "pipe",
         stderr: "ignore",
@@ -100,7 +100,7 @@ mod tests {
             "    try {\n",
             "      const result = Bun.spawnSync([tapas, \"--hook-eval\", \"opencode\"], {\n",
             "        stdin: new TextEncoder().encode(\n",
-            "          JSON.stringify({ tool_input: { command: output.args.command } }),\n",
+            "          JSON.stringify({ cwd: output.args.workdir, tool_input: { command: output.args.command } }),\n",
             "        ),\n",
             "        stdout: \"pipe\",\n",
             "        stderr: \"ignore\",\n",

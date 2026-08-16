@@ -199,6 +199,35 @@ fn completions_cover_the_tapas_surface_for_supported_shells() {
 }
 
 #[test]
+fn help_and_completions_expose_plugin_management_without_changing_filters() {
+    let help = tapas(&["--help"]);
+    let help = String::from_utf8(help.stdout).unwrap();
+    assert!(help.contains("tapas --plugin resolve [--json] -- <cmd...>"));
+    assert!(help.contains("tapas --plugin check -- <absolute-path>"));
+    assert!(help.contains("tapas --plugin test <id>"));
+    assert!(help.contains("tapas --plugin pin <id> [--sha256 <hex>]"));
+    assert!(help.contains("tapas --plugin <unpin|untrust|test> <id>"));
+    assert!(help.contains("tapas --plugin list [--json]"));
+    assert!(help.contains("--plugin"));
+    for shell in ["bash", "zsh", "fish"] {
+        let output = tapas(&["--completions", shell]);
+        let completion = String::from_utf8(output.stdout).unwrap();
+        for value in [
+            "--plugin",
+            "check",
+            "test",
+            "trust",
+            "bind",
+            "resolve",
+            "approve-project",
+            "list",
+        ] {
+            assert!(completion.contains(value), "missing {value:?} for {shell}");
+        }
+    }
+}
+
+#[test]
 fn filters_report_the_canonical_commands_and_runners() {
     let output = tapas(&["--filters"]);
 
