@@ -26,6 +26,7 @@ pub(super) fn apply_status(input: &[u8]) -> Vec<u8> {
     let mut section = StatusSection::None;
     let mut branch = Vec::new();
     let mut branch_written = false;
+    let mut declared_clean = false;
     let mut ahead = None;
     let mut behind = None;
     let mut upstream = None;
@@ -74,7 +75,7 @@ pub(super) fn apply_status(input: &[u8]) -> Vec<u8> {
                 if branch.is_empty() {
                     branch.extend_from_slice(b"operation-in-progress");
                 }
-                write_branch_line(&mut output, &branch, ahead, behind, upstream);
+                write_branch_line(&mut output, &branch, ahead, behind, upstream, false);
                 branch_written = true;
             }
             flush_status_run(&mut output, &run, run_dir);
@@ -106,6 +107,11 @@ pub(super) fn apply_status(input: &[u8]) -> Vec<u8> {
             _ => {}
         }
 
+        if declares_clean_tree(line) {
+            declared_clean = true;
+            continue;
+        }
+
         if is_status_hint(line)
             || line.trim_ascii().is_empty()
             || line.starts_with(b"no changes added to commit")
@@ -119,7 +125,7 @@ pub(super) fn apply_status(input: &[u8]) -> Vec<u8> {
 
         if let Some(content) = line.strip_prefix(b"\t") {
             if !branch_written {
-                write_branch_line(&mut output, &branch, ahead, behind, upstream);
+                write_branch_line(&mut output, &branch, ahead, behind, upstream, false);
                 branch_written = true;
             }
             if let Some(entry) = status_entry(section, content) {
@@ -158,7 +164,19 @@ pub(super) fn apply_status(input: &[u8]) -> Vec<u8> {
 
     flush_status_run(&mut output, &run, run_dir);
     if !branch_written && !branch.is_empty() {
-        write_branch_line(&mut output, &branch, ahead, behind, upstream);
+        // A bare branch line is indistinguishable from a truncated listing, since a dirty
+        // tree opens with the same line. Mark the clean case so it reads as a complete
+        // answer -- but only when git said the tree was clean, never merely because no
+        // entries were parsed. Absence is not evidence here: piped input can be cut off
+        // mid-listing, and claiming clean over that would be a false FactComplete.
+        write_branch_line(
+            &mut output,
+            &branch,
+            ahead,
+            behind,
+            upstream,
+            declared_clean,
+        );
     }
     output
 }
@@ -342,6 +360,7 @@ fn write_branch_line(
     ahead: Option<&[u8]>,
     behind: Option<&[u8]>,
     upstream: Option<&[u8]>,
+    clean: bool,
 ) {
     output.extend_from_slice(b"# ");
     output.extend_from_slice(branch);
@@ -360,11 +379,25 @@ fn write_branch_line(
         output.extend_from_slice(b" =");
         output.extend_from_slice(value);
     }
+    if clean {
+        output.extend_from_slice(b" (clean)");
+    }
     output.push(b'\n');
 }
 
 fn is_status_hint(line: &[u8]) -> bool {
     line.starts_with(b"  (") && line.ends_with(b")")
+}
+
+/// Git's own assertion that the working tree holds nothing to report.
+///
+/// Deliberately narrow: the other `nothing to commit` variants qualify themselves --
+/// `-uno` emits `nothing to commit (use -u to show untracked files)` while untracked
+/// files exist, and a repo without commits emits `nothing to commit (create/copy files
+/// ...)`. Those stay unmarked rather than overstate what git claimed.
+fn declares_clean_tree(line: &[u8]) -> bool {
+    line.starts_with(b"nothing to commit, working tree clean")
+        || line.starts_with(b"nothing to commit, working directory clean")
 }
 
 fn is_operation_state(line: &[u8]) -> bool {

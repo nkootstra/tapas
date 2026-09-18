@@ -588,4 +588,37 @@ mod tests {
         assert_eq!(filtered.stdout.as_ref(), captured.stdout);
         assert_eq!(filtered.stderr.as_ref(), captured.stderr);
     }
+
+    #[test]
+    fn empty_git_output_is_reported_as_no_changes_only_for_status_and_diff() {
+        // Long-form `git status` never reaches this hint -- it always prints `On branch
+        // ...`, so the filter always emits a line. Cleanliness is stated there instead.
+        // The porcelain forms and `git diff` do degenerate to genuinely empty output.
+        let argv = [OsString::from("git"), OsString::from("diff")];
+        assert_eq!(
+            no_output_hint(&argv, 0),
+            b"(tapas: no changes; git diff exited 0 with no output)\n".to_vec()
+        );
+
+        let argv = [OsString::from("git"), OsString::from("status")];
+        assert_eq!(
+            no_output_hint(&argv, 0),
+            b"(tapas: no changes; git status exited 0 with no output)\n".to_vec()
+        );
+
+        // Everything else falls through to the generic shape, which claims only that
+        // nothing was printed -- not that nothing exists.
+        let argv = [OsString::from("git"), OsString::from("log")];
+        assert_eq!(
+            no_output_hint(&argv, 0),
+            b"(tapas: git exited 0 with no output)\n".to_vec()
+        );
+
+        // A non-zero exit never claims "no changes"; the command may simply have failed.
+        let argv = [OsString::from("git"), OsString::from("diff")];
+        assert_eq!(
+            no_output_hint(&argv, 1),
+            b"(tapas: git exited 1 with no output)\n".to_vec()
+        );
+    }
 }

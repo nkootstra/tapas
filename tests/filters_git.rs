@@ -218,6 +218,178 @@ fn argv_status_dispatch_matches_long_and_short_oracle_output() {
         git::dispatch_argv(&[b"git", b"status", b"--porcelain"], &short, b"", 0, false,).unwrap(),
         tapas::filters::FilterOutput::new(short, EvidenceClass::ByteExact)
     );
+
+    let clean = fixture("git_status_clean.txt");
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"status"], &clean, b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            b"# main =origin/main (clean)\n".to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+}
+
+#[test]
+fn argv_status_dispatch_marks_a_clean_tree_across_upstream_shapes() {
+    // A dirty tree opens with the same branch line a clean one does, so without a marker
+    // "clean" and "header emitted, entries lost" are byte-indistinguishable to a reader.
+    let cases: &[(&[u8], &str)] = &[
+        (
+            b"On branch main\n\nnothing to commit, working tree clean\n",
+            "# main (clean)\n",
+        ),
+        (
+            concat!(
+                "On branch main\n",
+                "Your branch is ahead of 'origin/main' by 2 commits.\n",
+                "  (use \"git push\" to publish your local commits)\n",
+                "\nnothing to commit, working tree clean\n",
+            )
+            .as_bytes(),
+            // write_branch_line suppresses the upstream whenever ahead or behind is set.
+            "# main +2 (clean)\n",
+        ),
+        (
+            concat!(
+                "On branch main\n",
+                "Your branch is behind 'origin/main' by 3 commits, and can be fast-forwarded.\n",
+                "\nnothing to commit, working tree clean\n",
+            )
+            .as_bytes(),
+            "# main -3 (clean)\n",
+        ),
+        (
+            concat!(
+                "On branch main\n",
+                "Your branch and 'origin/main' have diverged,\n",
+                "and have 1 and 2 different commits each, respectively.\n",
+                "\nnothing to commit, working tree clean\n",
+            )
+            .as_bytes(),
+            "# main (clean)\n",
+        ),
+        (
+            b"HEAD detached at abc1234\n\nnothing to commit, working tree clean\n",
+            "# HEAD:abc1234 (clean)\n",
+        ),
+        (
+            // Unrecognized lines are dropped, but git still declared the tree clean, so
+            // the marker rests on that claim rather than on the parse succeeding.
+            concat!(
+                "On branch main\n",
+                "Your branch is up to date with 'origin/main'.\n",
+                "\nIt took 2.00 seconds to enumerate untracked files.\n",
+                "\nnothing to commit, working tree clean\n",
+            )
+            .as_bytes(),
+            "# main =origin/main (clean)\n",
+        ),
+    ];
+
+    for (input, expected) in cases {
+        assert_eq!(
+            git::dispatch_argv(&[b"git", b"status"], input, b"", 0, false).unwrap(),
+            tapas::filters::FilterOutput::new(
+                expected.as_bytes().to_vec(),
+                EvidenceClass::FactComplete,
+            ),
+            "clean marker mismatch for {:?}",
+            String::from_utf8_lossy(input),
+        );
+    }
+}
+
+#[test]
+fn argv_status_dispatch_withholds_the_clean_marker_without_gits_own_claim() {
+    // Cleanliness is never inferred from the absence of entries. Piped input can be cut
+    // off mid-listing, and `git status` qualifies its own wording when the tree is only
+    // conditionally clean -- asserting over either would be a false FactComplete.
+    let cases: &[(&[u8], &str)] = &[
+        (
+            // `git status | head -5 | tapas`: unstaged changes exist, the section header
+            // was parsed, and the entries never arrived.
+            concat!(
+                "On branch main\n",
+                "Your branch is up to date with 'origin/main'.\n",
+                "\nChanges not staged for commit:\n",
+                "  (use \"git add <file>...\" to update what will be committed)\n",
+            )
+            .as_bytes(),
+            "# main =origin/main\n",
+        ),
+        (
+            // -uno: git says "nothing to commit" while untracked files exist.
+            b"On branch main\n\nnothing to commit (use -u to show untracked files)\n",
+            "# main\n",
+        ),
+        (
+            // A repo with no commits yet.
+            concat!(
+                "On branch main\n",
+                "\nNo commits yet\n",
+                "\nnothing to commit (create/copy files and use \"git add\" to track)\n",
+            )
+            .as_bytes(),
+            "# main\n",
+        ),
+    ];
+
+    for (input, expected) in cases {
+        assert_eq!(
+            git::dispatch_argv(&[b"git", b"status"], input, b"", 0, false).unwrap(),
+            tapas::filters::FilterOutput::new(
+                expected.as_bytes().to_vec(),
+                EvidenceClass::FactComplete,
+            ),
+            "unwarranted clean marker for {:?}",
+            String::from_utf8_lossy(input),
+        );
+    }
+}
+
+#[test]
+fn argv_status_dispatch_never_marks_an_operation_state_clean() {
+    let conflict = fixture("git_status_conflict.txt");
+    let expected_conflict = concat!(
+        "# main\n",
+        "! You have unmerged paths.\n",
+        "S src/pipeline.zig\n",
+        "UU src/filters/git_status.zig\n",
+        "? tests/fixtures/git_status_conflict.txt\n",
+    );
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"status"], &conflict, b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            expected_conflict.as_bytes().to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+
+    // The index is clean mid-rebase, but the rebase itself is outstanding work.
+    let rebase = concat!(
+        "interactive rebase in progress; onto abc1234\n",
+        "Last command done (1 command done):\n",
+        "   pick 1234567 feat: a thing\n",
+        "No commands remaining.\n",
+        "You are currently rebasing branch 'topic' on 'abc1234'.\n",
+        "  (all conflicts fixed: run \"git rebase --continue\")\n",
+        "\nnothing to commit, working tree clean\n",
+    );
+    let expected_rebase = concat!(
+        "# rebase-in-progress\n",
+        "! interactive rebase in progress; onto abc1234\n",
+        "Last command done (1 command done):\n",
+        "   pick 1234567 feat: a thing\n",
+        "No commands remaining.\n",
+        "! You are currently rebasing branch 'topic' on 'abc1234'.\n",
+    );
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"status"], rebase.as_bytes(), b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            expected_rebase.as_bytes().to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
 }
 
 #[test]
