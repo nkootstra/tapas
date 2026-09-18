@@ -439,6 +439,31 @@ fn argv_status_dispatch_never_marks_an_operation_state_clean() {
         )
     );
 
+    // Every state notice git prints above the listing, including the ones that do not
+    // open with "You are currently ". A clean index does not mean the operation is done,
+    // and dropping the notice would report outstanding work as nothing to report.
+    for state in [
+        "You are currently bisecting.",
+        "You are currently cherry-picking commit abc1234.",
+        "You are currently reverting commit abc1234.",
+        "You are in the middle of an am session.",
+        "The current patch is empty.",
+        "Cherry-pick currently in progress.",
+        "Revert currently in progress.",
+        "You are editing the todo file of an ongoing interactive rebase.",
+        "You are not currently on a branch.",
+        "You are in a sparse checkout with 40% of tracked files present.",
+    ] {
+        let input =
+            format!("On branch main\n{state}\n  (hint)\n\nnothing to commit, working tree clean\n");
+        let expected = format!("# main\n! {state}\n");
+        assert_eq!(
+            git::dispatch_argv(&[b"git", b"status"], input.as_bytes(), b"", 0, false).unwrap(),
+            tapas::filters::FilterOutput::new(expected.into_bytes(), EvidenceClass::FactComplete,),
+            "operation state marked clean or dropped: {state}",
+        );
+    }
+
     // The index is clean mid-rebase, but the rebase itself is outstanding work.
     let rebase = concat!(
         "interactive rebase in progress; onto abc1234\n",

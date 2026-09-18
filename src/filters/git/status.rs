@@ -411,12 +411,34 @@ fn declares_clean_tree(line: &[u8]) -> bool {
         || line.starts_with(b"nothing to commit (working directory clean)")
 }
 
+/// Openings of the state notices `git status` prints above the file listing.
+///
+/// `You are currently ` covers most of them -- bisecting, cherry-picking, reverting,
+/// rebasing, editing and splitting during a rebase. The rest are spelled differently and
+/// have to be listed. Missing one is not cosmetic: the notice is dropped from a clean
+/// tree's output entirely, and the tree then reports as `(clean)` while the operation is
+/// still outstanding.
+const OPERATION_STATES: &[&[u8]] = &[
+    b"interactive rebase in progress",
+    b"All conflicts fixed but you are still merging",
+    b"You have unmerged paths",
+    b"You are currently ",
+    b"You are in the middle of an am session",
+    b"The current patch is empty",
+    b"Cherry-pick currently in progress",
+    b"Revert currently in progress",
+    b"You are editing the todo file",
+    b"You are not currently on a branch",
+    // Not outstanding work, but the tree is only partly present -- reporting it as simply
+    // clean omits the reason most of the repository is missing.
+    b"You are in a sparse checkout",
+];
+
 fn is_operation_state(line: &[u8]) -> bool {
     let line = line.trim_ascii();
-    line.starts_with(b"interactive rebase in progress")
-        || line.starts_with(b"All conflicts fixed but you are still merging")
-        || line.starts_with(b"You have unmerged paths")
-        || line.starts_with(b"You are currently ")
+    OPERATION_STATES
+        .iter()
+        .any(|opening| line.starts_with(opening))
 }
 
 fn count_after<'a>(input: &'a [u8], marker: &[u8]) -> Option<&'a [u8]> {
