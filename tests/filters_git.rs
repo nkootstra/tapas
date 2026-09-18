@@ -266,7 +266,7 @@ fn argv_status_dispatch_marks_a_clean_tree_across_upstream_shapes() {
                 "\nnothing to commit, working tree clean\n",
             )
             .as_bytes(),
-            "# main (clean)\n",
+            "# main +1 -2 (clean)\n",
         ),
         (
             b"HEAD detached at abc1234\n\nnothing to commit, working tree clean\n",
@@ -297,6 +297,53 @@ fn argv_status_dispatch_marks_a_clean_tree_across_upstream_shapes() {
             String::from_utf8_lossy(input),
         );
     }
+}
+
+#[test]
+fn argv_status_dispatch_reports_divergence_from_the_continuation_line() {
+    // Git wraps divergence across two lines and keeps the counts on the continuation.
+    // Reading only the opening line drops them, which understates a status report that
+    // claims to be complete -- on a clean tree it would read as "nothing to report" while
+    // the branch sits two commits behind.
+    let diverged = concat!(
+        "On branch main\n",
+        "Your branch and 'origin/main' have diverged,\n",
+        "and have 1 and 2 different commits each, respectively.\n",
+        "  (use \"git pull\" if you want to integrate the remote branch with yours)\n",
+    );
+
+    let clean = format!("{diverged}\nnothing to commit, working tree clean\n");
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"status"], clean.as_bytes(), b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            b"# main +1 -2 (clean)\n".to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+
+    // Independent of the clean marker: a dirty diverged tree reports the counts too.
+    let dirty = format!("{diverged}\nChanges not staged for commit:\n\tmodified:   a.txt\n");
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"status"], dirty.as_bytes(), b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            b"# main +1 -2\nM a.txt\n".to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+
+    // Some versions keep the sentence on one line; that opening still parses.
+    let inline = concat!(
+        "On branch main\n",
+        "Your branch and 'origin/main' have diverged, and have 4 and 5 different commits each, respectively.\n",
+        "\nnothing to commit, working tree clean\n",
+    );
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"status"], inline.as_bytes(), b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            b"# main +4 -5 (clean)\n".to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
 }
 
 #[test]

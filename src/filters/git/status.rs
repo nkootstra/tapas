@@ -61,7 +61,11 @@ pub(super) fn apply_status(input: &[u8]) -> Vec<u8> {
                     .position(|byte| *byte == b'\'')
                     .map(|end| &rest[..end]);
                 continue;
-            } else if line.starts_with(b"Your branch and") {
+            } else if line.starts_with(b"Your branch and") || line.starts_with(b"and have ") {
+                // Git wraps divergence across two lines, keeping the counts on the
+                // continuation: "Your branch and 'origin/main' have diverged,\nand have 1
+                // and 2 different commits each, respectively." Only the continuation
+                // carries them, so both openings have to be offered to the parser.
                 if let Some((a, b)) = diverged_counts(line) {
                     ahead = Some(a);
                     behind = Some(b);
