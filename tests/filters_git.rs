@@ -300,6 +300,33 @@ fn argv_status_dispatch_marks_a_clean_tree_across_upstream_shapes() {
 }
 
 #[test]
+fn argv_status_dispatch_accepts_every_versioned_spelling_of_the_clean_sentence() {
+    // Git spells this three ways across its history: `working tree` since 2.9,
+    // `working directory` before it, and a parenthesized form before that.
+    for sentence in [
+        "nothing to commit, working tree clean",
+        "nothing to commit, working directory clean",
+        "nothing to commit (working directory clean)",
+    ] {
+        let input = format!("On branch main\n\n{sentence}\n");
+        assert_eq!(
+            git::dispatch_argv(&[b"git", b"status"], input.as_bytes(), b"", 0, false).unwrap(),
+            tapas::filters::FilterOutput::new(
+                b"# main (clean)\n".to_vec(),
+                EvidenceClass::FactComplete,
+            ),
+            "clean sentence not recognized: {sentence}",
+        );
+    }
+
+    // The parenthesized spelling is belt-and-braces rather than a reachable path: git old
+    // enough to emit it prefixes every status line with `# `, which the filter declines,
+    // so such a document is never compacted in the first place.
+    let legacy = b"# On branch master\nnothing to commit (working directory clean)\n";
+    assert!(!git::matches(legacy));
+}
+
+#[test]
 fn argv_status_dispatch_reports_divergence_from_the_continuation_line() {
     // Git wraps divergence across two lines and keeps the counts on the continuation.
     // Reading only the opening line drops them, which understates a status report that

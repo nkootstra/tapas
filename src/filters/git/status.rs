@@ -399,9 +399,16 @@ fn is_status_hint(line: &[u8]) -> bool {
 /// `-uno` emits `nothing to commit (use -u to show untracked files)` while untracked
 /// files exist, and a repo without commits emits `nothing to commit (create/copy files
 /// ...)`. Those stay unmarked rather than overstate what git claimed.
+///
+/// The wording is versioned: `working tree` since 2.9, `working directory` before it, and
+/// a parenthesized form before that. The parenthesized form is belt-and-braces -- git old
+/// enough to emit it also prefixes the branch line with `# `, which `matches_status`
+/// declines, so the document never reaches this filter -- but the sentence is unambiguous
+/// and costs nothing to accept.
 fn declares_clean_tree(line: &[u8]) -> bool {
     line.starts_with(b"nothing to commit, working tree clean")
         || line.starts_with(b"nothing to commit, working directory clean")
+        || line.starts_with(b"nothing to commit (working directory clean)")
 }
 
 fn is_operation_state(line: &[u8]) -> bool {
