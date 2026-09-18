@@ -17,6 +17,17 @@ pub(super) fn has_arg_or_valued(argv: &[&[u8]], expected: &[u8]) -> bool {
     })
 }
 
+/// Whether any spelling of git's diffstat request is present.
+///
+/// `--stat` carries an optional value, and `--stat-width`, `--stat-name-width` and
+/// `--stat-count` are separate options that each produce a diffstat on their own --
+/// verified against git 2.54. Matching only the bare flag sent every other spelling to
+/// the plain-log compactor, which drops the diffstat outright. No other git option
+/// begins with `--stat`, so the prefix is the whole family and nothing else.
+pub(super) fn has_stat_arg(argv: &[&[u8]]) -> bool {
+    argv.iter().any(|argument| argument.starts_with(b"--stat"))
+}
+
 pub(super) fn has_format_or_pretty_arg(argv: &[&[u8]]) -> bool {
     argv.iter().any(|argument| {
         matches!(*argument, b"--format" | b"--pretty")

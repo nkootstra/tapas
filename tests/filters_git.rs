@@ -776,6 +776,38 @@ fn argv_release_and_audit_commands_keep_their_actionable_rows() {
 }
 
 #[test]
+fn log_keeps_the_diffstat_for_every_stat_spelling() {
+    // Same defect as the porcelain gate: exact membership matched `--stat` alone, so the
+    // valued and `--stat-*` spellings routed to the plain-log compactor and the diffstat
+    // was dropped wholesale. All four produce a diffstat in real git (verified 2.54).
+    let input = concat!(
+        "commit 4192ea445d06762d32376533d479652757b64ad0\n",
+        "Author: A <a@example.com>\n",
+        "Date:   Mon Jan 1 00:00:00 2026 +0000\n",
+        "\n",
+        "    feat: add a.txt\n",
+        "\n",
+        " a.txt | 1 +\n",
+        " 1 file changed, 1 insertion(+)\n",
+    );
+    for form in [
+        b"--stat".as_slice(),
+        b"--stat=80",
+        b"--stat-width=80",
+        b"--stat-count=2",
+    ] {
+        let out =
+            git::dispatch_argv(&[b"git", b"log", form], input.as_bytes(), b"", 0, false).unwrap();
+        let text = String::from_utf8_lossy(&out.bytes).into_owned();
+        assert!(
+            text.contains("1 file changed"),
+            "diffstat dropped for {}: {text:?}",
+            String::from_utf8_lossy(form),
+        );
+    }
+}
+
+#[test]
 fn porcelain_bypass_covers_the_valued_spellings() {
     // `--porcelain` also takes a value. Matching the bare flag alone let `--porcelain=v2`
     // reach the long-format parser, which recognizes none of it: every line was dropped,

@@ -120,17 +120,17 @@ fn try_dispatch_argv(
         }
         b"diff" => {
             let args = &argv[1..];
-            if [
-                b"--stat".as_slice(),
-                b"--shortstat",
-                b"--name-only",
-                b"--name-status",
-                b"--compact-summary",
-                b"--summary",
-                b"--patch-with-stat",
-            ]
-            .iter()
-            .any(|argument| has_arg(args, argument))
+            if has_stat_arg(args)
+                || [
+                    b"--shortstat".as_slice(),
+                    b"--name-only",
+                    b"--name-status",
+                    b"--compact-summary",
+                    b"--summary",
+                    b"--patch-with-stat",
+                ]
+                .iter()
+                .any(|argument| has_arg(args, argument))
             {
                 Ok(None)
             } else {
@@ -159,7 +159,7 @@ fn try_dispatch_argv(
                 || has_format_or_pretty_arg(args);
             if custom {
                 Ok(None)
-            } else if has_arg(args, b"--stat") || has_arg(args, b"--shortstat") {
+            } else if has_stat_arg(args) || has_arg(args, b"--shortstat") {
                 Ok(Some(FilterOutput::new(
                     apply_log_stat_compact(stdout),
                     EvidenceClass::PotentiallyLossy,
@@ -188,7 +188,7 @@ fn try_dispatch_argv(
                 .any(|argument| !argument.starts_with(b"-") && argument.contains(&b':'));
             if summary || has_format_or_pretty_arg(args) || blob {
                 Ok(None)
-            } else if has_arg(args, b"--stat") || has_arg(args, b"--shortstat") {
+            } else if has_stat_arg(args) || has_arg(args, b"--shortstat") {
                 Ok(Some(FilterOutput::new(
                     apply_log_stat_compact(stdout),
                     EvidenceClass::PotentiallyLossy,
@@ -481,8 +481,8 @@ use log::{apply_log_compact, apply_log_stat_compact, apply_show, matches_log, ma
 use merge::{apply_merge, matches_merge};
 use refs::{
     apply_branch, apply_reflog, compact_remote, compact_shortlog, compact_trimmed_lines,
-    compact_worktree, has_arg, has_arg_or_valued, has_format_or_pretty_arg, matches_branch,
-    matches_diff, matches_reflog, passthrough,
+    compact_worktree, has_arg, has_arg_or_valued, has_format_or_pretty_arg, has_stat_arg,
+    matches_branch, matches_diff, matches_reflog, passthrough,
 };
 use status::{apply_status, matches_status};
 use transport::{
