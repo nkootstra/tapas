@@ -104,7 +104,7 @@ fn try_dispatch_argv(
     match argv[1] {
         b"status" => {
             let args = &argv[1..];
-            if has_arg(args, b"--porcelain") || has_arg(args, b"-z") {
+            if has_arg_or_valued(args, b"--porcelain") || has_arg(args, b"-z") {
                 Ok(None)
             } else if has_arg(args, b"--short") || has_arg(args, b"-s") {
                 Ok(Some(FilterOutput::new(
@@ -308,7 +308,7 @@ fn try_dispatch_argv(
             }
         }
         b"worktree" => {
-            if has_arg(&argv[1..], b"--porcelain") || has_arg(&argv[1..], b"-z") {
+            if has_arg_or_valued(&argv[1..], b"--porcelain") || has_arg(&argv[1..], b"-z") {
                 Ok(None)
             } else {
                 Ok(Some(FilterOutput::new(
@@ -481,8 +481,8 @@ use log::{apply_log_compact, apply_log_stat_compact, apply_show, matches_log, ma
 use merge::{apply_merge, matches_merge};
 use refs::{
     apply_branch, apply_reflog, compact_remote, compact_shortlog, compact_trimmed_lines,
-    compact_worktree, has_arg, has_format_or_pretty_arg, matches_branch, matches_diff,
-    matches_reflog, passthrough,
+    compact_worktree, has_arg, has_arg_or_valued, has_format_or_pretty_arg, matches_branch,
+    matches_diff, matches_reflog, passthrough,
 };
 use status::{apply_status, matches_status};
 use transport::{

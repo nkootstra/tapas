@@ -609,6 +609,27 @@ fn argv_release_and_audit_commands_keep_their_actionable_rows() {
 }
 
 #[test]
+fn porcelain_bypass_covers_the_valued_spellings() {
+    // `--porcelain` also takes a value. Matching the bare flag alone let `--porcelain=v2`
+    // reach the long-format parser, which recognizes none of it: every line was dropped,
+    // the empty result tripped the no-output hint, and a tree with real changes reported
+    // `(tapas: no changes; git status exited 0 with no output)`.
+    let v2 = b"1 .M N... 100644 100644 100644 abc def src/a.rs\n? untracked.txt\n".to_vec();
+    for form in [
+        b"--porcelain".as_slice(),
+        b"--porcelain=v1",
+        b"--porcelain=v2",
+    ] {
+        assert_eq!(
+            git::dispatch_argv(&[b"git", b"status", form], &v2, b"", 0, false).unwrap(),
+            tapas::filters::FilterOutput::new(v2.clone(), EvidenceClass::ByteExact),
+            "porcelain spelling not bypassed: {}",
+            String::from_utf8_lossy(form),
+        );
+    }
+}
+
+#[test]
 fn git_machine_formats_remain_byte_exact() {
     let tags = fixture("git_tag_list.txt");
     assert_eq!(

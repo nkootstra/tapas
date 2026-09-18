@@ -6,6 +6,17 @@ pub(super) fn has_arg(argv: &[&[u8]], expected: &[u8]) -> bool {
     argv.contains(&expected)
 }
 
+/// Whether `expected` appears bare or carrying a value, as in `--porcelain=v2`.
+///
+/// Exact membership is not enough for options git also accepts in `--opt=value` form: the
+/// valued spellings slip past the bypass gate and reach a filter that cannot read them.
+pub(super) fn has_arg_or_valued(argv: &[&[u8]], expected: &[u8]) -> bool {
+    argv.iter().any(|argument| {
+        *argument == expected
+            || (argument.starts_with(expected) && argument.get(expected.len()) == Some(&b'='))
+    })
+}
+
 pub(super) fn has_format_or_pretty_arg(argv: &[&[u8]]) -> bool {
     argv.iter().any(|argument| {
         matches!(*argument, b"--format" | b"--pretty")
