@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.1](https://github.com/nkootstra/tapas/compare/v0.7.0...v0.7.1) - 2026-09-19
+
+### Patch changes
+
+- mark clean working tree in git status output ([#26](https://github.com/nkootstra/tapas/pull/26))
+
 ## [0.7.0](https://github.com/nkootstra/tapas/compare/v0.6.0...v0.7.0) - 2026-08-16
 
 ### Minor changes
