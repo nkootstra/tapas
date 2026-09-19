@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.3](https://github.com/nkootstra/tapas/compare/v0.7.2...v0.7.3) - 2026-09-19
+
+### Patch changes
+
+- reject short AWS table rows without panicking ([#36](https://github.com/nkootstra/tapas/pull/36))
+
 ## [0.7.2](https://github.com/nkootstra/tapas/compare/v0.7.1...v0.7.2) - 2026-09-19
 
 ### Patch changes
