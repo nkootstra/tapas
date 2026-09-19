@@ -137,6 +137,11 @@ class DistributionTests(unittest.TestCase):
             self.assertEqual(metadata["version"], "0.1.0")
             self.assertEqual(metadata["version_label"], "0.1.0-dev.12345678")
             self.assertEqual(metadata["binary"]["name"], "tapas.exe")
+            checksums = (output / "SHA256SUMS").read_text(encoding="ascii").splitlines()
+            self.assertEqual(
+                checksums[0],
+                "7a69b7f9aa0f0693d048b5c58d321f6409aa34ef50f044362d71b9b98828a6db  tapas.exe",
+            )
 
     def test_workflows_keep_privileged_operations_out_of_pr_code(self) -> None:
         publisher = (ROOT / ".github/workflows/publish-pr.yml").read_text(encoding="utf-8")
