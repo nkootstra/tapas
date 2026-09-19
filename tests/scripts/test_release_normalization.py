@@ -424,6 +424,13 @@ class ReleaseNormalizationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             release_normalization.normalize_body("no version\n", "0.3.1", "0.4.0")
 
+    def test_normalizes_old_version_when_new_version_is_already_present(self) -> None:
+        body = "Release 0.4.0\nCompare 0.3.1\n"
+
+        normalized = release_normalization.normalize_body(body, "0.3.1", "0.4.0")
+
+        self.assertEqual(normalized, "Release 0.4.0\nCompare 0.4.0\n")
+
     def test_normalizes_only_standalone_old_version_occurrences(self) -> None:
         body = "Previous 10.3.1\nRelease 0.3.1\n"
 

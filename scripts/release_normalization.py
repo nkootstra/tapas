@@ -239,9 +239,9 @@ def normalize_body(body: str, old_version: str, new_version: str) -> str:
     new_version_pattern = re.compile(
         rf"(?<![0-9.]){re.escape(new_version)}(?![0-9.])"
     )
-    if new_version_pattern.search(body) is not None:
-        return body
     if old_version_pattern.search(body) is None:
+        if new_version_pattern.search(body) is not None:
+            return body
         raise ValueError(f"release pull request body does not contain {old_version}")
     return old_version_pattern.sub(new_version, body)
 
