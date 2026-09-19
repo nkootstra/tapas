@@ -733,6 +733,40 @@ fn argv_branch_dispatch_matches_the_pinned_oracle() {
 }
 
 #[test]
+fn argv_verbose_branch_preserves_distinct_remote_tips() {
+    let input = b"* main abcdef0 local subject\n  remotes/origin/main 1234567 remote subject\n";
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"branch", b"-av"], input, b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            b"* main abcdef0 local subject\nremotes/origin/main 1234567 remote subject\n".to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+}
+
+#[test]
+fn argv_verbose_branch_preserves_equal_tips_and_other_remotes() {
+    let input = b"* main abcdef0 local subject\n  remotes/origin/main abcdef0 remote subject\n  remotes/upstream/main abcdef0 local subject\n";
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"branch", b"-avv"], input, b"", 0, false)
+            .unwrap()
+            .bytes,
+        b"* main abcdef0 local subject\nremotes/origin/main abcdef0 remote subject\nremotes/upstream/main abcdef0 local subject\n"
+    );
+}
+
+#[test]
+fn argv_plain_branch_still_compacts_matching_origin_names() {
+    let input = b"* main\n  remotes/origin/HEAD -> origin/main\n  remotes/origin/main\n  remotes/upstream/main\n";
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"branch", b"-a"], input, b"", 0, false)
+            .unwrap()
+            .bytes,
+        b"* main =o\n remotes/origin/HEAD -> origin/main\n remotes/upstream/main\n"
+    );
+}
+
+#[test]
 fn argv_release_and_audit_commands_keep_their_actionable_rows() {
     let tags = fixture("git_tag_list.txt");
     assert_eq!(
