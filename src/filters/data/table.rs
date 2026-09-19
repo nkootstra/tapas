@@ -93,7 +93,7 @@ fn is_aws_border(line: &[u8]) -> bool {
 }
 
 fn aws_fields(line: &[u8]) -> Option<Vec<&[u8]>> {
-    if line.first() != Some(&b'|') || line.last() != Some(&b'|') {
+    if line.len() < 2 || line.first() != Some(&b'|') || line.last() != Some(&b'|') {
         return None;
     }
     let fields = line[1..line.len() - 1]
