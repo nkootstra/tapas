@@ -105,7 +105,6 @@ pub(super) fn apply_status(input: &[u8]) -> Vec<u8> {
                 }
                 write_branch_line(&mut output, &branch, ahead, behind, upstream, false);
                 branch_written = true;
-                write_stash_note(&mut output, stash);
             }
             flush_status_run(&mut output, &run, run_dir);
             run.clear();
@@ -166,7 +165,6 @@ pub(super) fn apply_status(input: &[u8]) -> Vec<u8> {
             if !branch_written {
                 write_branch_line(&mut output, &branch, ahead, behind, upstream, false);
                 branch_written = true;
-                write_stash_note(&mut output, stash);
             }
             if let Some(entry) = status_entry(section, content) {
                 let dir = parent_dir(entry.path);
@@ -217,12 +215,18 @@ pub(super) fn apply_status(input: &[u8]) -> Vec<u8> {
             upstream,
             declared_clean,
         );
-        write_stash_note(&mut output, stash);
     }
+    // Git prints the stash summary last, after the entries and after the clean sentence
+    // (`wt_longstatus_print_stash_summary`, called at the end of the long-format printer),
+    // so it can only be forwarded once the whole document has been read. Writing it at the
+    // branch-line sites instead emitted whatever had been seen by then -- nothing at all
+    // for a dirty tree, since the first entry writes the branch line before the summary
+    // arrives.
+    write_stash_note(&mut output, stash);
     output
 }
 
-/// Forwards a stash summary as a notice under the branch line it belongs to.
+/// Forwards a stash summary as a trailing notice, in the position git itself prints it.
 fn write_stash_note(output: &mut Vec<u8>, stash: Option<&[u8]>) {
     if let Some(line) = stash {
         output.extend_from_slice(b"! ");

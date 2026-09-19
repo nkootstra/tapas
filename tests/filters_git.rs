@@ -413,11 +413,16 @@ fn argv_status_dispatch_keeps_the_stash_summary_beside_the_clean_marker() {
     // `# main (clean)` asserted there was nothing to report over a stash git had just
     // reported. The marker stays: the working tree really is clean and the stash is a
     // separate stack, so both facts are stated rather than one silently winning.
+    //
+    // Git prints the summary last -- `wt_longstatus_print_stash_summary` is the final call
+    // in the long-format printer, after the entries and after the clean sentence -- so both
+    // inputs here put it there. An earlier version of this test placed it ahead of the
+    // entries, a position git never produces, and passed over a dirty tree that dropped it.
     let clean = concat!(
         "On branch main\n",
         "Your branch is up to date with 'origin/main'.\n",
-        "Your stash currently has 2 entries\n",
         "\nnothing to commit, working tree clean\n",
+        "Your stash currently has 2 entries\n",
     );
     assert_eq!(
         git::dispatch_argv(&[b"git", b"status"], clean.as_bytes(), b"", 0, false).unwrap(),
@@ -427,17 +432,20 @@ fn argv_status_dispatch_keeps_the_stash_summary_beside_the_clean_marker() {
         )
     );
 
-    // Dirty: the note still lands under the branch line, ahead of the entries.
+    // Dirty: the summary arrives after the branch line has already been written, which is
+    // exactly the case that lost it.
     let dirty = concat!(
         "On branch main\n",
-        "Your stash currently has 1 entry\n",
-        "\nChanges not staged for commit:\n",
+        "Changes not staged for commit:\n",
+        "  (use \"git add <file>...\" to update what will be committed)\n",
         "\tmodified:   a.txt\n",
+        "\nno changes added to commit (use \"git add\" and/or \"git commit -a\")\n",
+        "Your stash currently has 1 entry\n",
     );
     assert_eq!(
         git::dispatch_argv(&[b"git", b"status"], dirty.as_bytes(), b"", 0, false).unwrap(),
         tapas::filters::FilterOutput::new(
-            b"# main\n! Your stash currently has 1 entry\nM a.txt\n".to_vec(),
+            b"# main\nM a.txt\n! Your stash currently has 1 entry\n".to_vec(),
             EvidenceClass::FactComplete,
         )
     );
