@@ -15,6 +15,13 @@ pub fn matches(input: &[u8]) -> bool {
         || matches_blame(input)
 }
 
+/// Compacts piped git output, choosing the filter by the shape of the bytes themselves.
+///
+/// The counterpart to `dispatch_argv`, and the weaker of the two: there is no argv to say
+/// which subcommand produced this, so the `matches_*` predicates sniff it, and nothing
+/// upstream guarantees the input is whole. A pipe can be cut off mid-listing and still
+/// look well-formed, so any completeness claim made on this route has to rest on something
+/// the text says rather than on what it does not contain.
 pub fn apply_matched(input: &[u8]) -> Result<FilterOutput, FilterError> {
     try_apply_matched(input)?.ok_or(FilterError::InvalidInput)
 }
@@ -77,6 +84,17 @@ pub(crate) fn try_apply_matched(input: &[u8]) -> Result<Option<FilterOutput>, Fi
     Ok(None)
 }
 
+/// Compacts a git command's stdout by argv, falling back to byte-exact passthrough.
+///
+/// Unlike the pipe route this never consults the `matches_*` shape predicates: argv
+/// already names the subcommand, so a filter reached this way must tolerate whatever the
+/// command wrote rather than assume output it recognizes.
+///
+/// It also cannot receive a partial capture. Streamed, incomplete and overflowed captures
+/// return passthrough before any filter runs (`process::run`), so a `FactComplete` claim
+/// made here covers the whole of what the child produced. The pipe route has no such
+/// guarantee -- its input can be cut off mid-listing, which is why claims like the clean
+/// marker rest on git's own wording rather than on nothing else being present.
 pub fn dispatch_argv(
     argv: &[&[u8]],
     stdout: &[u8],

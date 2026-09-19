@@ -21,6 +21,16 @@ struct StatusEntry<'a> {
     path: &'a [u8],
 }
 
+/// Compacts long-format `git status` to a branch line, one line per entry, and notices.
+///
+/// Every line git printed is forwarded, folded into the branch line, or dropped as advice.
+/// The result is `EvidenceClass::FactComplete`, so a line dropped by accident is a
+/// correctness bug and not a cosmetic one -- most of the defects this filter has had were
+/// facts silently disappearing, not facts formatted badly.
+///
+/// Three things are deferred to the end because git states them last or not at all: the
+/// branch line itself (written lazily, so entries can precede the decision to mark the
+/// tree clean), the clean marker, and the stash summary.
 pub(super) fn apply_status(input: &[u8]) -> Vec<u8> {
     let mut output = Vec::with_capacity(input.len());
     let mut section = StatusSection::None;
@@ -235,6 +245,14 @@ fn write_stash_note(output: &mut Vec<u8>, stash: Option<&[u8]>) {
     }
 }
 
+/// Maps one of git's `modified:`-style entries to a sigil and a path.
+///
+/// The sigil depends on the section, not just the verb: `modified:` is `S` when staged and
+/// `M` when not, and a staged deletion is `D` against an unstaged `d`. Untracked paths are
+/// `?` and unmerged ones keep git's two-letter codes.
+///
+/// Returns `None` for anything whose prefix is unrecognized, which the caller forwards
+/// verbatim rather than guessing at -- an unknown entry is still a path that exists.
 fn status_entry(section: StatusSection, content: &[u8]) -> Option<StatusEntry<'_>> {
     let prefixes: &[(&[u8], &[u8], bool)] = match section {
         StatusSection::Staged => &[
@@ -397,6 +415,7 @@ fn numeric_basename<'a>(path: &'a [u8], dir: &[u8]) -> Option<NumericBasename<'a
     })
 }
 
+/// Writes one entry, falling back to git's own wording when the prefix is unrecognized.
 fn write_status_entry(output: &mut Vec<u8>, section: StatusSection, content: &[u8]) {
     if let Some(entry) = status_entry(section, content) {
         output.extend_from_slice(entry.code);
@@ -408,6 +427,16 @@ fn write_status_entry(output: &mut Vec<u8>, section: StatusSection, content: &[u
     output.push(b'\n');
 }
 
+/// Writes the compacted branch header, optionally claiming the working tree is clean.
+///
+/// `clean` is an assertion, not a formatting choice. A dirty tree opens with the same
+/// line, so the marker is the only thing that tells a reader the listing below is the
+/// whole answer rather than a truncated one -- which is the confusion that sent an agent
+/// to `command git status` to get a result it could trust. Pass it only where git said
+/// `nothing to commit`, never merely because no entries were parsed.
+///
+/// `upstream` is suppressed whenever `ahead` or `behind` is present, since the counts
+/// already name the relationship more precisely than the ref does.
 fn write_branch_line(
     output: &mut Vec<u8>,
     branch: &[u8],
@@ -458,6 +487,10 @@ fn is_upstream_note(line: &[u8]) -> bool {
         || (line.starts_with(b"Your branch and ") && line.ends_with(b"refer to different commits."))
 }
 
+/// Git's indented parenthetical advice, such as `  (use "git add <file>..." to ...)`.
+///
+/// The one class of status line safe to drop outright: it instructs rather than reports,
+/// and what it instructs is already derivable from the entry codes beside it.
 fn is_status_hint(line: &[u8]) -> bool {
     line.starts_with(b"  (") && line.ends_with(b")")
 }
@@ -503,6 +536,12 @@ const OPERATION_STATES: &[&[u8]] = &[
     b"You are in a sparse checkout",
 ];
 
+/// Whether git reported an operation in flight, which withholds the clean marker.
+///
+/// These are the states where a tree can hold no changes and still not be finished -- a
+/// rebase partway through, an unresolved merge, a sparse checkout with most of the tree
+/// deliberately absent. Answering "clean" over any of them answers a narrower question
+/// than the one asked, so the marker is suppressed and the state forwarded as a notice.
 fn is_operation_state(line: &[u8]) -> bool {
     if is_entry_line(line) {
         return false;

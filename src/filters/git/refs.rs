@@ -1,7 +1,17 @@
+/// Returns the input unchanged, claiming only that it is unchanged.
+///
+/// The fallback every gate in this module aims at: a command tapas does not understand
+/// costs its compaction, not its output.
 pub(super) fn passthrough(input: &[u8]) -> FilterOutput {
     FilterOutput::new(input.to_vec(), EvidenceClass::ByteExact)
 }
 
+/// Whether `expected` appears in `argv` exactly.
+///
+/// Exact membership is the right test only for flags git spells one way. For options it
+/// also accepts as `--opt=value` this silently misses the valued forms, which is how
+/// `--porcelain=v2` and `--stat=80` reached filters that could not read them. Those want
+/// `has_arg_or_valued` or `has_stat_arg`.
 pub(super) fn has_arg(argv: &[&[u8]], expected: &[u8]) -> bool {
     argv.contains(&expected)
 }
