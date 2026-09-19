@@ -15,6 +15,13 @@ pub fn matches(input: &[u8]) -> bool {
         || matches_blame(input)
 }
 
+/// Compacts piped git output, choosing the filter by the shape of the bytes themselves.
+///
+/// The counterpart to `dispatch_argv`, and the weaker of the two: there is no argv to say
+/// which subcommand produced this, so the `matches_*` predicates sniff it, and nothing
+/// upstream guarantees the input is whole. A pipe can be cut off mid-listing and still
+/// look well-formed, so any completeness claim made on this route has to rest on something
+/// the text says rather than on what it does not contain.
 pub fn apply_matched(input: &[u8]) -> Result<FilterOutput, FilterError> {
     try_apply_matched(input)?.ok_or(FilterError::InvalidInput)
 }
@@ -77,6 +84,17 @@ pub(crate) fn try_apply_matched(input: &[u8]) -> Result<Option<FilterOutput>, Fi
     Ok(None)
 }
 
+/// Compacts a git command's stdout by argv, falling back to byte-exact passthrough.
+///
+/// Unlike the pipe route this never consults the `matches_*` shape predicates: argv
+/// already names the subcommand, so a filter reached this way must tolerate whatever the
+/// command wrote rather than assume output it recognizes.
+///
+/// It also cannot receive a partial capture. Streamed, incomplete and overflowed captures
+/// return passthrough before any filter runs (`process::run`), so a `FactComplete` claim
+/// made here covers the whole of what the child produced. The pipe route has no such
+/// guarantee -- its input can be cut off mid-listing, which is why claims like the clean
+/// marker rest on git's own wording rather than on nothing else being present.
 pub fn dispatch_argv(
     argv: &[&[u8]],
     stdout: &[u8],
@@ -104,7 +122,7 @@ fn try_dispatch_argv(
     match argv[1] {
         b"status" => {
             let args = &argv[1..];
-            if has_arg(args, b"--porcelain") || has_arg(args, b"-z") {
+            if has_arg_or_valued(args, b"--porcelain") || has_arg(args, b"-z") {
                 Ok(None)
             } else if has_arg(args, b"--short") || has_arg(args, b"-s") {
                 Ok(Some(FilterOutput::new(
@@ -120,17 +138,17 @@ fn try_dispatch_argv(
         }
         b"diff" => {
             let args = &argv[1..];
-            if [
-                b"--stat".as_slice(),
-                b"--shortstat",
-                b"--name-only",
-                b"--name-status",
-                b"--compact-summary",
-                b"--summary",
-                b"--patch-with-stat",
-            ]
-            .iter()
-            .any(|argument| has_arg(args, argument))
+            if has_stat_arg(args)
+                || [
+                    b"--shortstat".as_slice(),
+                    b"--name-only",
+                    b"--name-status",
+                    b"--compact-summary",
+                    b"--summary",
+                    b"--patch-with-stat",
+                ]
+                .iter()
+                .any(|argument| has_arg(args, argument))
             {
                 Ok(None)
             } else {
@@ -159,7 +177,7 @@ fn try_dispatch_argv(
                 || has_format_or_pretty_arg(args);
             if custom {
                 Ok(None)
-            } else if has_arg(args, b"--stat") || has_arg(args, b"--shortstat") {
+            } else if has_stat_arg(args) || has_arg(args, b"--shortstat") {
                 Ok(Some(FilterOutput::new(
                     apply_log_stat_compact(stdout),
                     EvidenceClass::PotentiallyLossy,
@@ -188,7 +206,7 @@ fn try_dispatch_argv(
                 .any(|argument| !argument.starts_with(b"-") && argument.contains(&b':'));
             if summary || has_format_or_pretty_arg(args) || blob {
                 Ok(None)
-            } else if has_arg(args, b"--stat") || has_arg(args, b"--shortstat") {
+            } else if has_stat_arg(args) || has_arg(args, b"--shortstat") {
                 Ok(Some(FilterOutput::new(
                     apply_log_stat_compact(stdout),
                     EvidenceClass::PotentiallyLossy,
@@ -308,7 +326,7 @@ fn try_dispatch_argv(
             }
         }
         b"worktree" => {
-            if has_arg(&argv[1..], b"--porcelain") || has_arg(&argv[1..], b"-z") {
+            if has_arg_or_valued(&argv[1..], b"--porcelain") || has_arg(&argv[1..], b"-z") {
                 Ok(None)
             } else {
                 Ok(Some(FilterOutput::new(
@@ -481,8 +499,8 @@ use log::{apply_log_compact, apply_log_stat_compact, apply_show, matches_log, ma
 use merge::{apply_merge, matches_merge};
 use refs::{
     apply_branch, apply_reflog, compact_remote, compact_shortlog, compact_trimmed_lines,
-    compact_worktree, has_arg, has_format_or_pretty_arg, matches_branch, matches_diff,
-    matches_reflog, passthrough,
+    compact_worktree, has_arg, has_arg_or_valued, has_format_or_pretty_arg, has_stat_arg,
+    matches_branch, matches_diff, matches_reflog, passthrough,
 };
 use status::{apply_status, matches_status};
 use transport::{

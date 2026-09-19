@@ -21,11 +21,23 @@ struct StatusEntry<'a> {
     path: &'a [u8],
 }
 
+/// Compacts long-format `git status` to a branch line, one line per entry, and notices.
+///
+/// Every line git printed is forwarded, folded into the branch line, or dropped as advice.
+/// The result is `EvidenceClass::FactComplete`, so a line dropped by accident is a
+/// correctness bug and not a cosmetic one -- most of the defects this filter has had were
+/// facts silently disappearing, not facts formatted badly.
+///
+/// Three things are deferred to the end because git states them last or not at all: the
+/// branch line itself (written lazily, so entries can precede the decision to mark the
+/// tree clean), the clean marker, and the stash summary.
 pub(super) fn apply_status(input: &[u8]) -> Vec<u8> {
     let mut output = Vec::with_capacity(input.len());
     let mut section = StatusSection::None;
     let mut branch = Vec::new();
     let mut branch_written = false;
+    let mut declared_clean = false;
+    let mut stash: Option<&[u8]> = None;
     let mut ahead = None;
     let mut behind = None;
     let mut upstream = None;
@@ -39,10 +51,27 @@ pub(super) fn apply_status(input: &[u8]) -> Vec<u8> {
                 branch.extend_from_slice(&name[..name.len().min(256)]);
                 continue;
             }
-            if let Some(reference) = line.strip_prefix(b"HEAD detached at ") {
+            // Git spells a detached HEAD two ways and they mean different things: `at`
+            // puts HEAD exactly on the ref, `from` means work has landed on top of it.
+            // Only `at` was recognized, so `git checkout HEAD~1` -- which yields `from` --
+            // lost the header outright: a clean tree compacted to nothing at all and
+            // reported the no-output hint, a dirty one to a bare `# `. The trailing `+`
+            // keeps the distinction in the vocabulary the branch line already uses for
+            // commits beyond a reference.
+            let detached = line
+                .strip_prefix(b"HEAD detached at ")
+                .map(|reference| (reference, false))
+                .or_else(|| {
+                    line.strip_prefix(b"HEAD detached from ")
+                        .map(|reference| (reference, true))
+                });
+            if let Some((reference, moved)) = detached {
                 branch.extend_from_slice(b"HEAD:");
                 let room = 256usize.saturating_sub(branch.len());
                 branch.extend_from_slice(&reference[..reference.len().min(room)]);
+                if moved {
+                    branch.push(b'+');
+                }
                 continue;
             }
             if line.starts_with(b"interactive rebase in progress") {
@@ -60,21 +89,31 @@ pub(super) fn apply_status(input: &[u8]) -> Vec<u8> {
                     .position(|byte| *byte == b'\'')
                     .map(|end| &rest[..end]);
                 continue;
-            } else if line.starts_with(b"Your branch and") {
+            } else if line.starts_with(b"Your branch and") || line.starts_with(b"and have ") {
+                // Git wraps divergence across two lines, keeping the counts on the
+                // continuation: "Your branch and 'origin/main' have diverged,\nand have 1
+                // and 2 different commits each, respectively." Only the continuation
+                // carries them, so both openings have to be offered to the parser.
                 if let Some((a, b)) = diverged_counts(line) {
                     ahead = Some(a);
                     behind = Some(b);
+                    continue;
                 }
-                continue;
+                // The opening carries no counts and the continuation supplies them, so
+                // dropping it loses nothing. An upstream note is different: it is the
+                // whole of what git had to say, and falls through to be forwarded.
+                if !is_upstream_note(line) {
+                    continue;
+                }
             }
         }
 
-        if is_operation_state(line) {
+        if is_operation_state(line) || is_upstream_note(line) {
             if !branch_written {
                 if branch.is_empty() {
                     branch.extend_from_slice(b"operation-in-progress");
                 }
-                write_branch_line(&mut output, &branch, ahead, behind, upstream);
+                write_branch_line(&mut output, &branch, ahead, behind, upstream, false);
                 branch_written = true;
             }
             flush_status_run(&mut output, &run, run_dir);
@@ -106,6 +145,21 @@ pub(super) fn apply_status(input: &[u8]) -> Vec<u8> {
             _ => {}
         }
 
+        if declares_clean_tree(line) {
+            declared_clean = true;
+            continue;
+        }
+
+        // `status.showStash` is off by default, so when it is on the user asked for this
+        // line specifically -- and it was dropped, leaving `# main (clean)` to assert
+        // there was nothing to report over a stash git had just reported. Unlike an
+        // operation state it does not withhold the marker: the working tree really is
+        // clean, and the stash is a separate stack, so both facts are stated.
+        if !is_entry_line(line) && line.trim_ascii().starts_with(b"Your stash currently has ") {
+            stash = Some(line.trim_ascii());
+            continue;
+        }
+
         if is_status_hint(line)
             || line.trim_ascii().is_empty()
             || line.starts_with(b"no changes added to commit")
@@ -119,7 +173,7 @@ pub(super) fn apply_status(input: &[u8]) -> Vec<u8> {
 
         if let Some(content) = line.strip_prefix(b"\t") {
             if !branch_written {
-                write_branch_line(&mut output, &branch, ahead, behind, upstream);
+                write_branch_line(&mut output, &branch, ahead, behind, upstream, false);
                 branch_written = true;
             }
             if let Some(entry) = status_entry(section, content) {
@@ -158,11 +212,47 @@ pub(super) fn apply_status(input: &[u8]) -> Vec<u8> {
 
     flush_status_run(&mut output, &run, run_dir);
     if !branch_written && !branch.is_empty() {
-        write_branch_line(&mut output, &branch, ahead, behind, upstream);
+        // A bare branch line is indistinguishable from a truncated listing, since a dirty
+        // tree opens with the same line. Mark the clean case so it reads as a complete
+        // answer -- but only when git said the tree was clean, never merely because no
+        // entries were parsed. Absence is not evidence here: piped input can be cut off
+        // mid-listing, and claiming clean over that would be a false FactComplete.
+        write_branch_line(
+            &mut output,
+            &branch,
+            ahead,
+            behind,
+            upstream,
+            declared_clean,
+        );
     }
+    // Git prints the stash summary last, after the entries and after the clean sentence
+    // (`wt_longstatus_print_stash_summary`, called at the end of the long-format printer),
+    // so it can only be forwarded once the whole document has been read. Writing it at the
+    // branch-line sites instead emitted whatever had been seen by then -- nothing at all
+    // for a dirty tree, since the first entry writes the branch line before the summary
+    // arrives.
+    write_stash_note(&mut output, stash);
     output
 }
 
+/// Forwards a stash summary as a trailing notice, in the position git itself prints it.
+fn write_stash_note(output: &mut Vec<u8>, stash: Option<&[u8]>) {
+    if let Some(line) = stash {
+        output.extend_from_slice(b"! ");
+        output.extend_from_slice(line);
+        output.push(b'\n');
+    }
+}
+
+/// Maps one of git's `modified:`-style entries to a sigil and a path.
+///
+/// The sigil depends on the section, not just the verb: `modified:` is `S` when staged and
+/// `M` when not, and a staged deletion is `D` against an unstaged `d`. Untracked paths are
+/// `?` and unmerged ones keep git's two-letter codes.
+///
+/// Returns `None` for anything whose prefix is unrecognized, which the caller forwards
+/// verbatim rather than guessing at -- an unknown entry is still a path that exists.
 fn status_entry(section: StatusSection, content: &[u8]) -> Option<StatusEntry<'_>> {
     let prefixes: &[(&[u8], &[u8], bool)] = match section {
         StatusSection::Staged => &[
@@ -325,6 +415,7 @@ fn numeric_basename<'a>(path: &'a [u8], dir: &[u8]) -> Option<NumericBasename<'a
     })
 }
 
+/// Writes one entry, falling back to git's own wording when the prefix is unrecognized.
 fn write_status_entry(output: &mut Vec<u8>, section: StatusSection, content: &[u8]) {
     if let Some(entry) = status_entry(section, content) {
         output.extend_from_slice(entry.code);
@@ -336,12 +427,23 @@ fn write_status_entry(output: &mut Vec<u8>, section: StatusSection, content: &[u
     output.push(b'\n');
 }
 
+/// Writes the compacted branch header, optionally claiming the working tree is clean.
+///
+/// `clean` is an assertion, not a formatting choice. A dirty tree opens with the same
+/// line, so the marker is the only thing that tells a reader the listing below is the
+/// whole answer rather than a truncated one -- which is the confusion that sent an agent
+/// to `command git status` to get a result it could trust. Pass it only where git said
+/// `nothing to commit`, never merely because no entries were parsed.
+///
+/// `upstream` is suppressed whenever `ahead` or `behind` is present, since the counts
+/// already name the relationship more precisely than the ref does.
 fn write_branch_line(
     output: &mut Vec<u8>,
     branch: &[u8],
     ahead: Option<&[u8]>,
     behind: Option<&[u8]>,
     upstream: Option<&[u8]>,
+    clean: bool,
 ) {
     output.extend_from_slice(b"# ");
     output.extend_from_slice(branch);
@@ -360,19 +462,105 @@ fn write_branch_line(
         output.extend_from_slice(b" =");
         output.extend_from_slice(value);
     }
+    if clean {
+        output.extend_from_slice(b" (clean)");
+    }
     output.push(b'\n');
 }
 
+/// Upstream relationships git can only state in prose, having no counts to report.
+///
+/// `Your branch is based on '<x>', but the upstream is gone.` and `Your branch and '<x>'
+/// refer to different commits.` both compact to a bare `# <branch>` -- indistinguishable
+/// from a branch that simply has no upstream. Forwarding them as notices keeps the fact,
+/// and withholds `(clean)`: git is saying something about this branch that the compacted
+/// line cannot carry, so the output is not the whole answer.
+///
+/// This runs before entry lines are recognized, so it declines them explicitly: a file
+/// named after the sentence is a path to list, not a notice to forward.
+fn is_upstream_note(line: &[u8]) -> bool {
+    if is_entry_line(line) {
+        return false;
+    }
+    let line = line.trim_ascii();
+    line.starts_with(b"Your branch is based on ")
+        || (line.starts_with(b"Your branch and ") && line.ends_with(b"refer to different commits."))
+}
+
+/// Git's indented parenthetical advice, such as `  (use "git add <file>..." to ...)`.
+///
+/// The one class of status line safe to drop outright: it instructs rather than reports,
+/// and what it instructs is already derivable from the entry codes beside it.
 fn is_status_hint(line: &[u8]) -> bool {
     line.starts_with(b"  (") && line.ends_with(b")")
 }
 
+/// Git's own assertion that the working tree holds nothing to report.
+///
+/// Deliberately narrow: the other `nothing to commit` variants qualify themselves --
+/// `-uno` emits `nothing to commit (use -u to show untracked files)` while untracked
+/// files exist, and a repo without commits emits `nothing to commit (create/copy files
+/// ...)`. Those stay unmarked rather than overstate what git claimed.
+///
+/// The wording is versioned: `working tree` since 2.9, `working directory` before it, and
+/// a parenthesized form before that. The parenthesized form is belt-and-braces -- git old
+/// enough to emit it also prefixes the branch line with `# `, which `matches_status`
+/// declines, so the document never reaches this filter -- but the sentence is unambiguous
+/// and costs nothing to accept.
+fn declares_clean_tree(line: &[u8]) -> bool {
+    line.starts_with(b"nothing to commit, working tree clean")
+        || line.starts_with(b"nothing to commit, working directory clean")
+        || line.starts_with(b"nothing to commit (working directory clean)")
+}
+
+/// Openings of the state notices `git status` prints above the file listing.
+///
+/// `You are currently ` covers most of them -- bisecting, cherry-picking, reverting,
+/// rebasing, editing and splitting during a rebase. The rest are spelled differently and
+/// have to be listed. Missing one is not cosmetic: the notice is dropped from a clean
+/// tree's output entirely, and the tree then reports as `(clean)` while the operation is
+/// still outstanding.
+const OPERATION_STATES: &[&[u8]] = &[
+    b"interactive rebase in progress",
+    b"All conflicts fixed but you are still merging",
+    b"You have unmerged paths",
+    b"You are currently ",
+    b"You are in the middle of an am session",
+    b"The current patch is empty",
+    b"Cherry-pick currently in progress",
+    b"Revert currently in progress",
+    b"You are editing the todo file",
+    b"You are not currently on a branch",
+    // Not outstanding work, but the tree is only partly present -- reporting it as simply
+    // clean omits the reason most of the repository is missing.
+    b"You are in a sparse checkout",
+];
+
+/// Whether git reported an operation in flight, which withholds the clean marker.
+///
+/// These are the states where a tree can hold no changes and still not be finished -- a
+/// rebase partway through, an unresolved merge, a sparse checkout with most of the tree
+/// deliberately absent. Answering "clean" over any of them answers a narrower question
+/// than the one asked, so the marker is suppressed and the state forwarded as a notice.
 fn is_operation_state(line: &[u8]) -> bool {
+    if is_entry_line(line) {
+        return false;
+    }
     let line = line.trim_ascii();
-    line.starts_with(b"interactive rebase in progress")
-        || line.starts_with(b"All conflicts fixed but you are still merging")
-        || line.starts_with(b"You have unmerged paths")
-        || line.starts_with(b"You are currently ")
+    OPERATION_STATES
+        .iter()
+        .any(|opening| line.starts_with(opening))
+}
+
+/// Whether the line is a path under a section header rather than prose.
+///
+/// Both notice checks run before the tab branch claims these, and both trim before
+/// matching, so without this a file named `You are currently reviewing this.txt` is
+/// reported as an operation state and vanishes from the listing -- wrong facts under a
+/// completeness claim. Git indents entries with a tab and nothing else, so the tab is
+/// the whole test.
+fn is_entry_line(line: &[u8]) -> bool {
+    line.starts_with(b"\t")
 }
 
 fn count_after<'a>(input: &'a [u8], marker: &[u8]) -> Option<&'a [u8]> {

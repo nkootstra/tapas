@@ -218,6 +218,452 @@ fn argv_status_dispatch_matches_long_and_short_oracle_output() {
         git::dispatch_argv(&[b"git", b"status", b"--porcelain"], &short, b"", 0, false,).unwrap(),
         tapas::filters::FilterOutput::new(short, EvidenceClass::ByteExact)
     );
+
+    let clean = fixture("git_status_clean.txt");
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"status"], &clean, b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            b"# main =origin/main (clean)\n".to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+}
+
+#[test]
+fn argv_status_dispatch_marks_a_clean_tree_across_upstream_shapes() {
+    // A dirty tree opens with the same branch line a clean one does, so without a marker
+    // "clean" and "header emitted, entries lost" are byte-indistinguishable to a reader.
+    let cases: &[(&[u8], &str)] = &[
+        (
+            b"On branch main\n\nnothing to commit, working tree clean\n",
+            "# main (clean)\n",
+        ),
+        (
+            concat!(
+                "On branch main\n",
+                "Your branch is ahead of 'origin/main' by 2 commits.\n",
+                "  (use \"git push\" to publish your local commits)\n",
+                "\nnothing to commit, working tree clean\n",
+            )
+            .as_bytes(),
+            // write_branch_line suppresses the upstream whenever ahead or behind is set.
+            "# main +2 (clean)\n",
+        ),
+        (
+            concat!(
+                "On branch main\n",
+                "Your branch is behind 'origin/main' by 3 commits, and can be fast-forwarded.\n",
+                "\nnothing to commit, working tree clean\n",
+            )
+            .as_bytes(),
+            "# main -3 (clean)\n",
+        ),
+        (
+            concat!(
+                "On branch main\n",
+                "Your branch and 'origin/main' have diverged,\n",
+                "and have 1 and 2 different commits each, respectively.\n",
+                "\nnothing to commit, working tree clean\n",
+            )
+            .as_bytes(),
+            "# main +1 -2 (clean)\n",
+        ),
+        (
+            b"HEAD detached at abc1234\n\nnothing to commit, working tree clean\n",
+            "# HEAD:abc1234 (clean)\n",
+        ),
+        (
+            // Unrecognized lines are dropped, but git still declared the tree clean, so
+            // the marker rests on that claim rather than on the parse succeeding.
+            concat!(
+                "On branch main\n",
+                "Your branch is up to date with 'origin/main'.\n",
+                "\nIt took 2.00 seconds to enumerate untracked files.\n",
+                "\nnothing to commit, working tree clean\n",
+            )
+            .as_bytes(),
+            "# main =origin/main (clean)\n",
+        ),
+    ];
+
+    for (input, expected) in cases {
+        assert_eq!(
+            git::dispatch_argv(&[b"git", b"status"], input, b"", 0, false).unwrap(),
+            tapas::filters::FilterOutput::new(
+                expected.as_bytes().to_vec(),
+                EvidenceClass::FactComplete,
+            ),
+            "clean marker mismatch for {:?}",
+            String::from_utf8_lossy(input),
+        );
+    }
+}
+
+#[test]
+fn argv_status_dispatch_accepts_every_versioned_spelling_of_the_clean_sentence() {
+    // Git spells this three ways across its history: `working tree` since 2.9,
+    // `working directory` before it, and a parenthesized form before that.
+    for sentence in [
+        "nothing to commit, working tree clean",
+        "nothing to commit, working directory clean",
+        "nothing to commit (working directory clean)",
+    ] {
+        let input = format!("On branch main\n\n{sentence}\n");
+        assert_eq!(
+            git::dispatch_argv(&[b"git", b"status"], input.as_bytes(), b"", 0, false).unwrap(),
+            tapas::filters::FilterOutput::new(
+                b"# main (clean)\n".to_vec(),
+                EvidenceClass::FactComplete,
+            ),
+            "clean sentence not recognized: {sentence}",
+        );
+    }
+
+    // The three inputs above pair a modern header with each sentence, so the oldest
+    // spelling is pinned against a document no single git version emits. That is
+    // deliberate -- the predicate is what is under test, not the pairing.
+    //
+    // On the pipe route a genuinely pre-1.8 document is declined outright, because every
+    // line carries a `# ` prefix the matcher does not accept. This says nothing about the
+    // argv route: `dispatch_argv` never consults `git::matches`, so there the same
+    // document reaches `apply_status`, which recognizes none of its lines. That is a
+    // separate pre-existing gap, out of scope here and not pinned as if it were correct.
+    let legacy = b"# On branch master\nnothing to commit (working directory clean)\n";
+    assert!(!git::matches(legacy));
+}
+
+#[test]
+fn argv_status_dispatch_forwards_upstream_notes_instead_of_dropping_them() {
+    // Both notices compacted to a bare `# main`, indistinguishable from a branch with no
+    // upstream at all -- and with the clean marker appended, that bare line asserted the
+    // report was complete while git's only statement about the upstream had been dropped.
+    for note in [
+        "Your branch is based on 'origin/gone-branch', but the upstream is gone.",
+        "Your branch and 'origin/main' refer to different commits.",
+    ] {
+        let input =
+            format!("On branch main\n{note}\n  (hint)\n\nnothing to commit, working tree clean\n");
+        assert_eq!(
+            git::dispatch_argv(&[b"git", b"status"], input.as_bytes(), b"", 0, false).unwrap(),
+            tapas::filters::FilterOutput::new(
+                format!("# main\n! {note}\n").into_bytes(),
+                EvidenceClass::FactComplete,
+            ),
+            "upstream note dropped or marked clean: {note}",
+        );
+    }
+
+    // The divergence opening still carries nothing, so it stays dropped and the counts
+    // come from the continuation. Forwarding it would duplicate what `+1 -2` says.
+    let diverged = concat!(
+        "On branch main\n",
+        "Your branch and 'origin/main' have diverged,\n",
+        "and have 1 and 2 different commits each, respectively.\n",
+        "\nnothing to commit, working tree clean\n",
+    );
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"status"], diverged.as_bytes(), b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            b"# main +1 -2 (clean)\n".to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+}
+
+#[test]
+fn argv_status_dispatch_keeps_both_spellings_of_a_detached_head() {
+    // Only `HEAD detached at` was recognized. `git checkout HEAD~1` produces the `from`
+    // spelling, and on a clean tree that lost the header entirely -- empty output, and
+    // the no-output hint reporting "no changes" for a detached HEAD.
+    let cases: &[(&str, &str)] = &[
+        ("HEAD detached at abc1234", "# HEAD:abc1234 (clean)\n"),
+        ("HEAD detached from abc1234", "# HEAD:abc1234+ (clean)\n"),
+    ];
+    for (header, expected) in cases {
+        let input = format!("{header}\n\nnothing to commit, working tree clean\n");
+        assert_eq!(
+            git::dispatch_argv(&[b"git", b"status"], input.as_bytes(), b"", 0, false).unwrap(),
+            tapas::filters::FilterOutput::new(
+                expected.as_bytes().to_vec(),
+                EvidenceClass::FactComplete,
+            ),
+            "detached head spelling lost: {header}",
+        );
+    }
+
+    // The two mean different things -- `from` says commits have landed on top of the
+    // reference -- so they must not compact to the same line.
+    assert_ne!(cases[0].1, cases[1].1);
+
+    // Dirty, to pin that the header survives alongside entries.
+    let dirty =
+        "HEAD detached from abc1234\n\nChanges not staged for commit:\n\tmodified:   a.txt\n";
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"status"], dirty.as_bytes(), b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            b"# HEAD:abc1234+\nM a.txt\n".to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+}
+
+#[test]
+fn argv_status_dispatch_keeps_the_stash_summary_beside_the_clean_marker() {
+    // With status.showStash on, git reports the stash and tapas dropped the line, so
+    // `# main (clean)` asserted there was nothing to report over a stash git had just
+    // reported. The marker stays: the working tree really is clean and the stash is a
+    // separate stack, so both facts are stated rather than one silently winning.
+    //
+    // Git prints the summary last -- `wt_longstatus_print_stash_summary` is the final call
+    // in the long-format printer, after the entries and after the clean sentence -- so both
+    // inputs here put it there. An earlier version of this test placed it ahead of the
+    // entries, a position git never produces, and passed over a dirty tree that dropped it.
+    let clean = concat!(
+        "On branch main\n",
+        "Your branch is up to date with 'origin/main'.\n",
+        "\nnothing to commit, working tree clean\n",
+        "Your stash currently has 2 entries\n",
+    );
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"status"], clean.as_bytes(), b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            b"# main =origin/main (clean)\n! Your stash currently has 2 entries\n".to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+
+    // Dirty: the summary arrives after the branch line has already been written, which is
+    // exactly the case that lost it.
+    let dirty = concat!(
+        "On branch main\n",
+        "Changes not staged for commit:\n",
+        "  (use \"git add <file>...\" to update what will be committed)\n",
+        "\tmodified:   a.txt\n",
+        "\nno changes added to commit (use \"git add\" and/or \"git commit -a\")\n",
+        "Your stash currently has 1 entry\n",
+    );
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"status"], dirty.as_bytes(), b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            b"# main\nM a.txt\n! Your stash currently has 1 entry\n".to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+}
+
+#[test]
+fn argv_status_dispatch_lists_paths_that_read_like_state_notices() {
+    // Both notice checks run before entry lines are claimed, and both trim before
+    // matching, so a path that opens like a notice was reported as one and vanished from
+    // the listing. Three untracked files compacted to one, under a completeness claim.
+    let input = concat!(
+        "On branch main\n",
+        "Untracked files:\n",
+        "  (use \"git add <file>...\" to include in what will be committed)\n",
+        "\tThe current patch is empty.patch\n",
+        "\tYou are currently reviewing this.txt\n",
+        "\tYour branch and 'x' refer to different commits.\n",
+        "\tnormal.txt\n",
+        "\nnothing added to commit but untracked files present\n",
+    );
+    let expected = concat!(
+        "# main\n",
+        "? The current patch is empty.patch\n",
+        "? You are currently reviewing this.txt\n",
+        "? Your branch and 'x' refer to different commits.\n",
+        "? normal.txt\n",
+    );
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"status"], input.as_bytes(), b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            expected.as_bytes().to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+}
+
+#[test]
+fn argv_status_dispatch_reports_divergence_from_the_continuation_line() {
+    // Git wraps divergence across two lines and keeps the counts on the continuation.
+    // Reading only the opening line drops them, which understates a status report that
+    // claims to be complete -- on a clean tree it would read as "nothing to report" while
+    // the branch sits two commits behind.
+    let diverged = concat!(
+        "On branch main\n",
+        "Your branch and 'origin/main' have diverged,\n",
+        "and have 1 and 2 different commits each, respectively.\n",
+        "  (use \"git pull\" if you want to integrate the remote branch with yours)\n",
+    );
+
+    let clean = format!("{diverged}\nnothing to commit, working tree clean\n");
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"status"], clean.as_bytes(), b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            b"# main +1 -2 (clean)\n".to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+
+    // Independent of the clean marker: a dirty diverged tree reports the counts too.
+    let dirty = format!("{diverged}\nChanges not staged for commit:\n\tmodified:   a.txt\n");
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"status"], dirty.as_bytes(), b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            b"# main +1 -2\nM a.txt\n".to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+
+    // Some versions keep the sentence on one line; that opening still parses.
+    let inline = concat!(
+        "On branch main\n",
+        "Your branch and 'origin/main' have diverged, and have 4 and 5 different commits each, respectively.\n",
+        "\nnothing to commit, working tree clean\n",
+    );
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"status"], inline.as_bytes(), b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            b"# main +4 -5 (clean)\n".to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+}
+
+#[test]
+fn argv_status_dispatch_withholds_the_clean_marker_without_gits_own_claim() {
+    // Cleanliness is never inferred from the absence of entries. Piped input can be cut
+    // off mid-listing, and `git status` qualifies its own wording when the tree is only
+    // conditionally clean -- asserting over either would be a false FactComplete.
+    let cases: &[(&[u8], &str)] = &[
+        (
+            // Truncated mid-listing: unstaged changes exist, the section header was
+            // parsed, and the entries never arrived. The pipe route is where this shape
+            // actually arises; it is asserted on both routes below.
+            concat!(
+                "On branch main\n",
+                "Your branch is up to date with 'origin/main'.\n",
+                "\nChanges not staged for commit:\n",
+                "  (use \"git add <file>...\" to update what will be committed)\n",
+            )
+            .as_bytes(),
+            "# main =origin/main\n",
+        ),
+        (
+            // -uno: git qualifies its own wording, having been told not to look for
+            // untracked files. It says this whenever tracked files are clean, so it is
+            // not evidence that the tree as a whole holds nothing to report.
+            b"On branch main\n\nnothing to commit (use -u to show untracked files)\n",
+            "# main\n",
+        ),
+        (
+            // A repo with no commits yet. `No commits yet` is itself dropped -- a
+            // pre-existing gap this pins only to the extent of the marker being
+            // withheld, which is what stops the bare line reading as a whole answer.
+            concat!(
+                "On branch main\n",
+                "\nNo commits yet\n",
+                "\nnothing to commit (create/copy files and use \"git add\" to track)\n",
+            )
+            .as_bytes(),
+            "# main\n",
+        ),
+    ];
+
+    for (input, expected) in cases {
+        assert_eq!(
+            git::dispatch_argv(&[b"git", b"status"], input, b"", 0, false).unwrap(),
+            tapas::filters::FilterOutput::new(
+                expected.as_bytes().to_vec(),
+                EvidenceClass::FactComplete,
+            ),
+            "unwarranted clean marker for {:?}",
+            String::from_utf8_lossy(input),
+        );
+    }
+
+    // The argv route cannot actually receive a truncated capture -- streamed, incomplete
+    // and overflowed captures all bypass filtering. The pipe route has no such guard, so
+    // it is the one that could have shipped a false `(clean)`, and it is asserted here
+    // rather than assumed to follow from the loop above.
+    let truncated = cases[0].0;
+    assert!(git::matches(truncated));
+    assert_eq!(
+        git::apply_matched(truncated).unwrap(),
+        tapas::filters::FilterOutput::new(
+            b"# main =origin/main\n".to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+}
+
+#[test]
+fn argv_status_dispatch_never_marks_an_operation_state_clean() {
+    let conflict = fixture("git_status_conflict.txt");
+    let expected_conflict = concat!(
+        "# main\n",
+        "! You have unmerged paths.\n",
+        "S src/pipeline.zig\n",
+        "UU src/filters/git_status.zig\n",
+        "? tests/fixtures/git_status_conflict.txt\n",
+    );
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"status"], &conflict, b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            expected_conflict.as_bytes().to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+
+    // Every state notice git prints above the listing, including the ones that do not
+    // open with "You are currently ". A clean index does not mean the operation is done,
+    // and dropping the notice would report outstanding work as nothing to report.
+    for state in [
+        "You are currently bisecting.",
+        "You are currently cherry-picking commit abc1234.",
+        "You are currently reverting commit abc1234.",
+        "You are in the middle of an am session.",
+        "The current patch is empty.",
+        "Cherry-pick currently in progress.",
+        "Revert currently in progress.",
+        "You are editing the todo file of an ongoing interactive rebase.",
+        "You are not currently on a branch.",
+        "You are in a sparse checkout with 40% of tracked files present.",
+    ] {
+        let input =
+            format!("On branch main\n{state}\n  (hint)\n\nnothing to commit, working tree clean\n");
+        let expected = format!("# main\n! {state}\n");
+        assert_eq!(
+            git::dispatch_argv(&[b"git", b"status"], input.as_bytes(), b"", 0, false).unwrap(),
+            tapas::filters::FilterOutput::new(expected.into_bytes(), EvidenceClass::FactComplete,),
+            "operation state marked clean or dropped: {state}",
+        );
+    }
+
+    // The index is clean mid-rebase, but the rebase itself is outstanding work.
+    let rebase = concat!(
+        "interactive rebase in progress; onto abc1234\n",
+        "Last command done (1 command done):\n",
+        "   pick 1234567 feat: a thing\n",
+        "No commands remaining.\n",
+        "You are currently rebasing branch 'topic' on 'abc1234'.\n",
+        "  (all conflicts fixed: run \"git rebase --continue\")\n",
+        "\nnothing to commit, working tree clean\n",
+    );
+    let expected_rebase = concat!(
+        "# rebase-in-progress\n",
+        "! interactive rebase in progress; onto abc1234\n",
+        "Last command done (1 command done):\n",
+        "   pick 1234567 feat: a thing\n",
+        "No commands remaining.\n",
+        "! You are currently rebasing branch 'topic' on 'abc1234'.\n",
+    );
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"status"], rebase.as_bytes(), b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            expected_rebase.as_bytes().to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
 }
 
 #[test]
@@ -335,6 +781,59 @@ fn argv_release_and_audit_commands_keep_their_actionable_rows() {
             .bytes,
         b"user.name=Niels Kootstra\nuser.email=niels@example.com\ngpg.format=ssh\ntag.gpgSign=true\n"
     );
+}
+
+#[test]
+fn log_keeps_the_diffstat_for_every_stat_spelling() {
+    // Same defect as the porcelain gate: exact membership matched `--stat` alone, so the
+    // valued and `--stat-*` spellings routed to the plain-log compactor and the diffstat
+    // was dropped wholesale. All four produce a diffstat in real git (verified 2.54).
+    let input = concat!(
+        "commit 4192ea445d06762d32376533d479652757b64ad0\n",
+        "Author: A <a@example.com>\n",
+        "Date:   Mon Jan 1 00:00:00 2026 +0000\n",
+        "\n",
+        "    feat: add a.txt\n",
+        "\n",
+        " a.txt | 1 +\n",
+        " 1 file changed, 1 insertion(+)\n",
+    );
+    for form in [
+        b"--stat".as_slice(),
+        b"--stat=80",
+        b"--stat-width=80",
+        b"--stat-count=2",
+    ] {
+        let out =
+            git::dispatch_argv(&[b"git", b"log", form], input.as_bytes(), b"", 0, false).unwrap();
+        let text = String::from_utf8_lossy(&out.bytes).into_owned();
+        assert!(
+            text.contains("1 file changed"),
+            "diffstat dropped for {}: {text:?}",
+            String::from_utf8_lossy(form),
+        );
+    }
+}
+
+#[test]
+fn porcelain_bypass_covers_the_valued_spellings() {
+    // `--porcelain` also takes a value. Matching the bare flag alone let `--porcelain=v2`
+    // reach the long-format parser, which recognizes none of it: every line was dropped,
+    // the empty result tripped the no-output hint, and a tree with real changes reported
+    // `(tapas: no changes; git status exited 0 with no output)`.
+    let v2 = b"1 .M N... 100644 100644 100644 abc def src/a.rs\n? untracked.txt\n".to_vec();
+    for form in [
+        b"--porcelain".as_slice(),
+        b"--porcelain=v1",
+        b"--porcelain=v2",
+    ] {
+        assert_eq!(
+            git::dispatch_argv(&[b"git", b"status", form], &v2, b"", 0, false).unwrap(),
+            tapas::filters::FilterOutput::new(v2.clone(), EvidenceClass::ByteExact),
+            "porcelain spelling not bypassed: {}",
+            String::from_utf8_lossy(form),
+        );
+    }
 }
 
 #[test]

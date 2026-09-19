@@ -1,9 +1,41 @@
+/// Returns the input unchanged, claiming only that it is unchanged.
+///
+/// The fallback every gate in this module aims at: a command tapas does not understand
+/// costs its compaction, not its output.
 pub(super) fn passthrough(input: &[u8]) -> FilterOutput {
     FilterOutput::new(input.to_vec(), EvidenceClass::ByteExact)
 }
 
+/// Whether `expected` appears in `argv` exactly.
+///
+/// Exact membership is the right test only for flags git spells one way. For options it
+/// also accepts as `--opt=value` this silently misses the valued forms, which is how
+/// `--porcelain=v2` and `--stat=80` reached filters that could not read them. Those want
+/// `has_arg_or_valued` or `has_stat_arg`.
 pub(super) fn has_arg(argv: &[&[u8]], expected: &[u8]) -> bool {
     argv.contains(&expected)
+}
+
+/// Whether `expected` appears bare or carrying a value, as in `--porcelain=v2`.
+///
+/// Exact membership is not enough for options git also accepts in `--opt=value` form: the
+/// valued spellings slip past the bypass gate and reach a filter that cannot read them.
+pub(super) fn has_arg_or_valued(argv: &[&[u8]], expected: &[u8]) -> bool {
+    argv.iter().any(|argument| {
+        *argument == expected
+            || (argument.starts_with(expected) && argument.get(expected.len()) == Some(&b'='))
+    })
+}
+
+/// Whether any spelling of git's diffstat request is present.
+///
+/// `--stat` carries an optional value, and `--stat-width`, `--stat-name-width` and
+/// `--stat-count` are separate options that each produce a diffstat on their own --
+/// verified against git 2.54. Matching only the bare flag sent every other spelling to
+/// the plain-log compactor, which drops the diffstat outright. No other git option
+/// begins with `--stat`, so the prefix is the whole family and nothing else.
+pub(super) fn has_stat_arg(argv: &[&[u8]]) -> bool {
+    argv.iter().any(|argument| argument.starts_with(b"--stat"))
 }
 
 pub(super) fn has_format_or_pretty_arg(argv: &[&[u8]]) -> bool {
