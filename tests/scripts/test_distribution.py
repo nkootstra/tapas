@@ -36,6 +36,52 @@ def workflow_run_blocks(workflow: str) -> list[str]:
 
 
 class DistributionTests(unittest.TestCase):
+    def test_pr_installer_rejects_failed_downloads_without_running_partial_scripts(self) -> None:
+        for body in ("", "echo partial-installer-ran\n"):
+            with self.subTest(body=body), tempfile.TemporaryDirectory() as directory:
+                root = pathlib.Path(directory)
+                curl = root / "curl"
+                curl.write_text(
+                    "#!/bin/sh\nprintf '%s' '" + body + "'\nexit 22\n",
+                    encoding="utf-8",
+                )
+                curl.chmod(0o755)
+                result = subprocess.run(
+                    ["sh", str(ROOT / "install-pr.sh"), "123"],
+                    env={**os.environ, "PATH": f"{root}:{os.environ['PATH']}", "TMPDIR": directory},
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=10,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+                self.assertEqual(sorted(path.name for path in root.iterdir()), ["curl"])
+
+    def test_pr_installer_preserves_arguments_and_installer_exit_status(self) -> None:
+        for status in (0, 17):
+            with self.subTest(status=status), tempfile.TemporaryDirectory() as directory:
+                root = pathlib.Path(directory)
+                curl = root / "curl"
+                curl.write_text(
+                    "#!/bin/sh\ncat <<'SCRIPT'\n"
+                    'printf "<%s>\\n" "$@"\n'
+                    f"exit {status}\nSCRIPT\n",
+                    encoding="utf-8",
+                )
+                curl.chmod(0o755)
+                result = subprocess.run(
+                    ["sh", str(ROOT / "install-pr.sh"), "123", "argument with spaces"],
+                    env={**os.environ, "PATH": f"{root}:{os.environ['PATH']}", "TMPDIR": directory},
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=10,
+                )
+                self.assertEqual(result.returncode, status, result.stderr)
+                self.assertEqual(result.stdout, "<--pr>\n<123>\n<argument with spaces>\n")
+                self.assertEqual(sorted(path.name for path in root.iterdir()), ["curl"])
+
     def test_install_scripts_have_valid_shell_syntax(self) -> None:
         for name in ("install.sh", "install-pr.sh"):
             result = subprocess.run(

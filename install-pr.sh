@@ -9,4 +9,8 @@ case "${1:-}" in
         exit 0
         ;;
 esac
-curl -fsSL "$SCRIPT_URL" | sh -s -- --pr "$@"
+installer=$(mktemp)
+trap 'rm -f "$installer"' 0
+trap 'exit 1' HUP INT TERM
+curl -fsSL "$SCRIPT_URL" > "$installer"
+sh "$installer" --pr "$@"
