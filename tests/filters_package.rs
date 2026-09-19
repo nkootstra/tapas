@@ -496,7 +496,7 @@ fn uv_package_routes_compact_only_recognized_human_output() {
     ] {
         let output = package::dispatch_streams_argv(argv, input, b"", 0, false).unwrap();
         assert_eq!(output.evidence, EvidenceClass::PotentiallyLossy, "{argv:?}");
-        assert!(output.stdout.starts_with(b"Resolved 5 packages in 20ms\n"));
+        assert_eq!(output.stdout, input, "{argv:?}");
     }
 
     for argv in [
@@ -511,6 +511,32 @@ fn uv_package_routes_compact_only_recognized_human_output() {
             assert_eq!(output.evidence, EvidenceClass::ByteExact, "{argv:?}");
         }
     }
+}
+
+#[test]
+fn uv_preserves_indented_package_changes_on_either_stream() {
+    let changes = b" - demo==1.0.0\n + demo==2.0.0\n + added==3.0.0\n";
+    for input in [
+        changes.as_slice(),
+        b"Installed 2 packages in 4ms\n - demo==1.0.0\n + demo==2.0.0\n + added==3.0.0\n",
+    ] {
+        for (stdout, stderr) in [(input, b"".as_slice()), (b"".as_slice(), input)] {
+            assert_eq!(
+                package::dispatch_streams_argv(&[b"uv", b"sync"], stdout, stderr, 0, false)
+                    .unwrap(),
+                StreamFilterOutput::new(
+                    stdout.to_vec(),
+                    stderr.to_vec(),
+                    EvidenceClass::PotentiallyLossy
+                ),
+            );
+        }
+    }
+    let unrelated = b" + ordinary text\n - another line\n";
+    assert_eq!(
+        package::dispatch_streams_argv(&[b"uv", b"sync"], unrelated, b"", 0, false).unwrap(),
+        StreamFilterOutput::new(unrelated.to_vec(), Vec::new(), EvidenceClass::ByteExact),
+    );
 }
 
 #[test]
