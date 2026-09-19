@@ -1,6 +1,11 @@
+import contextlib
 import importlib.util
+import io
+import json
 import pathlib
+import subprocess
 import unittest
+from unittest import mock
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -141,6 +146,42 @@ class SmokeSupportedCommandsTests(unittest.TestCase):
             runner.cleanup(actions)
 
         self.assertEqual(len(calls), 2)
+
+    @unittest.skipUnless(hasattr(Exception(), "add_note"), "requires exception notes")
+    def test_case_failure_reports_cleanup_notes_in_text_and_json(self) -> None:
+        smoke = load_module()
+
+        def run(argv, **kwargs):
+            if argv[:2] == ["docker", "info"]:
+                return subprocess.CompletedProcess(argv, 0, b"1.0", b"")
+            if argv[:3] == ["kind", "create", "cluster"]:
+                return subprocess.CompletedProcess(argv, 1, b"", b"creation failed")
+            if argv[:3] == ["kind", "delete", "cluster"]:
+                return subprocess.CompletedProcess(argv, 1, b"", b"cluster still exists")
+            raise AssertionError(f"unexpected command: {argv}")
+
+        for output_format in ("text", "json"):
+            with self.subTest(format=output_format):
+                output = io.StringIO()
+                arguments = [
+                    str(MODULE_PATH), "--binary", str(MODULE_PATH),
+                    "--case", "helm", "--format", output_format,
+                ]
+                with (
+                    mock.patch("sys.argv", arguments),
+                    mock.patch.object(smoke.shutil, "which", return_value="/synthetic/tool"),
+                    mock.patch.object(smoke.subprocess, "run", side_effect=run),
+                    contextlib.redirect_stdout(output),
+                    contextlib.redirect_stderr(io.StringIO()),
+                ):
+                    status = smoke.main()
+                self.assertEqual(status, 1)
+                detail = (
+                    json.loads(output.getvalue())[0]["detail"]
+                    if output_format == "json" else output.getvalue()
+                )
+                self.assertIn("creation failed", detail)
+                self.assertIn("cleanup failed: Kind cluster: cluster still exists", detail)
 
 
 if __name__ == "__main__":

@@ -742,7 +742,8 @@ def main() -> int:
             except Unavailable as error:
                 results.append(Result(name, Status.SKIPPED, detail=str(error)))
             except (VerificationError, subprocess.SubprocessError, OSError) as error:
-                results.append(Result(name, Status.FAILED, detail=str(error)))
+                detail = "\n".join([str(error), *getattr(error, "__notes__", [])])
+                results.append(Result(name, Status.FAILED, detail=detail))
     if args.format == "json":
         print(json.dumps([result_dict(result) for result in results], indent=2))
     else:
