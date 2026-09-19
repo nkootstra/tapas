@@ -87,6 +87,12 @@ fn aws_only_compacts_explicit_recognized_table_output() {
     }
 
     for malformed in [
+        b"|\n".as_slice(),
+        b"",
+        b"||\n",
+        b"| |\n",
+        b"|||\n",
+        b" \t|\r\n",
         b"Name   Endpoint\neu-west-1   example-1\n".as_slice(),
         b"+---+---+\n| A | B |\n+---+---+\n| 1 | 2 | 3 |\n+---+---+\n",
         b"+---+\n| Name \xff |\n+---+\n".as_slice(),
