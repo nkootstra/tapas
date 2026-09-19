@@ -177,7 +177,8 @@ fn matches_uv_output(stdout: &[u8], stderr: &[u8]) -> bool {
             ]
             .iter()
             .any(|prefix| line.starts_with(prefix))
-                || matches!(line.first(), Some(b'+' | b'-')) && find_subslice(line, b"==").is_some()
+                || matches!(line.trim_ascii_start().first(), Some(b'+' | b'-'))
+                    && find_subslice(line, b"==").is_some()
                 || TREE_PREFIXES.iter().any(|prefix| line.starts_with(prefix))
         })
     })
@@ -202,7 +203,7 @@ fn compact_uv(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
             ]
             .iter()
             .any(|prefix| line.starts_with(prefix))
-                || matches!(line.first(), Some(b'+' | b'-'))
+                || matches!(line.trim_ascii_start().first(), Some(b'+' | b'-'))
                 || TREE_PREFIXES.iter().any(|prefix| line.starts_with(prefix))
             {
                 append_line(&mut output, line);
