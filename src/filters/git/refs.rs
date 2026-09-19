@@ -245,7 +245,7 @@ pub(super) fn apply_branch(input: &[u8]) -> Vec<u8> {
     if has_remotes {
         for raw in input.split(|byte| *byte == b'\n') {
             let line = raw.strip_suffix(b"\r").unwrap_or(raw);
-            let Some(token) = first_branch_token(line) else {
+            let Some(token) = plain_branch_name(line) else {
                 continue;
             };
             if let Some(name) = token.strip_prefix(b"remotes/origin/") {
@@ -265,7 +265,7 @@ pub(super) fn apply_branch(input: &[u8]) -> Vec<u8> {
             continue;
         }
         let mut marker: &[u8] = b"";
-        if has_remotes && let Some(token) = first_branch_token(line) {
+        if has_remotes && let Some(token) = plain_branch_name(line) {
             if let Some(name) = token.strip_prefix(b"remotes/origin/") {
                 if name != b"HEAD" && locals.contains(name) {
                     continue;
@@ -295,7 +295,7 @@ pub(super) fn apply_branch(input: &[u8]) -> Vec<u8> {
     output
 }
 
-fn first_branch_token(line: &[u8]) -> Option<&[u8]> {
+fn plain_branch_name(line: &[u8]) -> Option<&[u8]> {
     let rest = if let Some(rest) = line.strip_prefix(b"* ") {
         rest
     } else if line.starts_with(b" ") {
@@ -303,11 +303,7 @@ fn first_branch_token(line: &[u8]) -> Option<&[u8]> {
     } else {
         return None;
     };
-    let end = rest
-        .iter()
-        .position(|byte| *byte == b' ')
-        .unwrap_or(rest.len());
-    (end > 0).then_some(&rest[..end])
+    (!rest.is_empty() && !rest.contains(&b' ')).then_some(rest)
 }
 
 fn write_verbose_branch_line(output: &mut Vec<u8>, line: &[u8], marker: &[u8]) -> bool {
