@@ -150,7 +150,7 @@ jobs:
           & ([scriptblock]::Create(\$script)) -CleanDevBuilds
           \`\`\`
 
-          If the Windows script URL is cached, replace it with `${pinned_windows_installer_url}`.
+          If the Windows script URL is cached, replace it with \`${pinned_windows_installer_url}\`.
 
           [View the prerelease and checksums](${release_url}).
           EOF

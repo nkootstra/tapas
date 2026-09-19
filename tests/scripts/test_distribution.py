@@ -184,6 +184,34 @@ class DistributionTests(unittest.TestCase):
         self.assertIn("actions/checkout", release)
         self.assertNotIn("actions/checkout", cleanup)
 
+    def test_pr_install_comment_preserves_the_pinned_windows_url(self) -> None:
+        workflow = (ROOT / ".github/workflows/publish-pr.yml").read_text(encoding="utf-8")
+        block = next(block for block in workflow_run_blocks(workflow) if "cat > comment.md" in block)
+        environment = {
+            **os.environ,
+            "REPOSITORY": "example/tapas",
+            "SOURCE_SHA": "a" * 40,
+            "PR_NUMBER": "42",
+            "TAPAS_BUILD_LABEL": "0.1.0-dev.aaaaaaaa",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(
+                ["bash", "-c", 'gh() { if [[ "$*" == *"/commits/main"* ]]; then printf "%040d\\n" 0; fi; }\n' + block],
+                cwd=directory,
+                env=environment,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            comment = (pathlib.Path(directory) / "comment.md").read_text(encoding="utf-8")
+            self.assertIn(
+                "If the Windows script URL is cached, replace it with "
+                "`https://github.com/example/tapas/raw/0000000000000000000000000000000000000000/install.ps1`.",
+                comment,
+            )
+            self.assertEqual(result.stderr, "")
+
     def test_pr_release_is_keyed_by_head_commit(self) -> None:
         publisher = (ROOT / ".github/workflows/publish-pr.yml").read_text(encoding="utf-8")
         self.assertIn('tag="pr-${PR_NUMBER}-${SOURCE_SHA}"', publisher)
