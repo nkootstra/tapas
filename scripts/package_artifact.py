@@ -68,7 +68,7 @@ def main() -> int:
 
     checksums = args.output / "SHA256SUMS"
     checksums.write_text(
-        f"{binary_digest}  tapas\n{sha256(metadata_path)}  BUILD-METADATA.json\n",
+        f"{binary_digest}  {args.binary_name}\n{sha256(metadata_path)}  BUILD-METADATA.json\n",
         encoding="ascii",
     )
     return 0
