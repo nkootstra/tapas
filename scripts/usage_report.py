@@ -275,8 +275,7 @@ def commands_from_json_line(line: str) -> Iterator[str]:
         record = json.loads(line)
     except json.JSONDecodeError:
         return
-    found = set(_commands_from_object(record))
-    yield from sorted(found)
+    yield from sorted(_commands_from_object(record))
 
 
 def collect_opencode(path: pathlib.Path) -> list[tuple[str, str]]:

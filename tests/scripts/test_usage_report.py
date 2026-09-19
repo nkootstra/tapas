@@ -163,6 +163,30 @@ class UsageReportTests(unittest.TestCase):
 
         self.assertEqual(commands, ["git status", "cargo test"])
 
+    def test_jsonl_extraction_preserves_repeated_tool_calls(self) -> None:
+        tool_calls = [
+            {
+                "type": "tool_use",
+                "id": call_id,
+                "name": "Bash",
+                "input": {"command": "git status"},
+            }
+            for call_id in ("call_one", "call_two")
+        ]
+        records = [
+            {"type": "assistant", "message": {"content": tool_calls}},
+            {
+                "type": "custom_tool_call",
+                "name": "functions.exec",
+                "input": 'await tools.exec_command({cmd: "git status"});\n'
+                'await tools.exec_command({cmd: "git status"});',
+            },
+        ]
+        for record in records:
+            with self.subTest(record_type=record["type"]):
+                commands = list(usage_report.commands_from_json_line(json.dumps(record)))
+                self.assertEqual(commands, ["git status", "git status"])
+
     def test_report_identifies_catalog_and_git_subcommand_gaps(self) -> None:
         catalog = usage_report.parse_catalog(
             """
