@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.4](https://github.com/nkootstra/tapas/compare/v0.7.3...v0.7.4) - 2026-09-19
+
+### Patch changes
+
+- preserve indented uv package changes ([#38](https://github.com/nkootstra/tapas/pull/38))
+
 ## [0.7.3](https://github.com/nkootstra/tapas/compare/v0.7.2...v0.7.3) - 2026-09-19
 
 ### Patch changes
