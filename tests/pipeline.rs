@@ -257,6 +257,24 @@ fn pipe_chain_matches_container_package_and_curl_oracles() {
 }
 
 #[test]
+fn pipe_mode_preserves_non_curl_marked_up_text() {
+    let cases: &[&[u8]] = &[
+        b"* first task\nsecond descriptive line\n",
+        b"> quoted line\n* bullet\n",
+        b"<html><body>hello</body></html>\n* bullet\n",
+    ];
+
+    for input in cases {
+        assert_eq!(
+            tapas::pipeline::filter_bytes(input),
+            input.to_vec(),
+            "input: {}",
+            String::from_utf8_lossy(input),
+        );
+    }
+}
+
+#[test]
 fn fused_default_routes_preserve_filter_identity_and_evidence() {
     for (input, expected_filter, expected_evidence) in [
         (

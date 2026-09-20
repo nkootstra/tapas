@@ -148,9 +148,7 @@ pub fn apply_container_pipe(input: &[u8]) -> Result<FilterOutput, FilterError> {
 }
 
 pub fn matches_curl_pipe(input: &[u8]) -> bool {
-    input
-        .split(|byte| *byte == b'\n')
-        .any(|line| matches!(line.first(), Some(b'*' | b'>' | b'<')))
+    matches_classic_verbose_trace(input)
 }
 
 pub fn apply_curl_pipe(input: &[u8]) -> Result<FilterOutput, FilterError> {
