@@ -195,8 +195,6 @@ fn is_important_log_body_line(line: &[u8]) -> bool {
 struct StatLine<'a> {
     raw: &'a [u8],
     parent: &'a [u8],
-    insertions: usize,
-    deletions: usize,
     keep_raw: bool,
 }
 
@@ -281,14 +279,10 @@ fn flush_stat_commit(output: &mut Vec<u8>, commit: &StatCommit<'_>) {
                 continue;
             }
             let mut end = index + 1;
-            let mut insertions = line.insertions;
-            let mut deletions = line.deletions;
             while end < commit.lines.len()
                 && !commit.lines[end].keep_raw
                 && commit.lines[end].parent == line.parent
             {
-                insertions += commit.lines[end].insertions;
-                deletions += commit.lines[end].deletions;
                 end += 1;
             }
             if end - index >= 3 {
@@ -303,11 +297,7 @@ fn flush_stat_commit(output: &mut Vec<u8>, commit: &StatCommit<'_>) {
                 }
                 output.extend_from_slice(b" (");
                 output.extend_from_slice((end - index).to_string().as_bytes());
-                output.extend_from_slice(b" files, +");
-                output.extend_from_slice(insertions.to_string().as_bytes());
-                output.extend_from_slice(b" -");
-                output.extend_from_slice(deletions.to_string().as_bytes());
-                output.push(b')');
+                output.extend_from_slice(b" files)");
             } else {
                 for item in &commit.lines[index..end] {
                     write_indented_line(output, item.raw);
@@ -337,8 +327,6 @@ fn parse_stat_line(line: &[u8]) -> Option<StatLine<'_>> {
         return Some(StatLine {
             raw: line,
             parent: stat_parent_dir(path),
-            insertions: 0,
-            deletions: 0,
             keep_raw: true,
         });
     }
@@ -348,8 +336,6 @@ fn parse_stat_line(line: &[u8]) -> Option<StatLine<'_>> {
     Some(StatLine {
         raw: line,
         parent: stat_parent_dir(path),
-        insertions: after.iter().filter(|byte| **byte == b'+').count(),
-        deletions: after.iter().filter(|byte| **byte == b'-').count(),
         keep_raw: find_subslice(path, b"=>").is_some()
             || (path.contains(&b'{') && path.contains(&b'}')),
     })
