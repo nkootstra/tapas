@@ -849,6 +849,37 @@ fn gh_run_watch_keeps_duplicate_job_names_distinct() {
 }
 
 #[test]
+fn gh_run_watch_preserves_annotations_and_unknown_lines() {
+    let annotations = FakeCommand::new(
+        "gh",
+        b"#!/bin/sh\nprintf 'JOBS\nX build (ID 123)\n\nANNOTATIONS\nX missing deploy token\n'\nexit 1\n",
+    );
+    let program = annotations
+        .path()
+        .to_str()
+        .expect("UTF-8 fake command path");
+    let output = tapas(&[program, "run", "watch"], b"", &[]);
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        output.stdout,
+        b"build: failed\nANNOTATIONS\nX missing deploy token\n"
+    );
+    assert!(output.stderr.is_empty());
+
+    let unknown = FakeCommand::new(
+        "gh",
+        b"#!/bin/sh\nprintf 'JOBS\nX build (ID 123)\nUnexpected API error\n'\n",
+    );
+    let program = unknown.path().to_str().expect("UTF-8 fake command path");
+    let output = tapas(&[program, "run", "watch"], b"", &[]);
+
+    assert!(output.status.success());
+    assert_eq!(output.stdout, b"build: failed\nUnexpected API error\n");
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
 fn streaming_preserves_signals_and_descendant_pipe_diagnostics() {
     let signaled = FakeCommand::new("docker", b"#!/bin/sh\nkill -TERM $$\n");
     let program = signaled.path().to_str().expect("UTF-8 fake command path");
