@@ -200,6 +200,7 @@ fn codex_words_read_only(words: &[Vec<u8>]) -> bool {
             ) || argument.starts_with(b"--hostname-bin=")
                 || argument.starts_with(b"--pre=")
                 || argument.starts_with(b"--pre-glob=")
+                || short_cluster_has_flag(argument, b'z', RG_VALUE_SHORT_OPTIONS)
         }),
         b"find" => !arguments.iter().any(|argument| {
             argument == b"-delete"
@@ -211,6 +212,26 @@ fn codex_words_read_only(words: &[Vec<u8>]) -> bool {
         b"git" => git_read_only(arguments),
         _ => false,
     }
+}
+
+/// ripgrep short options that consume the rest of their cluster (or the next
+/// argument) as a value. A `z` after one of these is data, not the
+/// `--search-zip` flag, so a cluster scan must stop at it.
+const RG_VALUE_SHORT_OPTIONS: &[u8] = b"ABCMEdefgjmrtT";
+
+fn short_cluster_has_flag(argument: &[u8], flag: u8, value_options: &[u8]) -> bool {
+    if argument.len() < 2 || argument[0] != b'-' || argument[1] == b'-' {
+        return false;
+    }
+    for byte in &argument[1..] {
+        if *byte == flag {
+            return true;
+        }
+        if value_options.contains(byte) {
+            return false;
+        }
+    }
+    false
 }
 
 fn resolve_trusted_program(program: &[u8], cwd: &[u8]) -> Option<PathBuf> {
@@ -468,3 +489,40 @@ use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+
+#[cfg(test)]
+mod tests {
+    use super::codex_words_read_only;
+
+    fn words(command: &str) -> Vec<Vec<u8>> {
+        command
+            .split_ascii_whitespace()
+            .map(|word| word.as_bytes().to_vec())
+            .collect()
+    }
+
+    #[test]
+    fn codex_rejects_grouped_rg_decompression_flags() {
+        for command in [
+            "rg -z needle",
+            "rg -iz needle sample.gz",
+            "rg -nzi needle",
+            "rg -az needle",
+        ] {
+            assert!(!codex_words_read_only(&words(command)), "{command}");
+        }
+    }
+
+    #[test]
+    fn codex_allows_rg_values_that_contain_z() {
+        for command in [
+            "rg -e z needle",
+            "rg -ez needle",
+            "rg -g *.zig needle",
+            "rg -t zsh needle",
+            "rg -n needle",
+        ] {
+            assert!(codex_words_read_only(&words(command)), "{command}");
+        }
+    }
+}
