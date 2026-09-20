@@ -234,15 +234,28 @@ fn setup(
         }
     };
     let changed = existing.as_deref() != Some(rendered.as_slice());
-    let mut backup_path = owned_record
+    let replacing = owned_entry
+        .as_ref()
+        .is_some_and(|owned| owned != &expected_entry);
+    let baseline = if replacing {
+        base.as_deref()
+    } else {
+        legacy_before.as_deref().or(existing.as_deref())
+    };
+    let before_existed = if replacing {
+        baseline.is_some()
+    } else {
+        owned_record
+            .as_ref()
+            .map_or(existing.is_some(), |record| record.before_existed)
+    };
+    let previous_backup = owned_record
         .as_ref()
         .and_then(|record| record.backup_path.clone());
+    let mut backup_path = previous_backup.clone();
     let mut created_backup = false;
-    if !dry_run && owned_record.is_none() {
-        backup_path = write_unique_backup(
-            config_path,
-            legacy_before.as_deref().or(existing.as_deref()),
-        )?;
+    if !dry_run && (owned_record.is_none() || replacing) {
+        backup_path = write_unique_backup(config_path, baseline)?;
         created_backup = backup_path.is_some();
     }
     if changed {
@@ -277,9 +290,7 @@ fn setup(
         config_path,
         &expected_entry,
         &rendered,
-        owned_record
-            .as_ref()
-            .map_or(existing.is_some(), |record| record.before_existed),
+        before_existed,
         backup_path.as_deref(),
     ) {
         if changed {
@@ -289,6 +300,11 @@ fn setup(
             let _ = fs::remove_file(path);
         }
         return Err(error);
+    }
+    if let Some(previous) = previous_backup
+        && backup_path.as_deref() != Some(previous.as_path())
+    {
+        let _ = fs::remove_file(previous);
     }
     stdout.write_all(b"ok\n")?;
     Ok(0)
@@ -593,10 +609,10 @@ mod tests {
     use std::path::Path;
     use std::sync::atomic::Ordering;
 
-    use super::{unsetup_with_remove, warn_on_replacement};
+    use super::{configure, unsetup_with_remove, warn_on_replacement};
     use crate::setup::hooks::hook_entry;
     use crate::setup::ownership::write_ownership;
-    use crate::setup::{SetupLocation, TEMP_SEQUENCE, Target};
+    use crate::setup::{Action, SetupLocation, TEMP_SEQUENCE, Target};
 
     #[test]
     fn codex_setup_warns_when_replacing_an_owned_hook() {
@@ -669,5 +685,133 @@ mod tests {
         assert!(stdout.is_empty());
         assert!(stderr.is_empty());
         fs::remove_dir_all(home).unwrap();
+    }
+
+    fn write_fake_executable(home: &Path, name: &str) -> std::path::PathBuf {
+        let directory = home.join("bin");
+        fs::create_dir_all(&directory).unwrap();
+        let path = directory.join(name);
+        fs::write(&path, b"#!/bin/sh\nexit 0\n").unwrap();
+        fs::set_permissions(&path, Permissions::from_mode(0o755)).unwrap();
+        path
+    }
+
+    fn add_unrelated_note(config: &Path) {
+        let input = fs::read(config).unwrap();
+        let end = input.iter().rposition(|byte| *byte == b'}').unwrap();
+        let mut edited = Vec::with_capacity(input.len() + 32);
+        edited.extend_from_slice(&input[..end]);
+        edited.extend_from_slice(b",\n  \"user_note\": \"keep me\"\n");
+        edited.extend_from_slice(&input[end..]);
+        fs::write(config, edited).unwrap();
+    }
+
+    #[test]
+    fn executable_replacement_preserves_unrelated_settings_on_unsetup() {
+        for (target, config_suffix, ownership_name) in [
+            (Target::Claude, ".claude/settings.json", "claude.owned"),
+            (Target::Codex, ".codex/hooks.json", "codex.owned"),
+        ] {
+            for preexisting in [false, true] {
+                let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+                let home = std::env::temp_dir().join(format!(
+                    "tapas-replacement-baseline-test-{}-{sequence}",
+                    std::process::id()
+                ));
+                let config_path = home.join(config_suffix);
+                let ownership_path = home.join(".tapas/setup").join(ownership_name);
+                fs::create_dir_all(config_path.parent().unwrap()).unwrap();
+                if preexisting {
+                    fs::write(&config_path, b"{\n  \"ratio\": 0.5\n}\n").unwrap();
+                }
+                let executable_a = write_fake_executable(&home, "tapas-a");
+                let executable_b = write_fake_executable(&home, "tapas-b");
+                let location = SetupLocation {
+                    config_path: config_path.clone(),
+                    ownership_path: ownership_path.clone(),
+                    target,
+                };
+                let mut stdout = Vec::new();
+                let mut stderr = Vec::new();
+                let context = format!("{ownership_name} preexisting={preexisting}");
+
+                assert_eq!(
+                    configure(
+                        &location,
+                        &executable_a,
+                        Action::Setup,
+                        false,
+                        &mut stdout,
+                        &mut stderr,
+                    )
+                    .unwrap(),
+                    0,
+                    "{context}: {}",
+                    String::from_utf8_lossy(&stderr)
+                );
+
+                add_unrelated_note(&config_path);
+                stdout.clear();
+                stderr.clear();
+                assert_eq!(
+                    configure(
+                        &location,
+                        &executable_b,
+                        Action::Setup,
+                        false,
+                        &mut stdout,
+                        &mut stderr,
+                    )
+                    .unwrap(),
+                    0,
+                    "{context}: {}",
+                    String::from_utf8_lossy(&stderr)
+                );
+
+                stdout.clear();
+                stderr.clear();
+                assert_eq!(
+                    configure(
+                        &location,
+                        &executable_b,
+                        Action::Unsetup,
+                        false,
+                        &mut stdout,
+                        &mut stderr,
+                    )
+                    .unwrap(),
+                    0,
+                    "{context}: {}",
+                    String::from_utf8_lossy(&stderr)
+                );
+
+                let restored = match fs::read(&config_path) {
+                    Ok(bytes) => bytes,
+                    Err(error) => panic!("{context} left no configuration: {error}"),
+                };
+                assert!(
+                    restored
+                        .windows(b"keep me".len())
+                        .any(|part| part == b"keep me"),
+                    "{context} lost unrelated settings: {}",
+                    String::from_utf8_lossy(&restored)
+                );
+                assert!(
+                    !restored
+                        .windows(b"--hook-eval".len())
+                        .any(|part| part == b"--hook-eval"),
+                    "{context} left the hook behind: {}",
+                    String::from_utf8_lossy(&restored)
+                );
+                if preexisting {
+                    assert!(
+                        restored.windows(b"0.5".len()).any(|part| part == b"0.5"),
+                        "{context} lost preexisting content: {}",
+                        String::from_utf8_lossy(&restored)
+                    );
+                }
+                fs::remove_dir_all(home).unwrap();
+            }
+        }
     }
 }
