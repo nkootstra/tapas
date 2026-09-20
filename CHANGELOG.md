@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.25](https://github.com/nkootstra/tapas/compare/v0.7.24...v0.7.25) - 2026-09-20
+
+### Patch changes
+
+- keep pre-commit startup errors and failed hook bodies ([#80](https://github.com/nkootstra/tapas/pull/80))
+
 ## [0.7.24](https://github.com/nkootstra/tapas/compare/v0.7.23...v0.7.24) - 2026-09-20
 
 ### Patch changes
