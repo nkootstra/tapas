@@ -323,6 +323,6 @@ fn opencode_force_backs_up_recognized_predecessor_before_removal() {
 
     assert!(output.status.success(), "{:?}", output.stderr);
     assert!(!predecessor.exists());
-    let backup = home.path(".tapas/setup/predecessors/rtk.ts.bak.tapas");
+    let backup = home.path(".tapas/setup/predecessors/rtk.ts");
     assert_eq!(fs::read(&backup).unwrap(), edited);
 }

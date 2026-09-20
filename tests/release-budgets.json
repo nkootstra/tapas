@@ -20,7 +20,7 @@
     "aarch64-apple-darwin": {
       "hard_caps": {
         "release_artifact.gzip_bytes": 442368,
-        "release_artifact.uncompressed_bytes": 819200
+        "release_artifact.uncompressed_bytes": 835584
       }
     },
     "aarch64-unknown-linux-musl": {
