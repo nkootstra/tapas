@@ -123,16 +123,23 @@ fn try_dispatch_argv(
             let args = &argv[1..];
             if has_arg_or_valued(args, b"--porcelain") || has_arg(args, b"-z") {
                 Ok(None)
-            } else if has_arg(args, b"--short") || has_arg(args, b"-s") {
+            } else if has_arg(args, b"--short") || short_flag(args, b's') {
+                Ok(Some(FilterOutput::new(
+                    apply_status_short(stdout),
+                    EvidenceClass::FactComplete,
+                )))
+            } else if matches_status(stdout) {
+                Ok(Some(FilterOutput::new(
+                    apply_status(stdout),
+                    EvidenceClass::FactComplete,
+                )))
+            } else if matches_status_short(stdout) {
                 Ok(Some(FilterOutput::new(
                     apply_status_short(stdout),
                     EvidenceClass::FactComplete,
                 )))
             } else {
-                Ok(Some(FilterOutput::new(
-                    apply_status(stdout),
-                    EvidenceClass::FactComplete,
-                )))
+                Ok(None)
             }
         }
         b"diff" => {
@@ -512,4 +519,16 @@ use transport::{
     apply_fetch, apply_pull, apply_push, compact_pull_stderr, compact_pull_stdout,
     compact_push_stderr, compact_push_stdout,
 };
-use wrapper::{apply_add, apply_checkout, apply_rebase, apply_stash, apply_status_short};
+use wrapper::{
+    apply_add, apply_checkout, apply_rebase, apply_stash, apply_status_short, matches_status_short,
+};
+
+/// Whether `flag` appears in a grouped short-option bundle such as `-sb` or `-bs`.
+fn short_flag(args: &[&[u8]], flag: u8) -> bool {
+    args.iter().any(|argument| {
+        argument.len() >= 2
+            && argument[0] == b'-'
+            && argument[1] != b'-'
+            && argument[1..].contains(&flag)
+    })
+}

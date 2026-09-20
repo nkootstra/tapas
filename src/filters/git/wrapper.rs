@@ -260,6 +260,12 @@ pub(super) fn apply_status_short(input: &[u8]) -> Vec<u8> {
     output
 }
 
+pub(super) fn matches_status_short(input: &[u8]) -> bool {
+    input
+        .split(|byte| *byte == b'\n')
+        .any(|line| line.starts_with(b"## ") || is_short_status_line(line))
+}
+
 fn is_short_status_line(line: &[u8]) -> bool {
     line.len() >= 4
         && line[2] == b' '
