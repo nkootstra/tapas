@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.20](https://github.com/nkootstra/tapas/compare/v0.7.19...v0.7.20) - 2026-09-20
+
+### Patch changes
+
+- require a curl trace before the pipe curl filter ([#70](https://github.com/nkootstra/tapas/pull/70))
+
 ## [0.7.19](https://github.com/nkootstra/tapas/compare/v0.7.18...v0.7.19) - 2026-09-20
 
 ### Patch changes
