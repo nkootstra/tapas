@@ -25,7 +25,7 @@ pub(super) fn compact(input: &[u8]) -> Option<Vec<u8>> {
 
     let first_failure = lines
         .iter()
-        .position(|line| line.trim_ascii().starts_with(b"FAIL ["));
+        .position(|line| is_unsuccessful_status(line.trim_ascii()));
     let mut output = Vec::new();
     for (index, line) in lines.into_iter().enumerate() {
         let classified = line.trim_ascii();
@@ -40,4 +40,30 @@ pub(super) fn compact(input: &[u8]) -> Option<Vec<u8>> {
         }
     }
     Some(output)
+}
+
+fn is_unsuccessful_status(line: &[u8]) -> bool {
+    let Some(bracket) = line.iter().position(|byte| *byte == b'[') else {
+        return false;
+    };
+    let status = line[..bracket].trim_ascii_end();
+
+    matches!(
+        status,
+        b"FAIL" | b"FAIL + LEAK" | b"XFAIL" | b"LEAK-FAIL" | b"TIMEOUT" | b"ABORT"
+    ) || status.starts_with(b"SIG")
+        || status.starts_with(b"ABORT SIG ")
+        || status.starts_with(b"FLKY-FL ")
+        || is_unsuccessful_retry(status)
+}
+
+fn is_unsuccessful_retry(status: &[u8]) -> bool {
+    let Some(status) = status.strip_prefix(b"TRY ") else {
+        return false;
+    };
+    let Some(outcome) = status.split(|byte| *byte == b' ').nth(1) else {
+        return false;
+    };
+
+    !matches!(outcome, b"PASS" | b"SLOW" | b"START" | b"TRMNTG")
 }
