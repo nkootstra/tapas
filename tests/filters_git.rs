@@ -687,8 +687,8 @@ fn argv_log_stat_dispatch_matches_the_pinned_oracle() {
     let expected = concat!(
         "abcdef0 round 8 updates [Refs: SMLL-42; Fixes: #123]\n",
         "  docs/guides/release_08.md      |  2 ++\n",
-        "  src/core/ (6 files, +30 -0)\n",
-        "  src/ui/ (6 files, +30 -0)\n",
+        "  src/core/ (6 files)\n",
+        "  src/ui/ (6 files)\n",
         "  src/{old_name.zig => name.zig} | 10 +++++-----\n",
         "  14 files changed, 67 insertions(+), 5 deletions(-)\n",
         "b2c3d4e fix: keep count summaries [BREAKING CHANGE: count lines stay visible]\n",
@@ -704,6 +704,71 @@ fn argv_log_stat_dispatch_matches_the_pinned_oracle() {
             EvidenceClass::PotentiallyLossy,
         )
     );
+}
+
+#[test]
+fn argv_log_stat_dispatch_does_not_invent_counts_from_scaled_graphs() {
+    for (input, expected) in [
+        (
+            concat!(
+                "commit abcdef0123456789abcdef0123456789abcdef01\n",
+                "Author: Test User <test@example.com>\n",
+                "Date:   Sat Sep 20 00:00:00 2026 +0000\n",
+                "\n",
+                "    scale large diffstats\n",
+                "\n",
+                " src/a | 1000 +++++\n",
+                " src/b | 1000 +++++\n",
+                " src/c | 1000 +++++\n",
+                " src/d | 1000 +++++\n",
+                " src/e | 1000 +++++\n",
+                " src/f | 1000 +++++\n",
+                " 6 files changed, 6000 insertions(+)\n",
+            ),
+            concat!(
+                "abcdef0 scale large diffstats\n",
+                "  src/ (6 files)\n",
+                "  6 files changed, 6000 insertions(+)\n",
+            ),
+        ),
+        (
+            concat!(
+                "commit abcdef0123456789abcdef0123456789abcdef01\n",
+                "Author: Test User <test@example.com>\n",
+                "Date:   Sat Sep 20 00:00:00 2026 +0000\n",
+                "\n",
+                "    scale mixed diffstats\n",
+                "\n",
+                " src/a | 1000 +++--\n",
+                " src/b | 1000 +++--\n",
+                " src/c | 1000 +++--\n",
+                " src/d | 1000 +++--\n",
+                " src/e | 1000 +++--\n",
+                " src/f | 1000 +++--\n",
+                " 6 files changed, 3000 insertions(+), 3000 deletions(-)\n",
+            ),
+            concat!(
+                "abcdef0 scale mixed diffstats\n",
+                "  src/ (6 files)\n",
+                "  6 files changed, 3000 insertions(+), 3000 deletions(-)\n",
+            ),
+        ),
+    ] {
+        assert_eq!(
+            git::dispatch_argv(
+                &[b"git", b"log", b"--stat"],
+                input.as_bytes(),
+                b"",
+                0,
+                false,
+            )
+            .unwrap(),
+            tapas::filters::FilterOutput::new(
+                expected.as_bytes().to_vec(),
+                EvidenceClass::PotentiallyLossy,
+            )
+        );
+    }
 }
 
 #[test]
