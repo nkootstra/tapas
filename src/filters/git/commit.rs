@@ -3,12 +3,13 @@ pub(super) fn matches_commit(input: &[u8]) -> bool {
 }
 
 fn is_commit_summary_header(line: &[u8]) -> bool {
-    let Some(inner) = line
-        .strip_prefix(b"[")
-        .and_then(|line| line.split(|byte| *byte == b']').next())
-    else {
+    let Some(line) = line.strip_prefix(b"[") else {
         return false;
     };
+    let Some(bracket) = line.iter().position(|byte| *byte == b']') else {
+        return false;
+    };
+    let inner = &line[..bracket];
     let Some(space) = inner.iter().rposition(|byte| *byte == b' ') else {
         return false;
     };
