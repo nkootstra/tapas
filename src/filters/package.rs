@@ -105,6 +105,11 @@ pub(crate) fn dispatch_streams_decision(
     if (js_install_route || composer_route)
         && (matches_npm_install(stdout) || matches_npm_install(stderr) || recognized_error)
     {
+        // A Composer solver failure states the conflict in `Problem N` blocks
+        // that the install allowlist does not retain; keep the stream whole.
+        if composer_route && (has_composer_conflict(stdout) || has_composer_conflict(stderr)) {
+            return Ok(StreamFilterDecision::Unchanged);
+        }
         let evidence = if exit_code == 0 {
             EvidenceClass::PotentiallyLossy
         } else {
@@ -160,6 +165,14 @@ pub(crate) fn dispatch_streams_decision(
     }
 
     Ok(StreamFilterDecision::Unchanged)
+}
+
+fn has_composer_conflict(input: &[u8]) -> bool {
+    input.split(|byte| *byte == b'\n').any(|raw| {
+        raw.trim_ascii()
+            .strip_prefix(b"Problem ")
+            .is_some_and(|rest| rest.first().is_some_and(u8::is_ascii_digit))
+    })
 }
 
 fn matches_uv_output(stdout: &[u8], stderr: &[u8]) -> bool {
