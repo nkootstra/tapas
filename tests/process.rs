@@ -605,6 +605,50 @@ fn lifecycle_policies_inherit_interactive_and_unbounded_commands() {
         );
     }
 
+    for args in [
+        &[
+            "docker",
+            "compose",
+            "-f",
+            "compose.yml",
+            "logs",
+            "-f",
+            "api",
+        ][..],
+        &["docker", "compose", "-p", "demo", "logs", "-f"][..],
+        &["docker", "compose", "--profile", "logs", "logs", "-f"][..],
+        &["docker-compose", "-f", "compose.yml", "logs", "-f"][..],
+        &["kubectl", "-n", "default", "logs", "-f", "pod"][..],
+        &["kubectl", "--context", "logs", "logs", "-f", "pod"][..],
+        &["kubectl", "--", "logs", "-f", "pod"][..],
+    ] {
+        let args = args.iter().map(OsString::from).collect::<Vec<_>>();
+        assert_eq!(
+            classify_stream(&args),
+            StreamDecision::StreamFilter,
+            "{args:?}"
+        );
+    }
+
+    for args in [
+        &["docker", "compose", "-f", "compose.yml", "logs", "api"][..],
+        &["kubectl", "-n", "default", "logs", "pod"][..],
+        &["kubectl", "--context", "logs", "get", "pods", "-f"][..],
+    ] {
+        let args = args.iter().map(OsString::from).collect::<Vec<_>>();
+        assert_eq!(classify_stream(&args), StreamDecision::Capture, "{args:?}");
+    }
+
+    let ambiguous = ["kubectl", "--future", "value", "logs", "-f", "pod"]
+        .into_iter()
+        .map(OsString::from)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        classify_stream(&ambiguous),
+        StreamDecision::Inherit,
+        "{ambiguous:?}"
+    );
+
     let nested = ["npx", "vite", "dev"]
         .into_iter()
         .map(OsString::from)

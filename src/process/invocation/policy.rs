@@ -34,7 +34,7 @@ pub(super) fn is_follow_logs(command: &[u8], argv: &[OsString]) -> bool {
         || is_any(command, &[b"tail", b"journalctl"])
 }
 
-fn has_follow_arg(argv: &[OsString]) -> bool {
+pub(super) fn has_follow_arg(argv: &[OsString]) -> bool {
     argv.iter().any(|argument| {
         let argument = bytes(argument);
         if is_any(argument, &[b"--follow", b"-f"]) {
