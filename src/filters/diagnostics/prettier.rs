@@ -26,6 +26,22 @@ pub(super) fn compact_prettier(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
     output
 }
 
+pub(super) fn matches_prettier(input: &[u8]) -> bool {
+    input.split(|byte| *byte == b'\n').any(|raw| {
+        let clean = strip_ansi(raw);
+        let line = clean.trim_ascii_end();
+        !line.is_empty() && (parse_prettier_write(line).is_some() || is_prettier_status(line))
+    })
+}
+
+fn is_prettier_status(line: &[u8]) -> bool {
+    line.starts_with(b"[warn]")
+        || line.starts_with(b"[error]")
+        || line.starts_with(b"All matched files use Prettier")
+        || find_subslice(line, b"Code style issues found").is_some()
+        || find_subslice(line, b"No files matching").is_some()
+}
+
 fn scan_prettier(
     input: &[u8],
     output: &mut Vec<u8>,
@@ -45,12 +61,7 @@ fn scan_prettier(
                     formatted.push(path.to_vec());
                 }
             }
-        } else if line.starts_with(b"[warn]")
-            || line.starts_with(b"[error]")
-            || line.starts_with(b"All matched files use Prettier")
-            || find_subslice(line, b"Code style issues found").is_some()
-            || find_subslice(line, b"No files matching").is_some()
-        {
+        } else if is_prettier_status(line) {
             append_line(output, line);
         }
     }
