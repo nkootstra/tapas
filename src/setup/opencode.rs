@@ -239,8 +239,18 @@ fn setup_opencode(
             )));
         }
     }
+    let backup_directory = location
+        .ownership_path
+        .parent()
+        .map(|parent| parent.join("predecessors"));
+    let mut predecessor_backups = Vec::new();
     let mut transaction = Transaction::new();
-    for item in &predecessors {
+    for item in predecessors {
+        if let Some(directory) = &backup_directory {
+            let backup = directory.join(item.path.file_name().unwrap_or(item.path.as_os_str()));
+            transaction.write(&backup, item.content, 0o600)?;
+            predecessor_backups.push(backup);
+        }
         transaction.remove_file(&item.path)?;
     }
     if removes_smll_directory {
@@ -290,11 +300,13 @@ fn setup_opencode(
             ),
         ));
     }
-    for item in &predecessors {
+    if let Some(directory) = &backup_directory
+        && !predecessor_backups.is_empty()
+    {
         writeln!(
             stderr,
-            "warning: removed recognized predecessor {}",
-            item.path.display()
+            "warning: retained predecessor backups in {}",
+            directory.display()
         )?;
     }
     if config_changed {
