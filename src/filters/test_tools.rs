@@ -4,7 +4,7 @@ use super::{
 };
 
 type Matcher = fn(&[u8]) -> bool;
-type Apply = fn(&[u8], &[u8]) -> Vec<u8>;
+type Apply = fn(&[u8], &[u8]) -> Option<Vec<u8>>;
 
 const PIPE_FILTERS: &[(Matcher, Apply)] = &[
     (matches_cargo_test, apply_cargo_test),
@@ -47,10 +47,12 @@ pub fn apply_matched(input: &[u8]) -> Result<FilterOutput, FilterError> {
 }
 
 pub(crate) fn try_apply_matched(input: &[u8]) -> Result<Option<FilterOutput>, FilterError> {
-    Ok(PIPE_FILTERS
-        .iter()
-        .find(|(matches, _)| matches(input))
-        .map(|(_, apply)| FilterOutput::new(apply(input, b""), EvidenceClass::FactComplete)))
+    Ok(PIPE_FILTERS.iter().find_map(|(matches, apply)| {
+        matches(input)
+            .then(|| apply(input, b""))
+            .flatten()
+            .map(|bytes| FilterOutput::new(bytes, EvidenceClass::FactComplete))
+    }))
 }
 
 pub fn dispatch_streams_argv(
@@ -177,15 +179,38 @@ pub(crate) fn dispatch_streams_decision(
 
     Ok(compact.map_or_else(
         || StreamFilterDecision::Unchanged,
-        |compact| {
-            StreamFilterDecision::compact_single_stream(
-                stdout,
-                stderr,
-                EvidenceClass::FactComplete,
-                compact,
-            )
-        },
+        |compact| apply_test_compaction(stdout, stderr, exit_code, compact),
     ))
+}
+
+fn apply_test_compaction(
+    stdout: &[u8],
+    stderr: &[u8],
+    exit_code: i32,
+    compact: Apply,
+) -> StreamFilterDecision {
+    if !stdout.is_empty() && !stderr.is_empty() {
+        return StreamFilterDecision::Unchanged;
+    }
+    let Some(bytes) = compact(stdout, stderr) else {
+        return StreamFilterDecision::Unchanged;
+    };
+    if exit_code != 0 && bytes == b"all tests passed\n" {
+        return StreamFilterDecision::Unchanged;
+    }
+    if stdout.is_empty() && !stderr.is_empty() {
+        StreamFilterDecision::Applied(StreamFilterOutput::new(
+            Vec::new(),
+            bytes,
+            EvidenceClass::FactComplete,
+        ))
+    } else {
+        StreamFilterDecision::Applied(StreamFilterOutput::new(
+            bytes,
+            Vec::new(),
+            EvidenceClass::FactComplete,
+        ))
+    }
 }
 
 fn stream_matches(stdout: &[u8], stderr: &[u8], matcher: fn(&[u8]) -> bool) -> bool {

@@ -695,3 +695,95 @@ fn dedicated_test_routes_passthrough_machine_custom_malformed_and_non_utf8_outpu
         assert_eq!(output.evidence, EvidenceClass::ByteExact, "{argv:?}");
     }
 }
+
+#[test]
+fn incomplete_test_reports_are_not_claimed_as_passing() {
+    type Case<'a> = (&'a [&'a [u8]], i32, &'a [u8]);
+    let cases: &[Case] = &[
+        (
+            &[b"pytest"],
+            5,
+            b"============================= test session starts ==============================\ncollected 0 items\n============================ no tests ran in 0.01s ============================\n",
+        ),
+        (
+            &[b"pytest"],
+            2,
+            b"============================= test session starts ==============================\ncollected 3 items\n\n============================ KeyboardInterrupt ============================\n",
+        ),
+        (&[b"cargo", b"test"], 101, b"running 1 test\n"),
+        (&[b"go", b"test"], 1, b"=== RUN   TestHangs\n"),
+        (
+            &[b"jest"],
+            1,
+            b"Test Suites: 1 total\nTest Files 1 total\n",
+        ),
+    ];
+
+    for &(argv, exit_code, input) in cases {
+        assert_eq!(
+            test_tools::dispatch_streams_argv(argv, b"", input, exit_code, false).unwrap(),
+            StreamFilterOutput::new(Vec::new(), input.to_vec(), EvidenceClass::ByteExact),
+            "argv {argv:?}",
+        );
+    }
+}
+
+#[test]
+fn passing_summary_with_nonzero_exit_is_preserved() {
+    let input = b"===== 1 passed in 0.01s =====\n";
+
+    assert_eq!(
+        test_tools::dispatch_streams_argv(&[b"pytest"], input, b"", 1, false).unwrap(),
+        StreamFilterOutput::new(input.to_vec(), Vec::new(), EvidenceClass::ByteExact),
+    );
+}
+
+#[test]
+fn explicit_test_success_summaries_still_compact() {
+    let cases: &[(&[&[u8]], &[u8])] = &[
+        (&[b"pytest"], b"===== 2 passed in 0.01s =====\n"),
+        (
+            &[b"go", b"test"],
+            b"ok  \tgithub.com/example/math\t0.012s\n",
+        ),
+        (&[b"jest"], b"Tests:       3 passed, 3 total\n"),
+    ];
+
+    for &(argv, input) in cases {
+        let output = test_tools::dispatch_streams_argv(argv, input, b"", 0, false).unwrap();
+        assert_eq!(output.stdout, b"all tests passed\n", "argv {argv:?}");
+        assert_eq!(output.stderr, Vec::<u8>::new(), "argv {argv:?}");
+        assert_eq!(
+            output.evidence,
+            EvidenceClass::FactComplete,
+            "argv {argv:?}"
+        );
+    }
+
+    let cargo = test_tools::dispatch_streams_argv(
+        &[b"cargo", b"test"],
+        b"test result: ok. 1 passed; 0 failed; 0 ignored; finished in 0.01s\n",
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(cargo.stdout, b"res 1p 0f 0.01s\n");
+    assert_eq!(cargo.evidence, EvidenceClass::FactComplete);
+}
+
+#[test]
+fn pipe_mode_preserves_incomplete_test_reports() {
+    let input = b"============================= test session starts ==============================\ncollected 0 items\n============================ no tests ran in 0.01s ============================\n";
+
+    let output = tapas::pipeline::filter_bytes(input);
+
+    assert!(!contains(&output, b"all tests passed"));
+    assert!(contains(&output, b"no tests ran"));
+}
+
+fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+    haystack
+        .windows(needle.len())
+        .any(|window| window == needle)
+}

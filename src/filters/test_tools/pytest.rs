@@ -13,15 +13,23 @@ pub(super) fn matches_pytest(input: &[u8]) -> bool {
     false
 }
 
-pub(super) fn apply_pytest(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
+pub(super) fn apply_pytest(stdout: &[u8], stderr: &[u8]) -> Option<Vec<u8>> {
     let mut output = Vec::with_capacity(stdout.len() + stderr.len());
     scan_pytest(stdout, &mut output);
     scan_pytest(stderr, &mut output);
-    if output.is_empty() || !has_pytest_failure(&output) {
-        b"all tests passed\n".to_vec()
+    if has_pytest_failure(&output) {
+        Some(head_tail(output, 120, 80))
+    } else if has_pytest_success(stdout) || has_pytest_success(stderr) {
+        Some(b"all tests passed\n".to_vec())
     } else {
-        head_tail(output, 120, 80)
+        None
     }
+}
+
+fn has_pytest_success(input: &[u8]) -> bool {
+    input
+        .split(|byte| *byte == b'\n')
+        .any(|line| nonzero_count_before(line, b"passed"))
 }
 
 fn scan_pytest(input: &[u8], output: &mut Vec<u8>) {

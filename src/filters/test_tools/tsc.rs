@@ -13,14 +13,14 @@ pub(super) fn matches_tsc(input: &[u8]) -> bool {
             && find_subslice(input, b" errors in ").is_some())
 }
 
-pub(super) fn apply_tsc(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
+pub(super) fn apply_tsc(stdout: &[u8], stderr: &[u8]) -> Option<Vec<u8>> {
     let mut diagnostics = Vec::new();
     let mut raw_lines = Vec::new();
     let mut summaries = Vec::new();
     collect_tsc(stdout, &mut diagnostics, &mut raw_lines, &mut summaries);
     collect_tsc(stderr, &mut diagnostics, &mut raw_lines, &mut summaries);
     if diagnostics.is_empty() && raw_lines.is_empty() && summaries.is_empty() {
-        return b"no type errors\n".to_vec();
+        return Some(b"no type errors\n".to_vec());
     }
 
     let mut output = Vec::with_capacity(stdout.len() + stderr.len());
@@ -28,7 +28,7 @@ pub(super) fn apply_tsc(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
     for line in raw_lines.iter().chain(summaries.iter()) {
         append_line(&mut output, line);
     }
-    output
+    Some(output)
 }
 
 fn collect_tsc(

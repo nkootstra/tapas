@@ -11,7 +11,7 @@ pub(super) fn matches_go_test(input: &[u8]) -> bool {
         || find_subslice(input, b"\nFAIL\t").is_some()
 }
 
-pub(super) fn apply_go_test(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
+pub(super) fn apply_go_test(stdout: &[u8], stderr: &[u8]) -> Option<Vec<u8>> {
     let mut output = Vec::with_capacity(stdout.len() + stderr.len());
     let mut has_benchmark_or_fuzz = false;
     scan_go_test(stdout, &mut output, &mut has_benchmark_or_fuzz);
@@ -19,10 +19,19 @@ pub(super) fn apply_go_test(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
     let has_failure = find_subslice(&output, b"--- FAIL:").is_some()
         || find_subslice(&output, b"FAIL\t").is_some();
     if has_benchmark_or_fuzz || has_failure {
-        head_tail(output, 120, 80)
+        Some(head_tail(output, 120, 80))
+    } else if has_go_success(stdout) || has_go_success(stderr) {
+        Some(b"all tests passed\n".to_vec())
     } else {
-        b"all tests passed\n".to_vec()
+        None
     }
+}
+
+fn has_go_success(input: &[u8]) -> bool {
+    find_subslice(input, b"ok  \t").is_some()
+        || find_subslice(input, b"ok\t").is_some()
+        || find_subslice(input, b"\nPASS\n").is_some()
+        || input.starts_with(b"PASS\n")
 }
 
 fn scan_go_test(input: &[u8], output: &mut Vec<u8>, has_benchmark_or_fuzz: &mut bool) {

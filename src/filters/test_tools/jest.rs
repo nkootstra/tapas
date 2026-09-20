@@ -5,15 +5,26 @@ pub(super) fn matches_jest(input: &[u8]) -> bool {
         || find_subslice(input, b"\nTests:").is_some()
 }
 
-pub(super) fn apply_jest(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
+pub(super) fn apply_jest(stdout: &[u8], stderr: &[u8]) -> Option<Vec<u8>> {
     let mut output = Vec::with_capacity(stdout.len() + stderr.len());
     scan_jest(stdout, &mut output);
     scan_jest(stderr, &mut output);
-    if output.is_empty() || !has_jest_failure(&output) {
-        b"all tests passed\n".to_vec()
+    if has_jest_failure(&output) {
+        Some(head_tail(output, 120, 80))
+    } else if has_jest_success(stdout) || has_jest_success(stderr) {
+        Some(b"all tests passed\n".to_vec())
     } else {
-        head_tail(output, 120, 80)
+        None
     }
+}
+
+fn has_jest_success(input: &[u8]) -> bool {
+    find_subslice(input, b"Ran all test suites").is_some()
+        || input.split(|byte| *byte == b'\n').any(|line| {
+            find_subslice(line, b"Tests:").is_some()
+                && nonzero_count_before(line, b"passed")
+                && !nonzero_count_before(line, b"failed")
+        })
 }
 
 fn scan_jest(input: &[u8], output: &mut Vec<u8>) {
