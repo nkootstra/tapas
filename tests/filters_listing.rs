@@ -348,6 +348,46 @@ fn tree_dispatch_matches_the_pinned_compact_oracle() {
 }
 
 #[test]
+fn tree_dispatch_preserves_multiple_roots() {
+    for (first, second, input, expected) in [
+        (
+            "first",
+            "second",
+            "first\n└── a\nsecond\n└── b\n\n2 directories, 2 files\n",
+            "first/\n  a\nsecond/\n  b\n2 directories, 2 files\n",
+        ),
+        (
+            "empty",
+            "second",
+            "empty\nsecond\n└── b\n\n2 directories, 1 file\n",
+            "empty/\nsecond/\n  b\n2 directories, 1 file\n",
+        ),
+        (
+            "/work/first",
+            "/work/second",
+            "/work/first\n└── a\n/work/second\n└── b\n\n2 directories, 2 files\n",
+            "/work/first/\n  a\n/work/second/\n  b\n2 directories, 2 files\n",
+        ),
+    ] {
+        assert_eq!(
+            listing::dispatch_streams_argv(
+                &[b"tree", first.as_bytes(), second.as_bytes()],
+                input.as_bytes(),
+                b"",
+                0,
+                false,
+            )
+            .unwrap(),
+            tapas::filters::StreamFilterOutput::new(
+                expected.as_bytes().to_vec(),
+                Vec::new(),
+                EvidenceClass::PotentiallyLossy,
+            )
+        );
+    }
+}
+
+#[test]
 fn ls_column_dispatch_matches_the_pinned_fixture_output() {
     let input = fixture("ls_columns.txt");
     let expected = concat!(
