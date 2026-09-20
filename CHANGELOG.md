@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.11](https://github.com/nkootstra/tapas/compare/v0.7.10...v0.7.11) - 2026-09-20
+
+### Patch changes
+
+- preserve ESLint paths with spaces ([#52](https://github.com/nkootstra/tapas/pull/52))
+
 ## [0.7.10](https://github.com/nkootstra/tapas/compare/v0.7.9...v0.7.10) - 2026-09-20
 
 ### Patch changes
