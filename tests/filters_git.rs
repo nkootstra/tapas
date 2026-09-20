@@ -1008,6 +1008,21 @@ fn argv_commit_dispatch_matches_the_pinned_oracle() {
 }
 
 #[test]
+fn argv_commit_dispatch_preserves_unrecognized_output() {
+    for input in [
+        b"] hook notice\n[main abcdef0] subject\n".as_slice(),
+        b"hook notice\n[main abcdef0] subject\n",
+        b"[main abcdef0\n[main 1234567] subject\n",
+        b"",
+    ] {
+        assert_eq!(
+            git::dispatch_argv(&[b"git", b"commit"], input, b"", 0, false).unwrap(),
+            tapas::filters::FilterOutput::new(input.to_vec(), EvidenceClass::ByteExact)
+        );
+    }
+}
+
+#[test]
 fn argv_merge_dispatch_matches_the_pinned_oracle_and_failed_commands_are_byte_exact() {
     let success = fixture("git_merge_ff.txt");
     assert_eq!(

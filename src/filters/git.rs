@@ -86,9 +86,8 @@ pub(crate) fn try_apply_matched(input: &[u8]) -> Result<Option<FilterOutput>, Fi
 
 /// Compacts a git command's stdout by argv, falling back to byte-exact passthrough.
 ///
-/// Unlike the pipe route this never consults the `matches_*` shape predicates: argv
-/// already names the subcommand, so a filter reached this way must tolerate whatever the
-/// command wrote rather than assume output it recognizes.
+/// Unlike the pipe route, argv names the subcommand. Filters that cannot tolerate arbitrary
+/// output still use their `matches_*` predicate and fall back to byte-exact passthrough.
 ///
 /// It also cannot receive a partial capture. Streamed, incomplete and overflowed captures
 /// return passthrough before any filter runs (`process::run`), so a `FactComplete` claim
@@ -232,10 +231,16 @@ fn try_dispatch_argv(
                 )))
             }
         }
-        b"commit" => Ok(Some(FilterOutput::new(
-            apply_commit(stdout),
-            EvidenceClass::FactComplete,
-        ))),
+        b"commit" => {
+            if !matches_commit(stdout) {
+                Ok(None)
+            } else {
+                Ok(Some(FilterOutput::new(
+                    apply_commit(stdout),
+                    EvidenceClass::FactComplete,
+                )))
+            }
+        }
         b"merge" => Ok(Some(FilterOutput::new(
             apply_merge(stdout, b""),
             EvidenceClass::FactComplete,
