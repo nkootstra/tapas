@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.6](https://github.com/nkootstra/tapas/compare/v0.7.5...v0.7.6) - 2026-09-20
+
+### Patch changes
+
+- avoid invented diffstat counts ([#42](https://github.com/nkootstra/tapas/pull/42))
+
 ## [0.7.5](https://github.com/nkootstra/tapas/compare/v0.7.4...v0.7.5) - 2026-09-20
 
 ### Patch changes
