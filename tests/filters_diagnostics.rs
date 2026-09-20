@@ -436,6 +436,77 @@ fn tofu_plan_fixture_keeps_actionable_diffs_and_drops_refresh_chatter() {
 }
 
 #[test]
+fn terraform_plan_keeps_the_full_error_block() {
+    let stderr = concat!(
+        "│ Error: Invalid function argument\n",
+        "│\n",
+        "│   on main.tf line 12, in locals:\n",
+        "│   12: value = file(var.path)\n",
+        "│ Invalid value for path parameter: file does not exist.\n",
+    );
+
+    let output = diagnostics::dispatch_streams_argv(
+        &[b"terraform", b"plan"],
+        b"",
+        stderr.as_bytes(),
+        1,
+        false,
+    )
+    .unwrap();
+
+    assert!(
+        contains(&output.stderr, b"on main.tf line 12"),
+        "{:?}",
+        output.stderr
+    );
+    assert!(
+        contains(&output.stderr, b"file does not exist"),
+        "{:?}",
+        output.stderr
+    );
+    assert_eq!(output.evidence, EvidenceClass::FactComplete);
+}
+
+#[test]
+fn terraform_plan_keeps_nested_block_paths() {
+    let stdout = concat!(
+        "Terraform will perform the following actions:\n",
+        "  # thing.example will be updated in-place\n",
+        "  ~ resource \"thing\" \"example\" {\n",
+        "      first_block {\n",
+        "        ~ value = \"a\" -> \"b\"\n",
+        "      }\n",
+        "      second_block {\n",
+        "        ~ value = \"a\" -> \"c\"\n",
+        "      }\n",
+        "  }\n",
+        "Plan: 0 to add, 1 to change, 0 to destroy.\n",
+    );
+
+    let output = diagnostics::dispatch_streams_argv(
+        &[b"terraform", b"plan"],
+        stdout.as_bytes(),
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+
+    assert!(
+        contains(&output.stdout, b"first_block {"),
+        "{:?}",
+        output.stdout
+    );
+    assert!(
+        contains(&output.stdout, b"second_block {"),
+        "{:?}",
+        output.stdout
+    );
+    assert!(contains(&output.stdout, b"~ value = \"a\" -> \"b\""));
+    assert!(contains(&output.stdout, b"~ value = \"a\" -> \"c\""));
+}
+
+#[test]
 fn lossless_query_unknown_and_invalid_inputs_fail_open() {
     let stdout = b"raw \xff\n";
     let stderr = b"err \xfe\n";
