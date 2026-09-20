@@ -74,12 +74,23 @@ impl GhState {
             return Ok(());
         }
         if !self.in_jobs {
-            return Ok(());
+            if trimmed.is_empty() {
+                return Ok(());
+            }
+            // Outside a JOBS section the parser cannot prove what is safe to
+            // remove, so preserve the line and everything after it.
+            self.raw_passthrough = true;
+            return append_written_line(writer, raw);
         }
-        if trimmed.is_empty() || matches!(trimmed, b"ANNOTATIONS" | b"ARTIFACTS") {
+        if trimmed.is_empty() {
             self.flush_pending(writer)?;
             self.in_jobs = false;
             return Ok(());
+        }
+        if matches!(trimmed, b"ANNOTATIONS" | b"ARTIFACTS") {
+            self.flush_pending(writer)?;
+            self.raw_passthrough = true;
+            return append_written_line(writer, raw);
         }
         if let Some((id, name, status)) = parse_gh_job(line) {
             self.flush_pending(writer)?;
@@ -93,9 +104,11 @@ impl GhState {
             self.pending_has_steps = true;
             return Ok(());
         }
+        // An unknown line inside JOBS is actionable text; keep it and the rest
+        // of the stream instead of dropping them.
         self.flush_pending(writer)?;
-        self.in_jobs = false;
-        Ok(())
+        self.raw_passthrough = true;
+        append_written_line(writer, raw)
     }
 
     pub(super) fn flush_pending(&mut self, writer: &mut dyn Write) -> io::Result<()> {
