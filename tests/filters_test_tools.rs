@@ -490,6 +490,65 @@ fn cargo_nextest_run_preserves_failure_body_location_and_summary() {
 }
 
 #[test]
+fn cargo_nextest_run_preserves_timeout_body_location_and_summary() {
+    let input = concat!(
+        "    Starting 1 tests across 1 binary\n",
+        "     TIMEOUT [   1.00s] core::tests::hangs\n",
+        "  stdout ───\n",
+        "last message before timeout\n",
+        "────────────\n",
+        "     Summary [   1.01s] 1 test run: 0 passed, 1 failed\n",
+        "     TIMEOUT [   1.00s] core::tests::hangs\n",
+    );
+    let expected = &input["    Starting 1 tests across 1 binary\n".len()..];
+
+    for argv in [
+        &[b"cargo".as_slice(), b"nextest", b"run"][..],
+        &[b"nextest".as_slice(), b"run"][..],
+    ] {
+        let output =
+            test_tools::dispatch_streams_argv(argv, input.as_bytes(), b"", 100, false).unwrap();
+        assert_eq!(output.stdout, expected.as_bytes(), "{argv:?}");
+        assert_eq!(output.evidence, EvidenceClass::FactComplete, "{argv:?}");
+    }
+}
+
+#[test]
+fn nextest_preserves_terminal_failure_status_bodies() {
+    for status in [
+        "FAIL + LEAK",
+        "XFAIL",
+        "LEAK-FAIL",
+        "SIGSEGV",
+        "ABORT SIG 11",
+        "ABORT",
+        "FLKY-FL 2/2",
+        "TRY 2 FL+LK",
+        "TRY 2 XFAIL",
+        "TRY 2 ABORT",
+        "TRY 2 SIG 11",
+        "TRY 2 LKFAIL",
+        "TRY 2 TMT",
+    ] {
+        let input = format!(
+            "Starting 1 tests across 1 binary\n{status} [ 1.00s] core::tests::fails\nactionable failure detail\nSummary [ 1.01s] 1 test run: 0 passed, 1 failed\n"
+        );
+        let expected = &input["Starting 1 tests across 1 binary\n".len()..];
+
+        let output = test_tools::dispatch_streams_argv(
+            &[b"cargo", b"nextest", b"run"],
+            input.as_bytes(),
+            b"",
+            100,
+            false,
+        )
+        .unwrap();
+        assert_eq!(output.stdout, expected.as_bytes(), "{status}");
+        assert_eq!(output.evidence, EvidenceClass::FactComplete, "{status}");
+    }
+}
+
+#[test]
 fn rspec_progress_and_documentation_preserve_failures_and_summaries() {
     let progress = concat!(
         ".F\n\n",
