@@ -353,6 +353,33 @@ fn prettier_colored_check_and_write_modes_match_compact_contract() {
 }
 
 #[test]
+fn prettier_source_and_unknown_output_fail_open() {
+    let cases: [(&[&[u8]], &[u8]); 4] = [
+        (&[b"prettier".as_slice(), b"app.js"], b"const value = 1;\n"),
+        (
+            &[b"prettier".as_slice(), b"--list-different", b"."],
+            b"needsfix.ts\nother.ts\n",
+        ),
+        (
+            &[b"prettier".as_slice(), b"--stdin-filepath", b"app.js"],
+            b"const value=1\n",
+        ),
+        (
+            &[b"prettier".as_slice(), b"--check", b"."],
+            b"unexpected checker output\n",
+        ),
+    ];
+
+    for (argv, stdout) in cases {
+        assert_eq!(
+            diagnostics::dispatch_streams_argv(argv, stdout, b"", 0, false).unwrap(),
+            StreamFilterOutput::new(stdout.to_vec(), Vec::new(), EvidenceClass::ByteExact),
+            "{argv:?}"
+        );
+    }
+}
+
+#[test]
 fn tofu_plan_fixture_keeps_actionable_diffs_and_drops_refresh_chatter() {
     let input = fixture("tofu_plan_update.txt");
     let output =

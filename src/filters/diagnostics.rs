@@ -17,7 +17,7 @@ use lint::{compact_lint, matches_lint};
 use mypy::classify_mypy;
 use plan::{compact_plan, matches_plan};
 use precommit::compact_precommit;
-use prettier::compact_prettier;
+use prettier::{compact_prettier, matches_prettier};
 use rubocop::classify_rubocop;
 use ruff::classify_ruff;
 
@@ -147,7 +147,12 @@ pub(crate) fn dispatch_streams_decision(
             Some((compact_lint, EvidenceClass::FactComplete))
         }
         b"pre-commit" => Some((compact_precommit, EvidenceClass::FactComplete)),
-        b"prettier" => Some((compact_prettier, EvidenceClass::FactComplete)),
+        b"prettier"
+            if prettier_status_mode(argv)
+                && (matches_prettier(stdout) || matches_prettier(stderr)) =>
+        {
+            Some((compact_prettier, EvidenceClass::FactComplete))
+        }
         b"terraform" | b"tofu"
             if argv.get(1).copied() == Some(b"plan")
                 && (matches_plan(stdout) || matches_plan(stderr)) =>
@@ -163,6 +168,12 @@ pub(crate) fn dispatch_streams_decision(
             StreamFilterDecision::compact_single_stream(stdout, stderr, evidence, compact)
         },
     ))
+}
+
+fn prettier_status_mode(argv: &[&[u8]]) -> bool {
+    argv.iter()
+        .skip(1)
+        .any(|argument| matches!(*argument, b"--check" | b"-c" | b"--write" | b"-w"))
 }
 
 fn strict_route(
