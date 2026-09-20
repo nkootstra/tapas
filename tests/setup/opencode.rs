@@ -303,3 +303,26 @@ fn opencode_force_preserves_jsonc_and_external_predecessor_conflicts() {
     assert!(!root.join("plugins/tapas.js").exists());
     assert!(!home.path(".tapas/setup/opencode.owned").exists());
 }
+
+#[test]
+fn opencode_force_backs_up_recognized_predecessor_before_removal() {
+    let home = TestHome::new();
+    let xdg = home.path("xdg");
+    let plugins = xdg.join("opencode/plugins");
+    fs::create_dir_all(&plugins).unwrap();
+    let predecessor = plugins.join("rtk.ts");
+    let edited = b"// rtk rewrite\nexport const RtkOpenCodePlugin = async () => ({ \"tool.execute.before\": async () => {} })\n// user customization\nexport const keep = true;\n";
+    fs::write(&predecessor, edited).unwrap();
+
+    let output = tapas_with_env(
+        &home,
+        &["--setup", "opencode", "--force"],
+        b"",
+        &[("XDG_CONFIG_HOME", xdg.as_path())],
+    );
+
+    assert!(output.status.success(), "{:?}", output.stderr);
+    assert!(!predecessor.exists());
+    let backup = home.path(".tapas/setup/predecessors/rtk.ts.bak.tapas");
+    assert_eq!(fs::read(&backup).unwrap(), edited);
+}

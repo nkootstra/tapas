@@ -252,7 +252,24 @@ fn setup_opencode(
     transaction.write(&location.config_path, plugin.clone(), original_mode)?;
     transaction.write(&location.ownership_path, record_bytes(&expected), 0o600)?;
     let mut created_backups = Vec::new();
+    let backup_directory = location
+        .ownership_path
+        .parent()
+        .map(|parent| parent.join("predecessors"));
+    let mut predecessor_backups = Vec::new();
     let prepare = (|| {
+        if let Some(directory) = &backup_directory {
+            if !predecessors.is_empty() {
+                fs::create_dir_all(directory)?;
+            }
+            for item in &predecessors {
+                let source = directory.join(item.path.file_name().unwrap_or(item.path.as_os_str()));
+                if let Some(path) = write_unique_backup(&source, Some(item.content.as_slice()))? {
+                    created_backups.push(path.clone());
+                    predecessor_backups.push((item.path.clone(), path));
+                }
+            }
+        }
         if config_changed
             && let Some(path) = write_unique_backup(&config_path, config_before.as_deref())?
         {
@@ -290,11 +307,12 @@ fn setup_opencode(
             ),
         ));
     }
-    for item in &predecessors {
+    for (source, backup) in &predecessor_backups {
         writeln!(
             stderr,
-            "warning: removed recognized predecessor {}",
-            item.path.display()
+            "warning: removed recognized predecessor {} (backup: {})",
+            source.display(),
+            backup.display()
         )?;
     }
     if config_changed {
