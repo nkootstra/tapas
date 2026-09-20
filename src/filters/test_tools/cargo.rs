@@ -8,14 +8,14 @@ pub(super) fn matches_cargo_test(input: &[u8]) -> bool {
     })
 }
 
-pub(super) fn apply_cargo_test(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
+pub(super) fn apply_cargo_test(stdout: &[u8], stderr: &[u8]) -> Option<Vec<u8>> {
     let mut output = Vec::with_capacity(stdout.len() + stderr.len());
     scan_cargo_test(stdout, &mut output);
     scan_cargo_test(stderr, &mut output);
     if output.is_empty() {
-        b"all tests passed\n".to_vec()
+        None
     } else {
-        head_tail(output, 120, 80)
+        Some(head_tail(output, 120, 80))
     }
 }
 

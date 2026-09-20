@@ -29,7 +29,7 @@ fn matches_node_test(input: &[u8]) -> bool {
     has_tests && has_result
 }
 
-pub(super) fn apply_js_test(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
+pub(super) fn apply_js_test(stdout: &[u8], stderr: &[u8]) -> Option<Vec<u8>> {
     let mode = if matches_node_test(stdout) || matches_node_test(stderr) {
         JsTestMode::Node
     } else {
@@ -46,11 +46,11 @@ pub(super) fn apply_js_test(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
             scan_node_test(stderr, &mut output);
         }
     }
-    if output.is_empty() {
+    Some(if output.is_empty() {
         b"all tests passed\n".to_vec()
     } else {
         output
-    }
+    })
 }
 
 fn scan_mocha(input: &[u8], output: &mut Vec<u8>) {
