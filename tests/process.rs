@@ -51,12 +51,26 @@ impl Drop for FakeCommand {
 fn fake_commands_are_executable_immediately_after_atomic_publication() {
     for _ in 0..32 {
         let command = FakeCommand::new("fixture", b"#!/bin/sh\nprintf ready\n");
-        let output = Command::new(command.path())
-            .output()
-            .expect("execute newly published fake command");
+        let output = execute_with_text_busy_retry(command.path());
         assert!(output.status.success());
         assert_eq!(output.stdout, b"ready");
     }
+}
+
+/// Executes a freshly published file, retrying the kernel's transient
+/// `ETXTBSY` ("text file busy") state the same way the process boundary does.
+fn execute_with_text_busy_retry(path: &Path) -> Output {
+    for _ in 0..50 {
+        match Command::new(path).output() {
+            Err(error) if error.kind() == std::io::ErrorKind::ExecutableFileBusy => {
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            result => return result.expect("execute newly published fake command"),
+        }
+    }
+    Command::new(path)
+        .output()
+        .expect("execute newly published fake command")
 }
 
 #[test]
