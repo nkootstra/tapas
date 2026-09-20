@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.15](https://github.com/nkootstra/tapas/compare/v0.7.14...v0.7.15) - 2026-09-20
+
+### Patch changes
+
+- preserve settings across executable replacement ([#60](https://github.com/nkootstra/tapas/pull/60))
+
 ## [0.7.14](https://github.com/nkootstra/tapas/compare/v0.7.13...v0.7.14) - 2026-09-20
 
 ### Patch changes
