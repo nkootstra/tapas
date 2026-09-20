@@ -3,11 +3,13 @@ pub(super) fn apply_diff(input: &[u8]) -> Vec<u8> {
     let content = input.strip_suffix(b"\n").unwrap_or(input);
     let mut output = Vec::with_capacity(input.len());
     let mut first = true;
+    let mut in_hunk = false;
 
     for raw in content.split(|byte| *byte == b'\n') {
         let stripped = strip_ansi(raw);
         let line = stripped.as_slice();
         let transformed = if line.starts_with(b"diff --git a/") {
+            in_hunk = false;
             let rest = &line[b"diff --git a/".len()..];
             let mut value = b"d ".to_vec();
             if let Some(split) = rfind_subslice(rest, b" b/") {
@@ -23,8 +25,9 @@ pub(super) fn apply_diff(input: &[u8]) -> Vec<u8> {
             }
             Some(value)
         } else if line.starts_with(b"@@ ") {
+            in_hunk = true;
             Some(compact_hunk_header(line))
-        } else if is_diff_metadata(line) {
+        } else if !in_hunk && is_diff_metadata(line) {
             None
         } else if line.starts_with(b"Binary files ") && line.ends_with(b" differ") {
             Some(b"B".to_vec())
