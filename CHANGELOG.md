@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.27](https://github.com/nkootstra/tapas/compare/v0.7.26...v0.7.27) - 2026-09-20
+
+### Patch changes
+
+- keep composer solver conflict blocks ([#85](https://github.com/nkootstra/tapas/pull/85))
+
 ## [0.7.26](https://github.com/nkootstra/tapas/compare/v0.7.25...v0.7.26) - 2026-09-20
 
 ### Patch changes
