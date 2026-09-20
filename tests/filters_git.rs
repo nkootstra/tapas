@@ -33,6 +33,89 @@ fn diff_pipe_matcher_finds_a_diff_after_a_preamble() {
 }
 
 #[test]
+fn diff_keeps_hunk_lines_that_resemble_file_metadata() {
+    let input = b"diff --git a/f b/f\n--- a/f\n+++ b/f\n@@ -1 +1 @@\n--- a/old\n+++ b/new\n";
+
+    assert!(git::matches(input));
+    assert_eq!(
+        git::apply_matched(input).unwrap(),
+        tapas::filters::FilterOutput::new(
+            b"d f\n@1|1\n--- a/old\n+++ b/new\n".to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+}
+
+#[test]
+fn diff_keeps_changed_lines_across_multiple_hunks_and_files() {
+    let input = concat!(
+        "diff --git a/f b/f\n",
+        "index 1111111..2222222 100644\n",
+        "--- a/f\n",
+        "+++ b/f\n",
+        "@@ -1 +1 @@\n",
+        "--- a/old\n",
+        "+++ b/new\n",
+        "@@ -5 +5 @@\n",
+        " context\n",
+        "++ b/added\n",
+        "diff --git a/g b/g\n",
+        "--- a/g\n",
+        "+++ b/g\n",
+        "@@ -1 +1 @@\n",
+        "--- a/other\n",
+        "+++ b/other\n",
+    )
+    .as_bytes();
+
+    assert!(git::matches(input));
+    assert_eq!(
+        git::apply_matched(input).unwrap(),
+        tapas::filters::FilterOutput::new(
+            concat!(
+                "d f\n",
+                "@1|1\n",
+                "--- a/old\n",
+                "+++ b/new\n",
+                "@5|5\n",
+                " context\n",
+                "++ b/added\n",
+                "d g\n",
+                "@1|1\n",
+                "--- a/other\n",
+                "+++ b/other\n",
+            )
+            .as_bytes()
+            .to_vec(),
+            EvidenceClass::FactComplete,
+        )
+    );
+}
+
+#[test]
+fn argv_show_keeps_hunk_lines_that_resemble_file_headers() {
+    let input = concat!(
+        "commit 1234567890abcdef1234567890abcdef12345678\n",
+        "    subject\n",
+        "\n",
+        "diff --git a/f b/f\n",
+        "--- a/f\n",
+        "+++ b/f\n",
+        "@@ -1 +1 @@\n",
+        "--- a/old\n",
+        "+++ b/new\n",
+    );
+
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"show"], input.as_bytes(), b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(
+            b"1234567 subject\n\nd f\n@1|1\n--- a/old\n+++ b/new\n".to_vec(),
+            EvidenceClass::PotentiallyLossy,
+        )
+    );
+}
+
+#[test]
 fn status_pipe_filter_matches_the_pinned_oracle() {
     let input = fixture("git_status_dirty.txt");
 
