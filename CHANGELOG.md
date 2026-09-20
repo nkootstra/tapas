@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.26](https://github.com/nkootstra/tapas/compare/v0.7.25...v0.7.26) - 2026-09-20
+
+### Patch changes
+
+- keep terraform plan error blocks and block paths ([#82](https://github.com/nkootstra/tapas/pull/82))
+
 ## [0.7.25](https://github.com/nkootstra/tapas/compare/v0.7.24...v0.7.25) - 2026-09-20
 
 ### Patch changes
