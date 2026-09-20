@@ -281,6 +281,34 @@ fn eslint_stylish_keeps_file_diagnostics_and_summary() {
 }
 
 #[test]
+fn eslint_stylish_keeps_paths_with_spaces_distinct() {
+    let input = concat!(
+        "/repo/plain.ts\n",
+        "  1:1  error  first failure   no-undef\n",
+        "/repo/with space.ts\n",
+        "  2:2  error  second failure  @typescript-eslint/no-unused-vars\n",
+        "✖ 2 problems (2 errors, 0 warnings)\n",
+    );
+
+    let output =
+        diagnostics::dispatch_streams_argv(&[b"eslint", b"."], input.as_bytes(), b"", 1, false)
+            .unwrap();
+
+    assert_eq!(output.evidence, EvidenceClass::FactComplete);
+    assert_eq!(
+        output.stdout,
+        concat!(
+            "/repo/plain.ts\n",
+            "1:1 error first failure no-undef\n",
+            "/repo/with space.ts\n",
+            "2:2 error second failure @typescript-eslint/no-unused-vars\n",
+            "✖ 2 problems (2 errors, 0 warnings)\n",
+        )
+        .as_bytes(),
+    );
+}
+
+#[test]
 fn precommit_fixture_keeps_failed_hook_and_counts_passes() {
     let input = fixture("pre_commit_failed.txt");
     let output = diagnostics::dispatch_streams_argv(
