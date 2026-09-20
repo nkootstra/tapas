@@ -81,11 +81,10 @@ fn emit_tsc_diagnostics(diagnostics: &[TscDiagnostic], output: &mut Vec<u8>) {
         for &candidate in &group {
             emitted[candidate] = true;
         }
-        let key = message_key(&diagnostics[group[0]].message);
         let homogeneous = group
             .iter()
             .skip(1)
-            .all(|candidate| message_key(&diagnostics[*candidate].message) == key);
+            .all(|candidate| diagnostics[*candidate].message == diagnostics[group[0]].message);
         if group.len() >= 3 && homogeneous {
             output.extend_from_slice(&diagnostics[index].code);
             output.extend_from_slice(b" x");
@@ -114,10 +113,6 @@ fn emit_tsc_diagnostics(diagnostics: &[TscDiagnostic], output: &mut Vec<u8>) {
             }
         }
     }
-}
-
-fn message_key(message: &[u8]) -> &[u8] {
-    &message[..message.len().min(40)]
 }
 
 fn is_tsc_summary(line: &[u8]) -> bool {

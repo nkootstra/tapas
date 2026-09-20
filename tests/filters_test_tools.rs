@@ -155,6 +155,54 @@ fn tsc_pipe_filter_matches_the_pinned_oracle() {
 }
 
 #[test]
+fn tsc_keeps_distinct_messages_with_a_shared_code_and_prefix() {
+    let mut input = Vec::new();
+    for (index, suffix) in ["'alpha'.", "'beta'.", "'gamma'."].iter().enumerate() {
+        input.extend_from_slice(
+            format!(
+                "src/f{index}.ts:1:1 - error TS2322: Type 'VeryLongExampleTypeName' is not assignable to type {suffix}\n"
+            )
+            .as_bytes(),
+        );
+    }
+    input.extend_from_slice(b"Found 3 errors in 3 files.\n");
+
+    let output =
+        test_tools::dispatch_streams_argv(&[b"tsc", b"--noEmit"], &input, b"", 2, false).unwrap();
+    let text = String::from_utf8(output.stdout).expect("UTF-8 tsc output");
+
+    assert!(text.contains("'alpha'."), "{text}");
+    assert!(text.contains("'beta'."), "{text}");
+    assert!(text.contains("'gamma'."), "{text}");
+    assert_eq!(output.evidence, EvidenceClass::FactComplete);
+}
+
+#[test]
+fn tsc_collapses_only_exact_duplicate_diagnostics() {
+    let mut input = Vec::new();
+    for index in 0..3 {
+        input.extend_from_slice(
+            format!(
+                "src/f{index}.ts:1:1 - error TS2322: Type 'string' is not assignable to type 'number'.\n"
+            )
+            .as_bytes(),
+        );
+    }
+    input.extend_from_slice(b"Found 3 errors in 3 files.\n");
+
+    let output =
+        test_tools::dispatch_streams_argv(&[b"tsc", b"--noEmit"], &input, b"", 2, false).unwrap();
+    let text = String::from_utf8(output.stdout).expect("UTF-8 tsc output");
+
+    assert!(text.contains("TS2322 x3"), "{text}");
+    assert_eq!(
+        text.matches("Type 'string' is not assignable").count(),
+        1,
+        "{text}"
+    );
+}
+
+#[test]
 fn go_test_pipe_filter_matches_the_pinned_oracle() {
     let input = fixture("go_test_v.txt");
     let expected = concat!(
