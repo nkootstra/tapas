@@ -206,17 +206,19 @@ fn parse_size_bytes(number: &[u8], unit: &[u8]) -> Option<usize> {
         let digit = u64::from(*byte - b'0');
         if saw_dot {
             if scale < 1_000_000 {
-                fraction = fraction * 10 + digit;
-                scale *= 10;
+                fraction = fraction.checked_mul(10)?.checked_add(digit)?;
+                scale = scale.checked_mul(10)?;
             }
         } else {
-            whole = whole * 10 + digit;
+            whole = whole.checked_mul(10)?.checked_add(digit)?;
         }
     }
     if !saw_digit {
         return None;
     }
-    usize::try_from(whole * multiplier + fraction * multiplier / scale).ok()
+    let whole_bytes = whole.checked_mul(multiplier)?;
+    let fraction_bytes = fraction.checked_mul(multiplier)? / scale;
+    usize::try_from(whole_bytes.checked_add(fraction_bytes)?).ok()
 }
 
 fn strip_build_prefix(line: &[u8]) -> &[u8] {

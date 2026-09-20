@@ -80,7 +80,9 @@ pub(super) fn ninja_completed(line: &[u8]) -> Option<usize> {
     let mut index = 1usize;
     let mut completed = 0usize;
     while line.get(index).is_some_and(u8::is_ascii_digit) {
-        completed = completed * 10 + usize::from(line[index] - b'0');
+        completed = completed
+            .checked_mul(10)?
+            .checked_add(usize::from(line[index] - b'0'))?;
         index += 1;
     }
     if index == 1 || line.get(index) != Some(&b'/') {
