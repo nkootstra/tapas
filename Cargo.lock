@@ -75,7 +75,7 @@ dependencies = [
 
 [[package]]
 name = "tapas"
-version = "0.7.16"
+version = "0.7.17"
 dependencies = [
  "libc",
  "sha2",
