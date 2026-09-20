@@ -93,6 +93,39 @@ fn make_ninja_go_and_zig_builds_match_the_pinned_wrapper_oracles() {
 }
 
 #[test]
+fn native_builds_preserve_facts_beside_zig_summaries() {
+    let cases = [
+        (
+            &[b"make".as_slice()][..],
+            b"Build Summary: 1/1 steps succeeded\nerror: packaging failed after sub-build\n"
+                .as_slice(),
+            2,
+        ),
+        (
+            &[b"zig".as_slice(), b"build".as_slice()][..],
+            b"warning: deprecated build option\nBuild Summary: 1/1 steps succeeded\n".as_slice(),
+            0,
+        ),
+    ];
+
+    for (argv, input, exit_code) in &cases {
+        assert_eq!(
+            build::dispatch_streams_argv(argv, input, b"", *exit_code, false).unwrap(),
+            StreamFilterOutput::new(
+                input.to_vec(),
+                Vec::new(),
+                if *exit_code == 0 {
+                    EvidenceClass::PotentiallyLossy
+                } else {
+                    EvidenceClass::FactComplete
+                },
+            ),
+            "argv {argv:?}",
+        );
+    }
+}
+
+#[test]
 fn ninja_preserves_overflowing_progress_counters() {
     let input = b"[9999999999999999999999999999999999999999/1] cc file.c\n";
 

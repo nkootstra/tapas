@@ -1,12 +1,4 @@
 pub(super) fn compact_build(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
-    if let Some(summary) =
-        find_zig_success_summary(stdout).or_else(|| find_zig_success_summary(stderr))
-    {
-        let mut output = summary.to_vec();
-        output.push(b'\n');
-        return output;
-    }
-
     let mut output = Vec::with_capacity(stdout.len() + stderr.len());
     let mut cargo_count = 0usize;
     let mut cargo_verbose_count = 0usize;
@@ -98,17 +90,6 @@ pub(super) fn ninja_completed(line: &[u8]) -> Option<usize> {
         return None;
     }
     Some(completed)
-}
-
-fn find_zig_success_summary(input: &[u8]) -> Option<&[u8]> {
-    let start = find_subslice(input, b"Build Summary: ")?;
-    let rest = &input[start..];
-    let end = rest
-        .iter()
-        .position(|byte| *byte == b'\n')
-        .unwrap_or(rest.len());
-    let line = &rest[..end];
-    find_subslice(line, b"failed").is_none().then_some(line)
 }
 
 fn is_make_directory_noise(line: &[u8]) -> bool {
