@@ -482,6 +482,16 @@ fn package_truncation_notice_names_tapas_raw_mode() {
 }
 
 #[test]
+fn composer_failed_resolution_keeps_the_conflict_block() {
+    let stderr = b"Your requirements could not be resolved to an installable set of packages.\n\n  Problem 1\n    - Root composer.json requires demo/pkg ^2, found demo/pkg[1.0.0].\n";
+
+    assert_eq!(
+        package::dispatch_streams_argv(&[b"composer", b"install"], b"", stderr, 1, false).unwrap(),
+        StreamFilterOutput::new(Vec::new(), stderr.to_vec(), EvidenceClass::ByteExact),
+    );
+}
+
+#[test]
 fn uv_package_routes_compact_only_recognized_human_output() {
     let input = b"Resolved 5 packages in 20ms\nPrepared 2 packages in 10ms\nInstalled 2 packages in 4ms\n + flask==3.0.0\n + click==8.1.7\n";
     for argv in [
