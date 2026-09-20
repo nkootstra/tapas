@@ -7,6 +7,13 @@ enum JobStatus {
     Skipped,
 }
 
+struct JobState {
+    id: Vec<u8>,
+    name: Vec<u8>,
+    status: JobStatus,
+    disambiguate: bool,
+}
+
 impl JobStatus {
     fn label(self) -> &'static [u8] {
         match self {
@@ -23,10 +30,11 @@ impl JobStatus {
 pub(super) struct GhState {
     raw_fallback: Vec<u8>,
     rendered_fallback: Vec<u8>,
+    pending_id: Vec<u8>,
     pending_name: Vec<u8>,
     pending_status: Option<JobStatus>,
     pending_has_steps: bool,
-    states: Vec<(Vec<u8>, JobStatus)>,
+    states: Vec<JobState>,
     saw_jobs: bool,
     in_jobs: bool,
     raw_passthrough: bool,
@@ -73,8 +81,9 @@ impl GhState {
             self.in_jobs = false;
             return Ok(());
         }
-        if let Some((name, status)) = parse_gh_job(line) {
+        if let Some((id, name, status)) = parse_gh_job(line) {
             self.flush_pending(writer)?;
+            self.pending_id.extend_from_slice(id);
             self.pending_name.extend_from_slice(name);
             self.pending_status = Some(status);
             self.pending_has_steps = false;
@@ -99,26 +108,42 @@ impl GhState {
             pending
         };
         self.pending_has_steps = false;
-        let name = std::mem::take(&mut self.pending_name);
-        if let Some((_, previous)) = self.states.iter_mut().find(|(known, _)| *known == name) {
-            if *previous != status {
-                writer.write_all(&name)?;
+        let mut known_index = None;
+        let mut disambiguate = false;
+        for (index, state) in self.states.iter().enumerate() {
+            if state.id == self.pending_id {
+                known_index = Some(index);
+                break;
+            }
+            disambiguate |= state.name == self.pending_name;
+        }
+        if let Some(index) = known_index {
+            let state = &mut self.states[index];
+            if state.status != status {
+                write_job_name(writer, &state.name, &state.id, state.disambiguate)?;
                 writer.write_all(b": ")?;
-                writer.write_all(previous.label())?;
+                writer.write_all(state.status.label())?;
                 writer.write_all(b"->")?;
                 writer.write_all(status.label())?;
                 writer.write_all(b"\n")?;
-                *previous = status;
+                state.status = status;
             }
-            self.pending_name = name;
+            self.pending_id.clear();
             self.pending_name.clear();
             return Ok(());
         }
-        writer.write_all(&name)?;
+        let id = std::mem::take(&mut self.pending_id);
+        let name = std::mem::take(&mut self.pending_name);
+        write_job_name(writer, &name, &id, disambiguate)?;
         writer.write_all(b": ")?;
         writer.write_all(status.label())?;
         writer.write_all(b"\n")?;
-        self.states.push((name, status));
+        self.states.push(JobState {
+            id,
+            name,
+            status,
+            disambiguate,
+        });
         Ok(())
     }
 
@@ -131,7 +156,7 @@ impl GhState {
     }
 }
 
-fn parse_gh_job(line: &[u8]) -> Option<(&[u8], JobStatus)> {
+fn parse_gh_job(line: &[u8]) -> Option<(&[u8], &[u8], JobStatus)> {
     let (prefix, status, step) = gh_status_prefix(line)?;
     if step {
         return None;
@@ -149,7 +174,22 @@ fn parse_gh_job(line: &[u8]) -> Option<(&[u8], JobStatus)> {
     {
         name = name[..index].trim_ascii_end();
     }
-    (!name.is_empty()).then_some((name, status))
+    (!name.is_empty()).then_some((id, name, status))
+}
+
+fn write_job_name(
+    writer: &mut dyn Write,
+    name: &[u8],
+    id: &[u8],
+    disambiguate: bool,
+) -> io::Result<()> {
+    writer.write_all(name)?;
+    if disambiguate {
+        writer.write_all(b" (ID ")?;
+        writer.write_all(id)?;
+        writer.write_all(b")")?;
+    }
+    Ok(())
 }
 
 fn gh_status_prefix(line: &[u8]) -> Option<(usize, JobStatus, bool)> {
