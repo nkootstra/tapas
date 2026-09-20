@@ -6,7 +6,8 @@ use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
@@ -734,6 +735,25 @@ fn run_plugin(
             total = total.saturating_add(read);
         }
     });
+    // The direct child can exit while a descendant it spawned still holds the
+    // stdin, stdout, or stderr pipe. Bound the whole interaction, including the
+    // reader joins below, and kill the group if the deadline passes.
+    let deadline = started + plugin_deadline();
+    let timed_out = Arc::new(AtomicBool::new(false));
+    let (_done_tx, done_rx) = mpsc::channel::<()>();
+    {
+        let timed_out = Arc::clone(&timed_out);
+        std::thread::spawn(move || {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if matches!(
+                done_rx.recv_timeout(remaining),
+                Err(mpsc::RecvTimeoutError::Timeout)
+            ) {
+                timed_out.store(true, Ordering::SeqCst);
+                kill_group(pid);
+            }
+        });
+    }
     let hello = match hello_rx.recv_timeout(hello_deadline()) {
         Ok(Ok(hello)) => hello,
         Ok(Err(error)) => {
@@ -810,15 +830,24 @@ fn run_plugin(
         }
         std::thread::sleep(Duration::from_millis(10));
     };
-    writer
+    let writer_result = writer
         .join()
-        .map_err(|_| io::Error::other("plugin writer panicked"))??;
-    let response = stdout_thread
+        .map_err(|_| io::Error::other("plugin writer panicked"))
+        .and_then(|result| result);
+    let response_result = stdout_thread
         .join()
-        .map_err(|_| io::Error::other("plugin reader panicked"))??;
-    let diagnostics_overflowed = stderr_thread
+        .map_err(|_| io::Error::other("plugin reader panicked"))
+        .and_then(|result| result);
+    let diagnostics_result = stderr_thread
         .join()
-        .map_err(|_| io::Error::other("plugin diagnostics reader panicked"))??;
+        .map_err(|_| io::Error::other("plugin diagnostics reader panicked"))
+        .and_then(|result| result);
+    if timed_out.load(Ordering::SeqCst) {
+        return Err(io::Error::new(io::ErrorKind::TimedOut, "plugin timed out"));
+    }
+    writer_result?;
+    let response = response_result?;
+    let diagnostics_overflowed = diagnostics_result?;
     if !status.success() {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "plugin failed"));
     }
