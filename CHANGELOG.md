@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.23](https://github.com/nkootstra/tapas/compare/v0.7.22...v0.7.23) - 2026-09-20
+
+### Patch changes
+
+- keep gh run watch annotations and unknown lines ([#76](https://github.com/nkootstra/tapas/pull/76))
+
 ## [0.7.22](https://github.com/nkootstra/tapas/compare/v0.7.21...v0.7.22) - 2026-09-20
 
 ### Patch changes
