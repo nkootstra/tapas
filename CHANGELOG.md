@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.16](https://github.com/nkootstra/tapas/compare/v0.7.15...v0.7.16) - 2026-09-20
+
+### Patch changes
+
+- back up opencode predecessors before force removal ([#62](https://github.com/nkootstra/tapas/pull/62))
+
 ## [0.7.15](https://github.com/nkootstra/tapas/compare/v0.7.14...v0.7.15) - 2026-09-20
 
 ### Patch changes
