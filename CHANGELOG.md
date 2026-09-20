@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.13](https://github.com/nkootstra/tapas/compare/v0.7.12...v0.7.13) - 2026-09-20
+
+### Patch changes
+
+- preserve diff hunk lines that resemble file metadata ([#56](https://github.com/nkootstra/tapas/pull/56))
+
 ## [0.7.12](https://github.com/nkootstra/tapas/compare/v0.7.11...v0.7.12) - 2026-09-20
 
 ### Patch changes
