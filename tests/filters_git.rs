@@ -313,6 +313,49 @@ fn argv_status_dispatch_matches_long_and_short_oracle_output() {
 }
 
 #[test]
+fn argv_status_dispatch_recognizes_grouped_short_flags() {
+    let short = fixture("git_status_short.txt");
+    let expected = concat!(
+        " M src/filters/git_status.zig\n",
+        " M git_log.zig\n",
+        " M git_diff.zig\n",
+        " M src/main.zig\n",
+        "M  src/pipeline.zig\n",
+        "A  src/filters/git_reflog.zig\n",
+        "?? tests/fixtures/git_status_short.txt\n",
+        "?? git_reflog.txt\n",
+        "?? git_tag.txt\n",
+        "R  src/old.zig -> src/new.zig\n",
+        "UU src/conflict.zig\n",
+    );
+
+    for argv in [
+        &[b"git".as_slice(), b"status", b"-sb"][..],
+        &[b"git".as_slice(), b"status", b"-bs"][..],
+        &[b"git".as_slice(), b"status"][..],
+    ] {
+        assert_eq!(
+            git::dispatch_argv(argv, &short, b"", 0, false).unwrap(),
+            tapas::filters::FilterOutput::new(
+                expected.as_bytes().to_vec(),
+                EvidenceClass::FactComplete,
+            ),
+            "{argv:?}"
+        );
+    }
+}
+
+#[test]
+fn argv_status_dispatch_fails_open_on_unknown_shapes() {
+    let input = b"some text that git status never prints\n";
+
+    assert_eq!(
+        git::dispatch_argv(&[b"git", b"status"], input, b"", 0, false).unwrap(),
+        tapas::filters::FilterOutput::new(input.to_vec(), EvidenceClass::ByteExact),
+    );
+}
+
+#[test]
 fn argv_status_dispatch_marks_a_clean_tree_across_upstream_shapes() {
     // A dirty tree opens with the same branch line a clean one does, so without a marker
     // "clean" and "header emitted, entries lost" are byte-indistinguishable to a reader.
