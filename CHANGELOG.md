@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.24](https://github.com/nkootstra/tapas/compare/v0.7.23...v0.7.24) - 2026-09-20
+
+### Patch changes
+
+- keep distinct typescript diagnostics with a shared prefix ([#78](https://github.com/nkootstra/tapas/pull/78))
+
 ## [0.7.23](https://github.com/nkootstra/tapas/compare/v0.7.22...v0.7.23) - 2026-09-20
 
 ### Patch changes
