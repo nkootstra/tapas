@@ -26,11 +26,28 @@ pub(super) fn compact_plan(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
 
 fn scan_plan(input: &[u8], output: &mut Vec<u8>, emitted: &mut bool) {
     let mut in_actions = false;
+    let mut in_diagnostic = false;
     for raw in input.split(|byte| *byte == b'\n') {
         let clean = strip_ansi(raw);
         let line = clean.trim_ascii();
         if line.is_empty() {
+            in_diagnostic = false;
             continue;
+        }
+        let diagnostic = line.strip_prefix("│ ".as_bytes()).unwrap_or(line);
+        if diagnostic.starts_with(b"Error: ") || diagnostic.starts_with(b"Warning: ") {
+            in_diagnostic = true;
+            append_line(output, line);
+            *emitted = true;
+            continue;
+        }
+        if in_diagnostic {
+            if line.starts_with("│".as_bytes()) {
+                append_line(output, line);
+                *emitted = true;
+                continue;
+            }
+            in_diagnostic = false;
         }
         if find_subslice(line, b"will perform the following actions").is_some() {
             in_actions = true;
@@ -65,5 +82,12 @@ fn keep_plan_line(line: &[u8], in_actions: bool) -> bool {
             && (find_subslice(line, b"# forces replacement").is_some()
                 || [b"-/+ ".as_slice(), b"~ ", b"+ ", b"- "]
                     .iter()
-                    .any(|prefix| line.starts_with(prefix)))
+                    .any(|prefix| line.starts_with(prefix))
+                || is_plan_block_delimiter(line))
+}
+
+/// Block braces carry the attribute path; dropping them leaves a changed value
+/// with no enclosing resource or nested block identity.
+fn is_plan_block_delimiter(line: &[u8]) -> bool {
+    line.ends_with(b"{") || line == b"}" || line == b"},"
 }
