@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.7](https://github.com/nkootstra/tapas/compare/v0.7.6...v0.7.7) - 2026-09-20
+
+### Patch changes
+
+- preserve commit hook preambles ([#44](https://github.com/nkootstra/tapas/pull/44))
+
 ## [0.7.6](https://github.com/nkootstra/tapas/compare/v0.7.5...v0.7.6) - 2026-09-20
 
 ### Patch changes
