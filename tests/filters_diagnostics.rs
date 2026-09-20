@@ -328,6 +328,44 @@ fn precommit_fixture_keeps_failed_hook_and_counts_passes() {
 }
 
 #[test]
+fn precommit_startup_errors_fail_open() {
+    let stderr = b"An error has occurred: InvalidConfigError:\n==> File .pre-commit-config.yaml\n=====> expected a map\nCheck the log at /tmp/pre-commit.log\n";
+
+    assert_eq!(
+        diagnostics::dispatch_streams_argv(
+            &[b"pre-commit", b"run", b"--all-files"],
+            b"",
+            stderr,
+            1,
+            false,
+        )
+        .unwrap(),
+        StreamFilterOutput::new(Vec::new(), stderr.to_vec(), EvidenceClass::ByteExact),
+    );
+}
+
+#[test]
+fn precommit_failed_hook_keeps_its_complete_body() {
+    let stdout = b"format........................................Failed\n- hook id: format\n- files were modified by this hook\n";
+
+    let output = diagnostics::dispatch_streams_argv(
+        &[b"pre-commit", b"run", b"--all-files"],
+        stdout,
+        b"",
+        1,
+        false,
+    )
+    .unwrap();
+
+    assert_eq!(output.evidence, EvidenceClass::FactComplete);
+    assert!(
+        contains(&output.stdout, b"files were modified"),
+        "{:?}",
+        output.stdout
+    );
+}
+
+#[test]
 fn prettier_colored_check_and_write_modes_match_compact_contract() {
     let colored = fixture("prettier_check_color.txt");
     let check = diagnostics::dispatch_streams_argv(

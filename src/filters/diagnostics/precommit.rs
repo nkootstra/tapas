@@ -1,7 +1,10 @@
-use super::super::{
-    append_line, contains_ignore_ascii_case as contains_ascii_case_insensitive, find_subslice,
-    strip_ansi_csi as strip_ansi,
-};
+use super::super::{append_line, strip_ansi_csi as strip_ansi};
+
+pub(super) fn matches_precommit(input: &[u8]) -> bool {
+    input
+        .split(|byte| *byte == b'\n')
+        .any(|raw| hook_status(strip_ansi(raw).trim_ascii_end()).is_some())
+}
 
 pub(super) fn compact_precommit(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
     let mut output = Vec::with_capacity(stdout.len() + stderr.len());
@@ -28,7 +31,7 @@ fn scan_precommit(input: &[u8], output: &mut Vec<u8>, passed: &mut usize) {
             } else if status != b"Skipped" {
                 append_depadded_status(output, line, status);
             }
-        } else if in_failure && should_keep_failure_line(line) {
+        } else if in_failure {
             append_line(output, line);
         }
     }
@@ -60,15 +63,4 @@ fn append_depadded_status(output: &mut Vec<u8>, line: &[u8], status: &[u8]) {
     output.extend_from_slice(line[..end].trim_ascii_end());
     output.push(b' ');
     append_line(output, status);
-}
-
-fn should_keep_failure_line(line: &[u8]) -> bool {
-    line.starts_with(b"- hook id:")
-        || line.starts_with(b"- exit code:")
-        || contains_ascii_case_insensitive(line, b"error")
-        || contains_ascii_case_insensitive(line, b"failed")
-        || line.contains(&b':')
-            && [b".py".as_slice(), b".yaml", b".yml", b".toml", b".json"]
-                .iter()
-                .any(|extension| find_subslice(line, extension).is_some())
 }

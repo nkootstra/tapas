@@ -16,7 +16,7 @@ use golangci_lint::classify_golangci_lint;
 use lint::{compact_lint, matches_lint};
 use mypy::classify_mypy;
 use plan::{compact_plan, matches_plan};
-use precommit::compact_precommit;
+use precommit::{compact_precommit, matches_precommit};
 use prettier::{compact_prettier, matches_prettier};
 use rubocop::classify_rubocop;
 use ruff::classify_ruff;
@@ -146,7 +146,9 @@ pub(crate) fn dispatch_streams_decision(
         b"eslint" | b"biome" if matches_lint(stdout) || matches_lint(stderr) => {
             Some((compact_lint, EvidenceClass::FactComplete))
         }
-        b"pre-commit" => Some((compact_precommit, EvidenceClass::FactComplete)),
+        b"pre-commit" if matches_precommit(stdout) || matches_precommit(stderr) => {
+            Some((compact_precommit, EvidenceClass::FactComplete))
+        }
         b"prettier"
             if prettier_status_mode(argv)
                 && (matches_prettier(stdout) || matches_prettier(stderr)) =>
