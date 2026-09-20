@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.22](https://github.com/nkootstra/tapas/compare/v0.7.21...v0.7.22) - 2026-09-20
+
+### Patch changes
+
+- classify prefixed compose and kubectl logs as streaming ([#74](https://github.com/nkootstra/tapas/pull/74))
+
 ## [0.7.21](https://github.com/nkootstra/tapas/compare/v0.7.20...v0.7.21) - 2026-09-20
 
 ### Patch changes
