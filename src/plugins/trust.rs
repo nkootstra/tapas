@@ -195,9 +195,23 @@ mod tests {
         let snapshot = ExecutableSnapshot::create(&source, &digest, &directory).unwrap();
         fs::write(&source, b"#!/bin/sh\nprintf 'replaced\\n'\n").unwrap();
 
-        let output = Command::new(snapshot.path()).output().unwrap();
+        let output = execute_with_text_busy_retry(snapshot.path());
         assert_eq!(output.stdout, b"verified\n");
         drop(snapshot);
         fs::remove_dir_all(directory).unwrap();
+    }
+
+    /// Executes a freshly written file, retrying the kernel's transient
+    /// `ETXTBSY` ("text file busy") state the same way the process boundary does.
+    fn execute_with_text_busy_retry(path: &std::path::Path) -> std::process::Output {
+        for _ in 0..50 {
+            match Command::new(path).output() {
+                Err(error) if error.kind() == std::io::ErrorKind::ExecutableFileBusy => {
+                    std::thread::sleep(std::time::Duration::from_millis(2));
+                }
+                result => return result.expect("execute snapshot"),
+            }
+        }
+        Command::new(path).output().expect("execute snapshot")
     }
 }
