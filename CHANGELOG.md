@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.9](https://github.com/nkootstra/tapas/compare/v0.7.8...v0.7.9) - 2026-09-20
+
+### Patch changes
+
+- preserve facts beside Zig summaries ([#48](https://github.com/nkootstra/tapas/pull/48))
+
 ## [0.7.8](https://github.com/nkootstra/tapas/compare/v0.7.7...v0.7.8) - 2026-09-20
 
 ### Patch changes
