@@ -32,17 +32,17 @@ fn scan_lint(input: &[u8], output: &mut Vec<u8>, state: &mut LintState) {
         if line.is_empty() {
             continue;
         }
-        if looks_like_file_header(line) {
-            state.pending_file.clear();
-            state.pending_file.extend_from_slice(line);
-            state.pending_emitted = false;
-        } else if looks_like_lint_diagnostic(line) {
+        if looks_like_lint_diagnostic(line) {
             if !state.pending_file.is_empty() && !state.pending_emitted {
                 append_line(output, &state.pending_file);
                 state.pending_emitted = true;
             }
             append_collapsed(output, line);
             state.emitted = true;
+        } else if looks_like_file_header(line) {
+            state.pending_file.clear();
+            state.pending_file.extend_from_slice(line);
+            state.pending_emitted = false;
         } else if looks_like_lint_summary(line) {
             append_line(output, line);
             state.emitted = true;
@@ -52,7 +52,6 @@ fn scan_lint(input: &[u8], output: &mut Vec<u8>, state: &mut LintState) {
 
 fn looks_like_file_header(line: &[u8]) -> bool {
     !line.is_empty()
-        && !line.contains(&b' ')
         && (line.contains(&b'/')
             || [
                 b".js".as_slice(),
