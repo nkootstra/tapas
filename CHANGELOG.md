@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.18](https://github.com/nkootstra/tapas/compare/v0.7.17...v0.7.18) - 2026-09-20
+
+### Patch changes
+
+- require explicit success before claiming tests passed ([#66](https://github.com/nkootstra/tapas/pull/66))
+
 ## [0.7.17](https://github.com/nkootstra/tapas/compare/v0.7.16...v0.7.17) - 2026-09-20
 
 ### Patch changes
