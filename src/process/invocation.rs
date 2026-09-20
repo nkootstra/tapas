@@ -1,7 +1,8 @@
 use std::ffi::OsString;
 
 use crate::invocation_policy::{
-    COMPOSE_BOOLEAN_OPTIONS, COMPOSE_VALUE_OPTIONS, option_consumption,
+    COMPOSE_BOOLEAN_OPTIONS, COMPOSE_VALUE_OPTIONS, KUBECTL_BOOLEAN_OPTIONS, KUBECTL_VALUE_OPTIONS,
+    option_consumption,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -158,6 +159,9 @@ pub fn classify_stream(argv: &[OsString]) -> StreamDecision {
     if let Some(decision) = compose_stream_decision(command, argv) {
         return decision;
     }
+    if let Some(decision) = kubectl_logs_decision(command, argv) {
+        return decision;
+    }
     if is_follow_logs(command, argv)
         || (command == b"tsc" && has_any_arg(argv, &[b"--watch", b"-w"]))
         || (is_any(command, &[b"jest", b"vitest"])
@@ -276,8 +280,11 @@ fn inherits_lifecycle(command: &[u8], argv: &[OsString]) -> bool {
                 b"--clearScreen",
             ],
         ) {
-            SubcommandScan::Found(b"build") => long_option_enabled(argv, b"--watch"),
-            SubcommandScan::Found(b"optimize") => false,
+            SubcommandScan::Found(index) => match bytes(&argv[index]) {
+                b"build" => long_option_enabled(argv, b"--watch"),
+                b"optimize" => false,
+                _ => true,
+            },
             _ => true,
         };
     }
@@ -367,46 +374,73 @@ fn compose_stream_decision(command: &[u8], argv: &[OsString]) -> Option<StreamDe
         return None;
     };
     match scan_subcommand(argv, start, COMPOSE_VALUE_OPTIONS, COMPOSE_BOOLEAN_OPTIONS) {
-        SubcommandScan::Found(b"up") => {
-            if boolean_option_enabled(argv, b"--detach", Some(b'd')).unwrap_or(false)
-                || long_option_enabled(argv, b"--wait")
-                || long_option_enabled(argv, b"--no-start")
-            {
-                Some(StreamDecision::Capture)
-            } else if long_option_enabled(argv, b"--watch") || long_option_enabled(argv, b"--menu")
-            {
-                Some(StreamDecision::Inherit)
-            } else {
-                Some(StreamDecision::StreamFilter)
+        SubcommandScan::Found(index) => match bytes(&argv[index]) {
+            b"up" => {
+                if boolean_option_enabled(argv, b"--detach", Some(b'd')).unwrap_or(false)
+                    || long_option_enabled(argv, b"--wait")
+                    || long_option_enabled(argv, b"--no-start")
+                {
+                    Some(StreamDecision::Capture)
+                } else if long_option_enabled(argv, b"--watch")
+                    || long_option_enabled(argv, b"--menu")
+                {
+                    Some(StreamDecision::Inherit)
+                } else {
+                    Some(StreamDecision::StreamFilter)
+                }
             }
-        }
+            b"logs" => Some(if has_follow_arg(&argv[index + 1..]) {
+                StreamDecision::StreamFilter
+            } else {
+                StreamDecision::Capture
+            }),
+            _ => None,
+        },
         SubcommandScan::Ambiguous => Some(StreamDecision::Inherit),
-        SubcommandScan::Found(_) | SubcommandScan::Missing => None,
+        SubcommandScan::Missing => None,
     }
 }
 
-enum SubcommandScan<'a> {
-    Found(&'a [u8]),
+fn kubectl_logs_decision(command: &[u8], argv: &[OsString]) -> Option<StreamDecision> {
+    if command != b"kubectl" {
+        return None;
+    }
+    match scan_subcommand(argv, 1, KUBECTL_VALUE_OPTIONS, KUBECTL_BOOLEAN_OPTIONS) {
+        SubcommandScan::Found(index) if bytes(&argv[index]) == b"logs" => {
+            Some(if has_follow_arg(&argv[index + 1..]) {
+                StreamDecision::StreamFilter
+            } else {
+                StreamDecision::Capture
+            })
+        }
+        SubcommandScan::Ambiguous if has_follow_arg(argv) => Some(StreamDecision::Inherit),
+        _ => None,
+    }
+}
+
+enum SubcommandScan {
+    Found(usize),
     Missing,
     Ambiguous,
 }
 
-fn scan_subcommand<'a>(
-    argv: &'a [OsString],
+fn scan_subcommand(
+    argv: &[OsString],
     mut index: usize,
     values: &[&[u8]],
     booleans: &[&[u8]],
-) -> SubcommandScan<'a> {
+) -> SubcommandScan {
     while index < argv.len() {
         let argument = bytes(&argv[index]);
         if argument == b"--" {
-            return argv
-                .get(index + 1)
-                .map(bytes)
-                .map_or(SubcommandScan::Missing, SubcommandScan::Found);
+            return if index + 1 < argv.len() {
+                SubcommandScan::Found(index + 1)
+            } else {
+                SubcommandScan::Missing
+            };
         }
         if !argument.starts_with(b"-") {
-            return SubcommandScan::Found(argument);
+            return SubcommandScan::Found(index);
         }
         if is_any(argument, booleans) {
             index += 1;
@@ -489,7 +523,7 @@ fn option_value<'a>(argv: &'a [OsString], option: &[u8]) -> Option<&'a [u8]> {
 mod policy;
 mod runners;
 
-use policy::{exact_output_reason, is_follow_logs};
+use policy::{exact_output_reason, has_follow_arg, is_follow_logs};
 pub use policy::{is_raw_curl, requests_exact_output};
 use runners::{
     UV_BOOLEAN, UV_VALUE, UVX_VALUE, basename, bytes, equals_at, has_any_arg, has_arg, is_any,

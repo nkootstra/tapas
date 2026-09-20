@@ -64,6 +64,41 @@ pub(crate) const COMPOSE_VALUE_OPTIONS: &[&[u8]] = &[
 pub(crate) const COMPOSE_BOOLEAN_OPTIONS: &[&[u8]] =
     &[b"--all-resources", b"--compatibility", b"--dry-run"];
 
+/// kubectl global flags that take a value and can precede the subcommand.
+pub(crate) const KUBECTL_VALUE_OPTIONS: &[&[u8]] = &[
+    b"--as",
+    b"--as-group",
+    b"--as-uid",
+    b"--cache-dir",
+    b"--certificate-authority",
+    b"--client-certificate",
+    b"--client-key",
+    b"--cluster",
+    b"--context",
+    b"--kubeconfig",
+    b"-n",
+    b"--namespace",
+    b"--password",
+    b"--profile",
+    b"--profile-output",
+    b"--request-timeout",
+    b"-s",
+    b"--server",
+    b"--tls-server-name",
+    b"--token",
+    b"--user",
+    b"--username",
+    b"-v",
+    b"--v",
+    b"--vmodule",
+];
+pub(crate) const KUBECTL_BOOLEAN_OPTIONS: &[&[u8]] = &[
+    b"--disable-compression",
+    b"--insecure-skip-tls-verify",
+    b"--match-server-version",
+    b"--warnings-as-errors",
+];
+
 pub(crate) fn option_consumption(argument: &[u8], options: &[&[u8]]) -> Option<usize> {
     options.iter().find_map(|option| {
         if argument == *option {
