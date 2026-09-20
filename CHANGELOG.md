@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.8](https://github.com/nkootstra/tapas/compare/v0.7.7...v0.7.8) - 2026-09-20
+
+### Patch changes
+
+- reject overflowing build numbers ([#46](https://github.com/nkootstra/tapas/pull/46))
+
 ## [0.7.7](https://github.com/nkootstra/tapas/compare/v0.7.6...v0.7.7) - 2026-09-20
 
 ### Patch changes
