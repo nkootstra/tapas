@@ -2,9 +2,8 @@ use super::commit::write_summary;
 use super::find_subslice;
 
 pub(super) fn apply_fetch(stderr: &[u8]) -> Vec<u8> {
-    let mut output = Vec::with_capacity(stderr.len());
-    process_ref_stderr(stderr, &mut output, b'<', b"From ", b"-> FETCH_HEAD");
-    output
+    try_process_ref_stderr(stderr, b'<', b"From ", b"-> FETCH_HEAD")
+        .unwrap_or_else(|| stderr.to_vec())
 }
 
 pub(super) fn apply_push(stderr: &[u8]) -> Vec<u8> {

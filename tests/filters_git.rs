@@ -1206,6 +1206,17 @@ fn argv_blame_dispatch_matches_the_pinned_oracle_and_bypasses_alternate_formats(
 }
 
 #[test]
+fn fetch_stream_dispatch_preserves_unknown_notices_and_later_updates() {
+    let stderr =
+        b"remote: maintenance tomorrow\nFrom example\n   abcdef0..1234567 main -> origin/main\n";
+
+    assert_eq!(
+        git::dispatch_streams_argv(&[b"git", b"fetch"], b"", stderr, 0, false).unwrap(),
+        StreamFilterOutput::new(Vec::new(), stderr.to_vec(), EvidenceClass::ByteExact),
+    );
+}
+
+#[test]
 fn stream_dispatch_matches_pinned_argv_only_command_helpers() {
     let stderr_cases: &[(&[u8], &str, &str, &[u8])] = &[
         (
