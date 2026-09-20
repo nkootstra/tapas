@@ -93,6 +93,16 @@ fn make_ninja_go_and_zig_builds_match_the_pinned_wrapper_oracles() {
 }
 
 #[test]
+fn ninja_preserves_overflowing_progress_counters() {
+    let input = b"[9999999999999999999999999999999999999999/1] cc file.c\n";
+
+    assert_eq!(
+        build::dispatch_streams_argv(&[b"ninja"], input, b"", 0, false).unwrap(),
+        StreamFilterOutput::new(input.to_vec(), Vec::new(), EvidenceClass::ByteExact,),
+    );
+}
+
+#[test]
 fn npm_build_fixture_matches_the_pinned_bundler_oracle() {
     let input = fixture("vite_build.txt");
     let expected = concat!(
@@ -195,6 +205,23 @@ fn next_webpack_and_turbo_outputs_match_the_pinned_oracles() {
             b"> myapp:lint\n\nError: src/index.ts(5,1): error TS2304\n\n".to_vec(),
             Vec::new(),
             EvidenceClass::FactComplete,
+        ),
+    );
+}
+
+#[test]
+fn webpack_preserves_assets_with_overflowing_sizes() {
+    let input = concat!(
+        "asset bundle.js 9999999999999999999999999999999999999999 bytes\n",
+        "webpack 5 compiled successfully\n",
+    );
+
+    assert_eq!(
+        build::dispatch_streams_argv(&[b"webpack"], input.as_bytes(), b"", 0, false).unwrap(),
+        StreamFilterOutput::new(
+            format!("{input}\n").into_bytes(),
+            Vec::new(),
+            EvidenceClass::PotentiallyLossy,
         ),
     );
 }
