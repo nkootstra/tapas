@@ -788,6 +788,23 @@ fn tsc_and_gh_live_workflows_use_the_default_process_stream_path() {
 }
 
 #[test]
+fn gh_run_watch_keeps_duplicate_job_names_distinct() {
+    let gh = FakeCommand::new(
+        "gh",
+        b"#!/bin/sh\nprintf 'JOBS\nX build (ID 123)\nX build (ID 456)\n\nJOBS\n\\342\\234\\223 build in 2s (ID 123)\nX build (ID 456)\n\n'\n",
+    );
+    let program = gh.path().to_str().expect("UTF-8 fake command path");
+    let output = tapas(&[program, "run", "watch"], b"", &[]);
+
+    assert!(output.status.success());
+    assert_eq!(
+        output.stdout,
+        b"build: failed\nbuild (ID 456): failed\nbuild: failed->passed\n"
+    );
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
 fn streaming_preserves_signals_and_descendant_pipe_diagnostics() {
     let signaled = FakeCommand::new("docker", b"#!/bin/sh\nkill -TERM $$\n");
     let program = signaled.path().to_str().expect("UTF-8 fake command path");
