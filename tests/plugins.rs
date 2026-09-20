@@ -888,6 +888,70 @@ fn plugin_hello_timeout_returns_original_output_promptly() {
 }
 
 #[test]
+fn plugin_descendant_holding_a_pipe_does_not_hold_tapas_past_the_deadline() {
+    let directory = temp_dir();
+    let home = directory.join("home");
+    let bin = directory.join("bin");
+    std::fs::create_dir(&home).unwrap();
+    std::fs::create_dir(&bin).unwrap();
+    let plugin = directory.join("descendant.py");
+    executable(
+        &plugin,
+        b"#!/usr/bin/env python3\nimport json, subprocess, sys\nprint(json.dumps({'protocol':'tapas-filter','versions':[1]}), flush=True)\njson.loads(sys.stdin.readline())\nsubprocess.Popen([sys.executable, '-c', 'import time; time.sleep(5)'])\nprint(json.dumps({'version':1,'result':'transform','evidence':'fact-complete','stdout_b64':'','stderr_b64':''}), flush=True)\n",
+    );
+    executable(
+        &bin.join("desccmd"),
+        b"#!/bin/sh\nprintf 'original stdout that stays\\n'\nprintf 'original stderr that stays\\n' >&2\n",
+    );
+    assert!(
+        tapas(
+            &home,
+            &[
+                "--plugin",
+                "trust",
+                "descendant",
+                "--",
+                plugin.to_str().unwrap()
+            ]
+        )
+        .status
+        .success()
+    );
+    assert!(
+        tapas(
+            &home,
+            &["--plugin", "bind", "--user", "descendant", "--", "desccmd"]
+        )
+        .status
+        .success()
+    );
+
+    let search_path = std::env::join_paths(
+        std::iter::once(bin.clone())
+            .chain(std::env::split_paths(&std::env::var_os("PATH").unwrap())),
+    )
+    .unwrap();
+    let started = std::time::Instant::now();
+    let output = Command::new(env!("CARGO_BIN_EXE_tapas"))
+        .arg("desccmd")
+        .env("HOME", &home)
+        .env("PATH", search_path)
+        .env("TAPAS_PLUGIN_TIMEOUT_MS", "1000")
+        .current_dir(&directory)
+        .output()
+        .unwrap();
+
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(3),
+        "elapsed {:?}",
+        started.elapsed()
+    );
+    assert_eq!(output.stdout, b"original stdout that stays\n");
+    assert_eq!(output.stderr, b"original stderr that stays\n");
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
 fn plugin_route_is_snapshotted_before_the_wrapped_command_runs() {
     let directory = temp_dir();
     let home = directory.join("home");
