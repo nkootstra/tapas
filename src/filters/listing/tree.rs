@@ -54,7 +54,10 @@ pub(super) fn apply_tree_compact(input: &[u8]) -> Option<Vec<u8>> {
         }
     }
     let mut output = Vec::with_capacity(input.len());
-    emit_tree_entry(&entries, 0, &mut output);
+    let mut root = 0;
+    while root < entries.len() {
+        root = emit_tree_entry(&entries, root, &mut output);
+    }
     if let Some(line) = summary {
         write_output_line(&mut output, line);
     }
@@ -62,11 +65,11 @@ pub(super) fn apply_tree_compact(input: &[u8]) -> Option<Vec<u8>> {
     Some(output)
 }
 
-fn emit_tree_entry(entries: &[TreeEntry<'_>], index: usize, output: &mut Vec<u8>) {
+fn emit_tree_entry(entries: &[TreeEntry<'_>], index: usize, output: &mut Vec<u8>) -> usize {
     let entry = entries[index];
     write_tree_line(output, entry.depth, entry.name, entry.is_dir);
     if !entry.is_dir {
-        return;
+        return index + 1;
     }
     let end = tree_subtree_end(entries, index);
     let child_depth = entry.depth + 1;
@@ -107,6 +110,7 @@ fn emit_tree_entry(entries: &[TreeEntry<'_>], index: usize, output: &mut Vec<u8>
         }
         child = child_end;
     }
+    end
 }
 
 fn tree_subtree_end(entries: &[TreeEntry<'_>], index: usize) -> usize {
