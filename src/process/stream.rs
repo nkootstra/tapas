@@ -58,7 +58,8 @@ pub(super) fn run(
         let mut stderr_buffer = [0_u8; READ_BUFFER_BYTES];
         let mut child_status: Option<ExitStatus> = None;
         let mut exit_observed_at: Option<Instant> = None;
-        let mut last_activity = Instant::now();
+        let mut stdout_idle = Instant::now();
+        let mut stderr_idle = Instant::now();
         let mut input_bytes = 0usize;
         let mut incomplete = false;
 
@@ -69,11 +70,15 @@ pub(super) fn run(
                 stderr_open.then(|| child_stderr.as_raw_fd()),
             )?;
             forwarder.forward_pending()?;
-            let mut received = false;
+            let now = Instant::now();
+            stdout_side.tick(&mut stdout_count, now)?;
+            stderr_side.tick(&mut stderr_count, now)?;
+            let mut stdout_received = false;
+            let mut stderr_received = false;
             if stdout_open {
                 stdout_open =
                     capture::read_available(&mut child_stdout, &mut stdout_buffer, |chunk| {
-                        received = true;
+                        stdout_received = true;
                         input_bytes += chunk.len();
                         stdout_side.feed(chunk, &mut stdout_count)
                     })?;
@@ -81,21 +86,26 @@ pub(super) fn run(
             if stderr_open {
                 stderr_open =
                     capture::read_available(&mut child_stderr, &mut stderr_buffer, |chunk| {
-                        received = true;
+                        stderr_received = true;
                         input_bytes += chunk.len();
                         stderr_side.feed(chunk, &mut stderr_count)
                     })?;
             }
-            if received {
+            if stdout_received {
                 stdout_count.flush()?;
-                stderr_count.flush()?;
-                last_activity = Instant::now();
-            } else if last_activity.elapsed() >= IDLE_FLUSH {
+                stdout_idle = Instant::now();
+            } else if !stdout_open || stdout_idle.elapsed() >= IDLE_FLUSH {
                 stdout_side.idle_flush(&mut stdout_count)?;
-                stderr_side.idle_flush(&mut stderr_count)?;
                 stdout_count.flush()?;
+                stdout_idle = Instant::now();
+            }
+            if stderr_received {
                 stderr_count.flush()?;
-                last_activity = Instant::now();
+                stderr_idle = Instant::now();
+            } else if !stderr_open || stderr_idle.elapsed() >= IDLE_FLUSH {
+                stderr_side.idle_flush(&mut stderr_count)?;
+                stderr_count.flush()?;
+                stderr_idle = Instant::now();
             }
 
             if child_status.is_none()
@@ -301,6 +311,10 @@ impl StreamSide {
         self.processor.idle_flush(writer)
     }
 
+    fn tick(&mut self, writer: &mut dyn Write, now: Instant) -> io::Result<()> {
+        self.processor.tick(writer, now)
+    }
+
     fn finish(&mut self, writer: &mut dyn Write) -> io::Result<()> {
         if self.raw_passthrough {
             return Ok(());
@@ -335,6 +349,13 @@ impl Processor {
             Self::Jest(state) => state.flush(writer),
             Self::Gh(state) => state.flush_pending(writer),
             Self::Tsc(_) => Ok(()),
+        }
+    }
+
+    fn tick(&mut self, writer: &mut dyn Write, now: Instant) -> io::Result<()> {
+        match self {
+            Self::Logs(state) => state.flush_if_due(writer, now),
+            _ => Ok(()),
         }
     }
 

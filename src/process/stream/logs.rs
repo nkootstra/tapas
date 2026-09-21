@@ -5,6 +5,7 @@ pub(super) struct LogState {
     pending: Vec<u8>,
     fingerprint: Vec<u8>,
     repeats: usize,
+    pending_since: Option<Instant>,
 }
 
 impl LogState {
@@ -16,6 +17,7 @@ impl LogState {
             pending: Vec::new(),
             fingerprint: Vec::new(),
             repeats: 0,
+            pending_since: None,
         }
     }
 
@@ -55,10 +57,28 @@ impl LogState {
         self.fingerprint.extend_from_slice(&normalized[start..]);
         self.pending = normalized;
         self.repeats = 1;
+        self.pending_since = Some(Instant::now());
+        Ok(())
+    }
+
+    /// Flush a retained run once it has been held for the idle interval.
+    ///
+    /// Incoming identical lines do not postpone this: without it, a command
+    /// that repeats one line faster than the idle interval would hide it for
+    /// the whole command lifetime.
+    pub(super) fn flush_if_due(&mut self, writer: &mut dyn Write, now: Instant) -> io::Result<()> {
+        if self.repeats > 0
+            && self
+                .pending_since
+                .is_some_and(|since| now.saturating_duration_since(since) >= super::IDLE_FLUSH)
+        {
+            self.flush(writer)?;
+        }
         Ok(())
     }
 
     pub(super) fn flush(&mut self, writer: &mut dyn Write) -> io::Result<()> {
+        self.pending_since = None;
         if self.repeats == 0 {
             return Ok(());
         }
@@ -109,3 +129,4 @@ fn contains_word(line: &[u8], word: &[u8]) -> bool {
 }
 use super::{normalize_log_line, strip_ansi, timestamp_end};
 use std::io::{self, Write};
+use std::time::Instant;
