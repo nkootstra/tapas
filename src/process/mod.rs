@@ -7,6 +7,8 @@ pub mod invocation;
 mod stream;
 mod unix;
 
+pub(crate) use unix::spawn_with_text_busy_retry;
+
 use crate::filters::{EvidenceClass, StreamFilterDecision, StreamFilterInput};
 use capture::CaptureMode;
 use invocation::{StreamDecision, classify, classify_stream, is_raw_curl, requests_exact_output};

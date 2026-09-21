@@ -706,13 +706,14 @@ fn run_plugin(
             command.env(name, value);
         }
     }
-    let mut child = command
-        .env("TAPAS_PLUGIN_ACTIVE", "1")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .process_group(0)
-        .spawn()?;
+    let mut child = crate::process::spawn_with_text_busy_retry(
+        command
+            .env("TAPAS_PLUGIN_ACTIVE", "1")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .process_group(0),
+    )?;
     let pid = child.id() as libc::pid_t;
     let child_stdout = child.stdout.take().expect("plugin stdout pipe");
     let child_stderr = child.stderr.take().expect("plugin stderr pipe");
