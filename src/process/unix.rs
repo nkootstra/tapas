@@ -128,7 +128,7 @@ pub fn spawn_process_group(command: &mut Command) -> io::Result<(Child, SignalFo
     Ok((child, forwarder))
 }
 
-fn spawn_with_text_busy_retry(command: &mut Command) -> io::Result<Child> {
+pub(crate) fn spawn_with_text_busy_retry(command: &mut Command) -> io::Result<Child> {
     const RETRIES: usize = 5;
     const RETRY_DELAY: Duration = Duration::from_millis(10);
 
