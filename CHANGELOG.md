@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.32](https://github.com/nkootstra/tapas/compare/v0.7.31...v0.7.32) - 2026-09-21
+
+### Patch changes
+
+- keep npm vulnerability summaries and audit advice ([#95](https://github.com/nkootstra/tapas/pull/95))
+
 ## [0.7.31](https://github.com/nkootstra/tapas/compare/v0.7.30...v0.7.31) - 2026-09-21
 
 ### Patch changes
