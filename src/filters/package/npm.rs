@@ -27,6 +27,7 @@ pub(super) fn compact_npm(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
                 || line.starts_with(b"up-to-date")
                 || line.starts_with(b"audited ")
                 || line.starts_with(b"found ")
+                || is_audit_line(line)
             {
                 lines.extend_from_slice(line);
                 lines.push(b'\n');
@@ -88,8 +89,26 @@ pub(super) fn write_name_summary(
     output.push(b'\n');
 }
 
+/// A vulnerability summary and its audit remediation advice.
+///
+/// npm prints the count with or without the historical `found ` prefix, and the
+/// advice lines that follow identify the fix; dropping them hides a security
+/// finding behind an otherwise successful install summary.
+fn is_audit_line(line: &[u8]) -> bool {
+    find_subslice(line, b"vulnerabilit").is_some()
+        || line.starts_with(b"To address ")
+        || line.starts_with(b"Some issues need review")
+        || line.starts_with(b"a different dependency")
+        || line.starts_with(b"npm audit fix")
+        || line.starts_with(b"run `npm audit`")
+        || line.starts_with(b"Run `npm audit`")
+}
+
 pub(super) fn should_keep_install_line(_line: &[u8]) -> bool {
     let line = _line;
+    if is_audit_line(line) {
+        return true;
+    }
     if line.starts_with(b"npm notice")
         || find_subslice(line, b"packages are looking for funding").is_some()
         || line.starts_with(b"run `npm ")

@@ -165,6 +165,7 @@ fn npm_install_fixture_matches_the_pinned_summary_oracle() {
         "deprecated x5: lodash.isequal, rimraf, inflight, glob, querystring\n",
         "added 847 packages, and audited 848 packages in 12s\n",
         "found 2 vulnerabilities (1 moderate, 1 high)\n",
+        "run `npm audit` for details\n",
     );
 
     assert_eq!(
@@ -174,6 +175,57 @@ fn npm_install_fixture_matches_the_pinned_summary_oracle() {
             Vec::new(),
             EvidenceClass::PotentiallyLossy,
         ),
+    );
+}
+
+#[test]
+fn npm_install_keeps_unprefixed_vulnerability_summaries() {
+    for summary in [
+        b"2 vulnerabilities (1 moderate, 1 high)\n".as_slice(),
+        b"0 vulnerabilities\n",
+        b"3 vulnerabilities (1 low, 2 critical)\n",
+    ] {
+        let mut stdout = b"added 10 packages, and audited 11 packages in 1s\n\n".to_vec();
+        stdout.extend_from_slice(summary);
+
+        let output =
+            package::dispatch_streams_argv(&[b"npm", b"install"], &stdout, b"", 0, false).unwrap();
+
+        assert!(contains(&output.stdout, summary), "{:?}", output.stdout);
+    }
+}
+
+#[test]
+fn npm_install_keeps_audit_remediation_text() {
+    let stdout = concat!(
+        "added 10 packages, and audited 11 packages in 1s\n",
+        "\n",
+        "found 2 vulnerabilities (1 moderate, 1 high)\n",
+        "\n",
+        "To address all issues (including breaking changes), run:\n",
+        "  npm audit fix --force\n",
+        "\n",
+        "Run `npm audit` for details.\n",
+    );
+
+    let output =
+        package::dispatch_streams_argv(&[b"npm", b"install"], stdout.as_bytes(), b"", 0, false)
+            .unwrap();
+
+    assert!(
+        contains(&output.stdout, b"To address all issues"),
+        "{:?}",
+        output.stdout
+    );
+    assert!(
+        contains(&output.stdout, b"npm audit fix --force"),
+        "{:?}",
+        output.stdout
+    );
+    assert!(
+        contains(&output.stdout, b"Run `npm audit` for details."),
+        "{:?}",
+        output.stdout
     );
 }
 
@@ -588,4 +640,10 @@ fn pip_exact_subcommands_and_option_terminators_follow_policy_boundaries() {
     let output = package::dispatch_streams_argv(&[b"uv", b"sync"], b"", failed, 1, false).unwrap();
     assert_eq!(output.evidence, EvidenceClass::ByteExact);
     assert_eq!(output.stderr, failed);
+}
+
+fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+    haystack
+        .windows(needle.len())
+        .any(|window| window == needle)
 }
