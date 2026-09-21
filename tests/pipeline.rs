@@ -232,6 +232,7 @@ fn pipe_chain_matches_container_package_and_curl_oracles() {
             "deprecated x5: lodash.isequal, rimraf, inflight, glob, querystring\n",
             "added 847 packages, and audited 848 packages in 12s\n",
             "found 2 vulnerabilities (1 moderate, 1 high)\n",
+            "run `npm audit` for details\n",
         )
         .as_bytes()
     );
