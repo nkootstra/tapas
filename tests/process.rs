@@ -1328,3 +1328,78 @@ fn filtered_human_ls_uses_the_stable_c_locale() {
     assert_eq!(stdout, b"C/C\n");
     assert!(stderr.is_empty());
 }
+
+#[test]
+fn repeated_live_log_lines_flush_before_the_child_exits() {
+    let docker = FakeCommand::new(
+        "docker",
+        b"#!/bin/sh\ni=0\nwhile [ $i -lt 150 ]; do printf 'ERROR connection refused\\n'; i=$((i+1)); sleep 0.1; done\n",
+    );
+    let program = docker.path().to_str().expect("UTF-8 fake command path");
+    let mut child = Command::new(env!("CARGO_BIN_EXE_tapas"))
+        .args([program, "logs", "-f", "api"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let stdout = child.stdout.take().unwrap();
+
+    let line = read_first_line(stdout, Duration::from_secs(5));
+    let _ = child.kill();
+    let _ = child.wait();
+
+    let line = line.expect("a repeated log line before the child exits");
+    assert!(
+        line.windows(b"connection refused".len())
+            .any(|window| window == b"connection refused"),
+        "{line:?}"
+    );
+}
+
+#[test]
+fn a_quiet_retained_warning_flushes_while_the_other_stream_is_active() {
+    let docker = FakeCommand::new(
+        "docker",
+        b"#!/bin/sh\nprintf 'WARN deprecated flag\\n' >&2\ni=0\nwhile [ $i -lt 150 ]; do printf 'line %s\\n' \"$i\"; i=$((i+1)); sleep 0.1; done\n",
+    );
+    let program = docker.path().to_str().expect("UTF-8 fake command path");
+    let mut child = Command::new(env!("CARGO_BIN_EXE_tapas"))
+        .args([program, "logs", "-f", "api"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let stderr = child.stderr.take().unwrap();
+
+    let line = read_first_line(stderr, Duration::from_secs(5));
+    let _ = child.kill();
+    let _ = child.wait();
+
+    let line = line.expect("a retained warning before the child exits");
+    assert!(
+        line.windows(b"WARN deprecated".len())
+            .any(|window| window == b"WARN deprecated"),
+        "{line:?}"
+    );
+}
+
+fn read_first_line(
+    stream: impl std::io::Read + Send + 'static,
+    timeout: Duration,
+) -> Option<Vec<u8>> {
+    let (sender, receiver) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        use std::io::BufRead;
+        let mut reader = std::io::BufReader::new(stream);
+        let mut line = Vec::new();
+        while let Ok(read) = reader.read_until(b'\n', &mut line) {
+            if read == 0 {
+                break;
+            }
+            if sender.send(std::mem::take(&mut line)).is_err() {
+                break;
+            }
+        }
+    });
+    receiver.recv_timeout(timeout).ok()
+}
