@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.33](https://github.com/nkootstra/tapas/compare/v0.7.32...v0.7.33) - 2026-09-21
+
+### Patch changes
+
+- keep commit and merge entries past the old line limit ([#97](https://github.com/nkootstra/tapas/pull/97))
+
 ## [0.7.32](https://github.com/nkootstra/tapas/compare/v0.7.31...v0.7.32) - 2026-09-21
 
 ### Patch changes
