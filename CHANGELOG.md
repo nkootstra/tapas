@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.30](https://github.com/nkootstra/tapas/compare/v0.7.29...v0.7.30) - 2026-09-21
+
+### Patch changes
+
+- retry text-busy plugin starts ([#91](https://github.com/nkootstra/tapas/pull/91))
+
 ## [0.7.29](https://github.com/nkootstra/tapas/compare/v0.7.28...v0.7.29) - 2026-09-21
 
 ### Patch changes
