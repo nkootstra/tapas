@@ -31,7 +31,20 @@ extern "C" fn record_signal(
     info: *mut libc::siginfo_t,
     _context: *mut libc::c_void,
 ) {
-    let kernel_generated = info.is_null() || unsafe { (*info).si_pid } == 0;
+    // `si_pid` is a field on the BSDs and an accessor method on Linux.
+    #[cfg(target_os = "linux")]
+    let sender = if info.is_null() {
+        0
+    } else {
+        unsafe { (*info).si_pid() }
+    };
+    #[cfg(not(target_os = "linux"))]
+    let sender = if info.is_null() {
+        0
+    } else {
+        unsafe { (*info).si_pid }
+    };
+    let kernel_generated = sender == 0;
     for &(candidate, bit) in &FORWARDED_SIGNALS {
         if signal == candidate {
             PENDING_SIGNALS.fetch_or(bit, Ordering::Relaxed);
