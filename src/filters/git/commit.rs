@@ -86,7 +86,6 @@ fn group_file_entries(input: &[u8]) -> Vec<u8> {
     let lines: Vec<&[u8]> = input
         .split(|byte| *byte == b'\n')
         .filter(|line| !line.is_empty())
-        .take(4096)
         .collect();
     let mut output = Vec::with_capacity(input.len());
     let mut index = 0;

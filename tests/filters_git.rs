@@ -218,6 +218,44 @@ fn merge_pipe_filter_matches_the_pinned_oracle() {
 }
 
 #[test]
+fn commit_keeps_entries_beyond_the_previous_line_limit() {
+    let mut input = b"[main abcdef0] subject\n".to_vec();
+    for index in 0..4100 {
+        input.extend_from_slice(format!(" create mode 100644 f{index:04}\n").as_bytes());
+    }
+    input.extend_from_slice(b" create mode 100644 last-important-file\n");
+
+    let output = git::dispatch_argv(&[b"git", b"commit"], &input, b"", 0, false).unwrap();
+
+    assert!(
+        output
+            .bytes
+            .windows(b"last-important-file".len())
+            .any(|window| window == b"last-important-file"),
+        "the last entry was truncated"
+    );
+}
+
+#[test]
+fn merge_keeps_entries_beyond_the_previous_line_limit() {
+    let mut input = b"Updating 1111111..2222222\nFast-forward\n".to_vec();
+    for index in 0..4100 {
+        input.extend_from_slice(format!(" create mode 100644 f{index:04}\n").as_bytes());
+    }
+    input.extend_from_slice(b" create mode 100644 last-important-file\n");
+
+    let output = git::dispatch_argv(&[b"git", b"merge"], &input, b"", 0, false).unwrap();
+
+    assert!(
+        output
+            .bytes
+            .windows(b"last-important-file".len())
+            .any(|window| window == b"last-important-file"),
+        "the last entry was truncated"
+    );
+}
+
+#[test]
 fn blame_pipe_filter_matches_the_pinned_oracle() {
     let input = fixture("git_blame_simple.txt");
     let expected = concat!(
