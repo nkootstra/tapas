@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.31](https://github.com/nkootstra/tapas/compare/v0.7.30...v0.7.31) - 2026-09-21
+
+### Patch changes
+
+- give inherited-terminal children the foreground group ([#93](https://github.com/nkootstra/tapas/pull/93))
+
 ## [0.7.30](https://github.com/nkootstra/tapas/compare/v0.7.29...v0.7.30) - 2026-09-21
 
 ### Patch changes
