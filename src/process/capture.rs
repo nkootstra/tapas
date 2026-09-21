@@ -47,7 +47,7 @@ pub fn run_inherited(argv: &[OsString]) -> io::Result<i32> {
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
-    let (mut child, forwarder) = unix::spawn_process_group(&mut command)?;
+    let (mut child, forwarder) = unix::spawn_foreground_child(&mut command)?;
     let status = unix::wait_for_child(&mut child, &forwarder)?;
     Ok(unix::exit_code(status))
 }
