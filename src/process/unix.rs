@@ -2,7 +2,7 @@ use std::io;
 use std::os::fd::RawFd;
 use std::os::unix::process::{CommandExt, ExitStatusExt};
 use std::process::{Child, Command, ExitStatus};
-use std::sync::atomic::{AtomicI32, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, Ordering};
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
@@ -16,11 +16,41 @@ const FORWARDED_SIGNALS: [(libc::c_int, u32); 4] = [
 static SIGNAL_FORWARDING_LOCK: Mutex<()> = Mutex::new(());
 static CHILD_PROCESS_GROUP: AtomicI32 = AtomicI32::new(0);
 static PENDING_SIGNALS: AtomicU32 = AtomicU32::new(0);
+/// Signals the kernel delivered on the terminal's behalf (sender PID zero).
+static PENDING_KERNEL_SIGNALS: AtomicU32 = AtomicU32::new(0);
+/// Whether forwarded signals target the child's process group or just the child.
+///
+/// Captured children run in their own group, so forwarding must target the
+/// group. An interactive child shares Tapas's foreground group and receives
+/// terminal signals directly, so only process-sent signals are forwarded, to
+/// the child's PID.
+static FORWARD_TO_GROUP: AtomicBool = AtomicBool::new(true);
 
-extern "C" fn record_signal(signal: libc::c_int) {
+extern "C" fn record_signal(
+    signal: libc::c_int,
+    info: *mut libc::siginfo_t,
+    _context: *mut libc::c_void,
+) {
+    // `si_pid` is a field on the BSDs and an accessor method on Linux.
+    #[cfg(target_os = "linux")]
+    let sender = if info.is_null() {
+        0
+    } else {
+        unsafe { (*info).si_pid() }
+    };
+    #[cfg(not(target_os = "linux"))]
+    let sender = if info.is_null() {
+        0
+    } else {
+        unsafe { (*info).si_pid }
+    };
+    let kernel_generated = sender == 0;
     for &(candidate, bit) in &FORWARDED_SIGNALS {
         if signal == candidate {
             PENDING_SIGNALS.fetch_or(bit, Ordering::Relaxed);
+            if kernel_generated {
+                PENDING_KERNEL_SIGNALS.fetch_or(bit, Ordering::Relaxed);
+            }
             break;
         }
     }
@@ -39,7 +69,9 @@ impl SignalForwarder {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         let previous_mask = block_forwarded_signals()?;
         CHILD_PROCESS_GROUP.store(0, Ordering::Release);
+        FORWARD_TO_GROUP.store(true, Ordering::Release);
         PENDING_SIGNALS.store(0, Ordering::Release);
+        PENDING_KERNEL_SIGNALS.store(0, Ordering::Release);
 
         // SAFETY: sigaction is a plain C data structure which is fully initialized by
         // sigaction before an entry is observed.
@@ -70,20 +102,32 @@ impl SignalForwarder {
 
     pub fn forward_pending(&self) -> io::Result<()> {
         let pending = PENDING_SIGNALS.swap(0, Ordering::AcqRel);
+        let kernel = PENDING_KERNEL_SIGNALS.swap(0, Ordering::AcqRel);
         let process_group = CHILD_PROCESS_GROUP.load(Ordering::Acquire);
         if process_group <= 0 {
             PENDING_SIGNALS.fetch_or(pending, Ordering::Release);
+            PENDING_KERNEL_SIGNALS.fetch_or(kernel, Ordering::Release);
             return Ok(());
         }
 
+        let to_group = FORWARD_TO_GROUP.load(Ordering::Acquire);
+        // A child that shares the foreground group already received any
+        // terminal-delivered signal; forwarding it again would double-deliver.
+        let effective = if to_group { pending } else { pending & !kernel };
+
         let mut first_error = None;
         for &(signal, bit) in &FORWARDED_SIGNALS {
-            if pending & bit == 0 {
+            if effective & bit == 0 {
                 continue;
             }
+            let target = if to_group {
+                -process_group
+            } else {
+                process_group
+            };
             // SAFETY: a negative, nonzero PID asks kill to target the child process
             // group. kill is called from ordinary Rust control flow, not the handler.
-            if unsafe { libc::kill(-process_group, signal) } == -1 {
+            if unsafe { libc::kill(target, signal) } == -1 {
                 let error = io::Error::last_os_error();
                 if error.raw_os_error() != Some(libc::ESRCH) && first_error.is_none() {
                     first_error = Some(error);
@@ -101,7 +145,9 @@ impl Drop for SignalForwarder {
         };
         let _ = self.forward_pending();
         CHILD_PROCESS_GROUP.store(0, Ordering::Release);
+        FORWARD_TO_GROUP.store(true, Ordering::Release);
         PENDING_SIGNALS.store(0, Ordering::Release);
+        PENDING_KERNEL_SIGNALS.store(0, Ordering::Release);
         restore_actions(&self.previous_actions, self.previous_actions.len());
         let _ = restore_signal_mask(&previous_mask);
     }
@@ -120,6 +166,33 @@ pub fn spawn_process_group(command: &mut Command) -> io::Result<(Child, SignalFo
         }
     };
     CHILD_PROCESS_GROUP.store(process_group, Ordering::Release);
+    FORWARD_TO_GROUP.store(true, Ordering::Release);
+    if let Err(error) = forwarder.forward_pending() {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err(error);
+    }
+    Ok((child, forwarder))
+}
+
+/// Spawns a child that shares Tapas's foreground process group.
+///
+/// Used for inherited-terminal commands. The child keeps terminal access and
+/// receives terminal signals directly; the forwarder only relays signals that
+/// were sent to Tapas itself.
+pub fn spawn_foreground_child(command: &mut Command) -> io::Result<(Child, SignalForwarder)> {
+    let forwarder = SignalForwarder::install()?;
+    let mut child = spawn_with_text_busy_retry(command)?;
+    let pid = match libc::pid_t::try_from(child.id()) {
+        Ok(pid) => pid,
+        Err(_) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(io::Error::other("child PID does not fit pid_t"));
+        }
+    };
+    CHILD_PROCESS_GROUP.store(pid, Ordering::Release);
+    FORWARD_TO_GROUP.store(false, Ordering::Release);
     if let Err(error) = forwarder.forward_pending() {
         let _ = child.kill();
         let _ = child.wait();
@@ -158,7 +231,7 @@ fn forwarding_action() -> io::Result<libc::sigaction> {
     // handler, flags, and mask are assigned below before use.
     let mut action = unsafe { std::mem::zeroed::<libc::sigaction>() };
     action.sa_sigaction = record_signal as *const () as libc::sighandler_t;
-    action.sa_flags = 0;
+    action.sa_flags = libc::SA_SIGINFO;
     // SAFETY: sa_mask is a valid sigset_t owned by action.
     if unsafe { libc::sigemptyset(&mut action.sa_mask) } == -1 {
         return Err(io::Error::last_os_error());
