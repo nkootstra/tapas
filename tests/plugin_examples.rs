@@ -36,6 +36,26 @@ fn tapas(home: &Path, path: &Path, args: &[&str]) -> Output {
 }
 
 fn exercise_example(runtime: &str, plugin: &Path, action: &str) {
+    exercise_example_with(
+        runtime,
+        plugin,
+        action,
+        &std::fs::read(fixture(action, "stdout.input")).unwrap(),
+        &std::fs::read(fixture(action, "stderr.input")).unwrap(),
+        &std::fs::read(fixture(action, "stdout.expected")).unwrap(),
+        &std::fs::read(fixture(action, "stderr.expected")).unwrap(),
+    );
+}
+
+fn exercise_example_with(
+    runtime: &str,
+    plugin: &Path,
+    action: &str,
+    stdout_input: &[u8],
+    stderr_input: &[u8],
+    expected_stdout: &[u8],
+    expected_stderr: &[u8],
+) {
     if Command::new(runtime).arg("--version").output().is_err() {
         if std::env::var_os("TAPAS_REQUIRE_PLUGIN_EXAMPLES").is_some() {
             panic!("required plugin example runtime {runtime} is unavailable");
@@ -57,13 +77,17 @@ fn exercise_example(runtime: &str, plugin: &Path, action: &str) {
     let mut plugin_permissions = std::fs::metadata(&plugin).unwrap().permissions();
     plugin_permissions.set_mode(0o755);
     std::fs::set_permissions(&plugin, plugin_permissions).unwrap();
+    let stdout_path = directory.join("stdout.input");
+    let stderr_path = directory.join("stderr.input");
+    std::fs::write(&stdout_path, stdout_input).unwrap();
+    std::fs::write(&stderr_path, stderr_input).unwrap();
     let command = bin.join("acme");
     std::fs::write(
         &command,
         format!(
             "#!/bin/sh\ncat '{}'\ncat '{}' >&2\nexit 1\n",
-            fixture(action, "stdout.input").display(),
-            fixture(action, "stderr.input").display()
+            stdout_path.display(),
+            stderr_path.display()
         ),
     )
     .unwrap();
@@ -99,20 +123,12 @@ fn exercise_example(runtime: &str, plugin: &Path, action: &str) {
     assert_eq!(output.status.code(), Some(1));
     assert_eq!(
         output.stdout,
-        std::fs::read(fixture(action, "stdout.expected")).unwrap(),
+        expected_stdout,
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(
-        output.stderr,
-        std::fs::read(fixture(action, "stderr.expected")).unwrap()
-    );
-    let input_len = std::fs::metadata(fixture(action, "stdout.input"))
-        .unwrap()
-        .len()
-        + std::fs::metadata(fixture(action, "stderr.input"))
-            .unwrap()
-            .len();
+    assert_eq!(output.stderr, expected_stderr);
+    let input_len = (stdout_input.len() + stderr_input.len()) as u64;
     assert!(((output.stdout.len() + output.stderr.len()) as u64) < input_len);
     assert!(String::from_utf8_lossy(&output.stdout).contains("widget_spec"));
     assert!(String::from_utf8_lossy(&output.stderr).contains("deprecated flag"));
@@ -137,4 +153,40 @@ fn python_example_compacts_checked_in_fixture() {
     let plugin =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/plugins/python/acme_tools.py");
     exercise_example("python3", &plugin, "test");
+}
+
+const DISTINCT_STDOUT_INPUT: &[u8] =
+    b"PASS widget_spec a\nPASS widget_spec b\nFAIL widget_spec owner\nsummary: 2 passed, 1 failed\n";
+const DISTINCT_STDERR_INPUT: &[u8] = b"WARN deprecated flag --legacy\nWARN deprecated flag --legacy\nWARN retry disabled\ndiagnostic: retry disabled\n";
+const DISTINCT_STDOUT_EXPECTED: &[u8] =
+    b"PASS 2 cases\nFAIL widget_spec owner\nsummary: 2 passed, 1 failed\n";
+const DISTINCT_STDERR_EXPECTED: &[u8] = b"WARN deprecated flag --legacy (repeated 2 times)\nWARN retry disabled\ndiagnostic: retry disabled\n";
+
+#[test]
+fn node_example_preserves_distinct_warnings() {
+    let plugin = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/plugins/node/acme-tools.mjs");
+    exercise_example_with(
+        "node",
+        &plugin,
+        "test",
+        DISTINCT_STDOUT_INPUT,
+        DISTINCT_STDERR_INPUT,
+        DISTINCT_STDOUT_EXPECTED,
+        DISTINCT_STDERR_EXPECTED,
+    );
+}
+
+#[test]
+fn python_example_preserves_distinct_warnings() {
+    let plugin =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/plugins/python/acme_tools.py");
+    exercise_example_with(
+        "python3",
+        &plugin,
+        "test",
+        DISTINCT_STDOUT_INPUT,
+        DISTINCT_STDERR_INPUT,
+        DISTINCT_STDOUT_EXPECTED,
+        DISTINCT_STDERR_EXPECTED,
+    );
 }

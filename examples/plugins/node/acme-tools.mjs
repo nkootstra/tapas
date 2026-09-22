@@ -38,17 +38,31 @@ input.once("line", (record) => {
     ...stdout.filter((line) => !line.subarray(0, repeated.length).equals(repeated)),
   ]);
   const warningPrefix = Buffer.from("WARN ");
-  const warnings = stderr.filter((line) => line.subarray(0, warningPrefix.length).equals(warningPrefix));
-  let firstWarning = warnings[0];
-  while (firstWarning?.length && (firstWarning.at(-1) === 10 || firstWarning.at(-1) === 13)) {
-    firstWarning = firstWarning.subarray(0, -1);
+  const compactStderrParts = [];
+  let stderrIndex = 0;
+  while (stderrIndex < stderr.length) {
+    const line = stderr[stderrIndex];
+    if (line.subarray(0, warningPrefix.length).equals(warningPrefix)) {
+      let end = stderrIndex + 1;
+      while (end < stderr.length && stderr[end].equals(line)) {
+        end += 1;
+      }
+      if (end - stderrIndex > 1) {
+        let trimmed = line;
+        while (trimmed.length && (trimmed.at(-1) === 10 || trimmed.at(-1) === 13)) {
+          trimmed = trimmed.subarray(0, -1);
+        }
+        compactStderrParts.push(trimmed, Buffer.from(` (repeated ${end - stderrIndex} times)\n`));
+      } else {
+        compactStderrParts.push(line);
+      }
+      stderrIndex = end;
+    } else {
+      compactStderrParts.push(line);
+      stderrIndex += 1;
+    }
   }
-  const compactStderr = Buffer.concat([
-    ...(warnings.length
-      ? [firstWarning, Buffer.from(` (repeated ${warnings.length} times)\n`)]
-      : []),
-    ...stderr.filter((line) => !line.subarray(0, warningPrefix.length).equals(warningPrefix)),
-  ]);
+  const compactStderr = Buffer.concat(compactStderrParts);
   process.stdout.write(
     JSON.stringify({
       version: 1,
