@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.42](https://github.com/nkootstra/tapas/compare/v0.7.41...v0.7.42) - 2026-09-22
+
+### Patch changes
+
+- preserve distinct warnings in the plugin examples ([#115](https://github.com/nkootstra/tapas/pull/115))
+
 ## [0.7.41](https://github.com/nkootstra/tapas/compare/v0.7.40...v0.7.41) - 2026-09-22
 
 ### Patch changes
