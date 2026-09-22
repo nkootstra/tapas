@@ -270,7 +270,6 @@ fn setup(
                 }
                 return Err(error);
             }
-            writeln!(stdout, "updated {}", config_path.display())?;
         }
     } else if already_installed {
         stdout.write_all(b"already installed\n")?;
@@ -305,6 +304,9 @@ fn setup(
         && backup_path.as_deref() != Some(previous.as_path())
     {
         let _ = fs::remove_file(previous);
+    }
+    if changed {
+        writeln!(stdout, "updated {}", config_path.display())?;
     }
     stdout.write_all(b"ok\n")?;
     Ok(0)
@@ -813,5 +815,79 @@ mod tests {
                 fs::remove_dir_all(home).unwrap();
             }
         }
+    }
+
+    #[test]
+    fn failed_progress_output_still_records_ownership() {
+        let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let home = std::env::temp_dir().join(format!(
+            "tapas-ownership-first-test-{}-{sequence}",
+            std::process::id()
+        ));
+        let config_path = home.join(".claude/settings.json");
+        let ownership_path = home.join(".tapas/setup/claude.owned");
+        fs::create_dir_all(config_path.parent().unwrap()).unwrap();
+        let executable = write_fake_executable(&home, "tapas");
+        let location = SetupLocation {
+            config_path: config_path.clone(),
+            ownership_path: ownership_path.clone(),
+            target: Target::Claude,
+        };
+
+        struct FailingWriter;
+        impl std::io::Write for FailingWriter {
+            fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::BrokenPipe,
+                    "broken pipe",
+                ))
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+
+        let result = configure(
+            &location,
+            &executable,
+            Action::Setup,
+            false,
+            &mut FailingWriter,
+            &mut Vec::new(),
+        );
+        assert!(result.is_err(), "the output failure should surface");
+
+        // Configuration and ownership were committed before the failed progress
+        // write, so a later unsetup can still remove the hook.
+        assert!(ownership_path.exists(), "ownership was not recorded");
+        assert!(
+            fs::read(&config_path)
+                .unwrap()
+                .windows(b"--hook-eval".len())
+                .any(|part| part == b"--hook-eval")
+        );
+
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        assert_eq!(
+            configure(
+                &location,
+                &executable,
+                Action::Unsetup,
+                false,
+                &mut stdout,
+                &mut stderr,
+            )
+            .unwrap(),
+            0
+        );
+        assert!(
+            !config_path.exists()
+                || !fs::read(&config_path)
+                    .unwrap()
+                    .windows(b"--hook-eval".len())
+                    .any(|part| part == b"--hook-eval")
+        );
+        fs::remove_dir_all(home).unwrap();
     }
 }
