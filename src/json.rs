@@ -179,7 +179,11 @@ impl fmt::Display for Error {
 }
 
 pub fn parse(input: &[u8]) -> Result<Value, Error> {
-    let mut parser = Parser { input, position: 0 };
+    let mut parser = Parser {
+        input,
+        position: 0,
+        depth: 0,
+    };
     let value = parser.value()?;
     parser.whitespace();
     (parser.position == input.len())
@@ -248,17 +252,24 @@ pub fn write_string(input: &[u8], output: &mut Vec<u8>) {
     output.push(b'"');
 }
 
+/// Maximum container nesting accepted by [`parse`].
+///
+/// Bounds recursion so a deeply nested input returns a normal error instead of
+/// exhausting the stack. Matches the common JSON recursion limit.
+pub const MAX_DEPTH: usize = 128;
+
 struct Parser<'a> {
     input: &'a [u8],
     position: usize,
+    depth: usize,
 }
 
 impl Parser<'_> {
     fn value(&mut self) -> Result<Value, Error> {
         self.whitespace();
         match self.peek().ok_or(Error)? {
-            b'{' => self.object(),
-            b'[' => self.array(),
+            b'{' => self.nested_container(true),
+            b'[' => self.nested_container(false),
             b'"' => self.string().map(Value::String),
             b't' => self.literal(b"true", Value::Bool(true)),
             b'f' => self.literal(b"false", Value::Bool(false)),
@@ -266,6 +277,16 @@ impl Parser<'_> {
             b'-' | b'0'..=b'9' => self.number(),
             _ => Err(Error),
         }
+    }
+
+    fn nested_container(&mut self, object: bool) -> Result<Value, Error> {
+        if self.depth >= MAX_DEPTH {
+            return Err(Error);
+        }
+        self.depth += 1;
+        let value = if object { self.object() } else { self.array() };
+        self.depth -= 1;
+        value
     }
 
     fn object(&mut self) -> Result<Value, Error> {
@@ -468,7 +489,7 @@ impl HexDigit for u8 {
 
 #[cfg(test)]
 mod tests {
-    use super::{Value, parse, serialize};
+    use super::{MAX_DEPTH, Value, parse, serialize};
 
     #[test]
     fn round_trips_nested_json_and_unicode_escapes() {
@@ -507,5 +528,26 @@ mod tests {
         ] {
             assert!(parse(input).is_err(), "{input:?}");
         }
+    }
+
+    #[test]
+    fn bounds_nesting_depth_before_recursing() {
+        let at_limit = format!("{}1{}", "[".repeat(MAX_DEPTH), "]".repeat(MAX_DEPTH));
+        assert!(parse(at_limit.as_bytes()).is_ok());
+
+        let over_limit = format!(
+            "{}1{}",
+            "[".repeat(MAX_DEPTH + 1),
+            "]".repeat(MAX_DEPTH + 1)
+        );
+        assert!(parse(over_limit.as_bytes()).is_err());
+
+        let mixed = format!(
+            "{}{}{}",
+            "{\"a\":".repeat(MAX_DEPTH + 1),
+            "1",
+            "}".repeat(MAX_DEPTH + 1)
+        );
+        assert!(parse(mixed.as_bytes()).is_err());
     }
 }
