@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.38](https://github.com/nkootstra/tapas/compare/v0.7.37...v0.7.38) - 2026-09-22
+
+### Patch changes
+
+- replace the installed binary atomically ([#107](https://github.com/nkootstra/tapas/pull/107))
+
 ## [0.7.37](https://github.com/nkootstra/tapas/compare/v0.7.36...v0.7.37) - 2026-09-22
 
 ### Patch changes
