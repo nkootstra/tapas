@@ -434,6 +434,32 @@ fn cat_compacts_large_code_bodies_and_preserves_structure() {
 }
 
 #[test]
+fn cat_marks_each_omitted_python_body() {
+    let mut input = Vec::new();
+    input.extend_from_slice(b"def first():\n");
+    for index in 0..40 {
+        input.extend_from_slice(format!("    value = {index}\n").as_bytes());
+    }
+    input.extend_from_slice(b"def second():\n");
+    for index in 0..40 {
+        input.extend_from_slice(format!("    other = {index}\n").as_bytes());
+    }
+    assert!(input.len() > 512);
+
+    let output =
+        data::dispatch_streams_argv(&[b"cat", b"example.py"], &input, b"", 0, false).unwrap();
+    let text = String::from_utf8(output.stdout).unwrap();
+
+    assert!(text.contains("def first():"), "{text}");
+    assert!(text.contains("def second():"), "{text}");
+    assert!(
+        !text.contains("other = 0"),
+        "the second body was emitted raw: {text}"
+    );
+    assert_eq!(text.matches("# ... (").count(), 2, "{text}");
+}
+
+#[test]
 fn cat_data_small_unknown_and_exact_invocations_are_byte_exact() {
     let code = vec![b'x'; 600];
     let json = [b"{\"a\":1}\n".as_slice(), &vec![b' '; 600]].concat();

@@ -121,19 +121,20 @@ fn compact_code(input: &[u8], language: Language) -> Vec<u8> {
             let mut skipped = 0usize;
             while index < lines.len() {
                 let body_line = lines[index];
-                index += 1;
                 let body_trimmed = trim_code_line(body_line);
                 if body_trimmed.is_empty() || leading_spaces(body_line) > signature_indent {
                     skipped += 1;
+                    index += 1;
                     continue;
                 }
-                if skipped > 0 {
-                    output.extend_from_slice(b"    # ... (");
-                    output.extend_from_slice(skipped.to_string().as_bytes());
-                    output.extend_from_slice(b" lines)\n");
-                }
-                write_code_line(&mut output, body_line);
+                // Leave the dedented line for the outer loop so it is treated
+                // as the next declaration rather than emitted as raw body text.
                 break;
+            }
+            if skipped > 0 {
+                output.extend_from_slice(b"    # ... (");
+                output.extend_from_slice(skipped.to_string().as_bytes());
+                output.extend_from_slice(b" lines)\n");
             }
             continue;
         }
