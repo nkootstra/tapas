@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.40](https://github.com/nkootstra/tapas/compare/v0.7.39...v0.7.40) - 2026-09-22
+
+### Patch changes
+
+- reap the owned process group on output errors ([#111](https://github.com/nkootstra/tapas/pull/111))
+
 ## [0.7.39](https://github.com/nkootstra/tapas/compare/v0.7.38...v0.7.39) - 2026-09-22
 
 ### Patch changes
