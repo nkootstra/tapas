@@ -110,6 +110,23 @@ fn json_passthrough_and_generic_text_compaction_match_the_oracle() {
 }
 
 #[test]
+fn generic_compaction_does_not_double_count_a_line_seen_twice() {
+    let pad = " ".repeat(4100);
+    for (input, expected) in [
+        (format!("A\nB\nA\n{pad}\n"), "A\nB\nA\n"),
+        (format!("A\nA\nB\n{pad}\n"), "A ×2\nB\n"),
+        (format!("A\nB\nA\nB\n{pad}\n"), "A\nB\nA\nB\n"),
+        (format!("A\nB\nA\nC\nA\n{pad}\n"), "A ×3\nB\nC\n"),
+    ] {
+        assert_eq!(
+            pipeline::filter_bytes(input.as_bytes()),
+            expected.as_bytes(),
+            "{input:?}"
+        );
+    }
+}
+
+#[test]
 fn deterministic_random_bytes_fail_open() {
     let mut state = 0x9e37_79b9_u32;
     let mut bytes = Vec::with_capacity(8 * 1024);

@@ -47,44 +47,40 @@ pub(crate) fn apply_matched(input: &[u8]) -> Result<FilterOutput, FilterError> {
         .sum::<usize>()
         .min(input.len());
     let mut output = Vec::with_capacity(capacity);
-    let mut previous: Option<&[u8]> = None;
     let mut pending_blank = false;
-
-    for line in &cleaned {
-        if line.is_empty() {
+    let mut index = 0;
+    while index < cleaned.len() {
+        if cleaned[index].is_empty() {
             pending_blank = true;
+            index += 1;
             continue;
         }
-        let body = line.as_slice();
-
-        if previous == Some(body) {
-            pending_blank = false;
-            continue;
+        let mut end = index + 1;
+        while end < cleaned.len() && cleaned[end] == cleaned[index] {
+            end += 1;
         }
-
-        if let Some(previous_body) = previous {
-            if pending_blank && !output.is_empty() {
-                output.push(b'\n');
+        let line = cleaned[index].as_slice();
+        let run = end - index;
+        let global = frequencies[line];
+        // A line seen three or more times across the stream is emitted once with
+        // its global count. A rarer line keeps every occurrence, collapsing a
+        // consecutive run to its own count, so no count is ever inflated.
+        let count = if global >= 3 {
+            if !emitted.insert(line) {
+                pending_blank = false;
+                index = end;
+                continue;
             }
-            append_output_line(&mut output, previous_body, frequencies[previous_body]);
+            global
+        } else {
+            run
+        };
+        if pending_blank && !output.is_empty() {
+            output.push(b'\n');
         }
-
-        let frequency = frequencies[body];
-        if frequency >= 3 && emitted.contains(body) {
-            previous = None;
-            pending_blank = false;
-            continue;
-        }
-
+        append_output_line(&mut output, line, count);
         pending_blank = false;
-        if frequency >= 3 {
-            emitted.insert(body);
-        }
-        previous = Some(body);
-    }
-
-    if let Some(previous_body) = previous {
-        append_output_line(&mut output, previous_body, frequencies[previous_body]);
+        index = end;
     }
 
     Ok(FilterOutput::new(output, EvidenceClass::FactComplete))
