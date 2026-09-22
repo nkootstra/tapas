@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.46](https://github.com/nkootstra/tapas/compare/v0.7.45...v0.7.46) - 2026-09-22
+
+### Patch changes
+
+- read escaped quotes in the usage report's javascript commands ([#123](https://github.com/nkootstra/tapas/pull/123))
+
 ## [0.7.45](https://github.com/nkootstra/tapas/compare/v0.7.44...v0.7.45) - 2026-09-22
 
 ### Patch changes
