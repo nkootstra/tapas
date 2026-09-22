@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.43](https://github.com/nkootstra/tapas/compare/v0.7.42...v0.7.43) - 2026-09-22
+
+### Patch changes
+
+- enforce the pinned digest for named plugin tests ([#117](https://github.com/nkootstra/tapas/pull/117))
+
 ## [0.7.42](https://github.com/nkootstra/tapas/compare/v0.7.41...v0.7.42) - 2026-09-22
 
 ### Patch changes
