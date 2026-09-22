@@ -13,7 +13,9 @@ use self::predecessor::{
 };
 use super::hooks::validate_hook;
 use super::ownership::{Ownership, prepare_record_parent, read_ownership, record_bytes};
-use super::storage::{existing_mode, read_optional, reject_symlink, write_unique_backup};
+use super::storage::{
+    SetupLock, ensure_unchanged, existing_mode, read_optional, reject_symlink, write_unique_backup,
+};
 use super::transaction::Transaction;
 use super::{Action, MAX_CONFIG_BYTES, SetupLocation, Target};
 
@@ -34,6 +36,11 @@ pub(super) fn configure_opencode(
     {
         return Ok(1);
     }
+    let _lock = if dry_run {
+        None
+    } else {
+        Some(SetupLock::acquire(&location.ownership_path)?)
+    };
     match action {
         Action::Setup => setup_opencode(location, executable, dry_run, force, stdout, stderr),
         Action::Unsetup => unsetup_opencode(location, dry_run, stdout, stderr),
@@ -244,6 +251,7 @@ fn setup_opencode(
         .parent()
         .map(|parent| parent.join("predecessors"));
     let mut predecessor_backups = Vec::new();
+    ensure_unchanged(&location.config_path, current.as_deref(), MAX_CONFIG_BYTES)?;
     let mut transaction = Transaction::new();
     for item in predecessors {
         if let Some(directory) = &backup_directory {
