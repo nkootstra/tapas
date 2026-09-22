@@ -414,11 +414,26 @@ pub(super) fn shell_escape(value: &OsStr) -> Vec<u8> {
 }
 
 pub(super) fn validate_hook(executable: &Path, target: Target) -> io::Result<bool> {
-    let output = Command::new(executable)
-        .args(["--hook-eval", target.name(), "--self-check"])
-        .stdin(Stdio::null())
-        .output()?;
-    Ok(output.status.success() && output.stdout.is_empty() && output.stderr.is_empty())
+    for attempt in 0..=5 {
+        let result = Command::new(executable)
+            .args(["--hook-eval", target.name(), "--self-check"])
+            .stdin(Stdio::null())
+            .output();
+        match result {
+            // The kernel can report ETXTBSY briefly for a freshly written
+            // executable; retry it the same way the process boundary does.
+            Err(error) if error.kind() == io::ErrorKind::ExecutableFileBusy && attempt < 5 => {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            result => {
+                let output = result?;
+                return Ok(output.status.success()
+                    && output.stdout.is_empty()
+                    && output.stderr.is_empty());
+            }
+        }
+    }
+    unreachable!("the bounded retry loop always returns")
 }
 
 pub(super) fn contains_conflicting_integration(input: &[u8]) -> bool {
