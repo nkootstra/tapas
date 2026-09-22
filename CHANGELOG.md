@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.47](https://github.com/nkootstra/tapas/compare/v0.7.46...v0.7.47) - 2026-09-22
+
+### Patch changes
+
+- allow slower plugin startup ([#128](https://github.com/nkootstra/tapas/pull/128))
+
 ## [0.7.46](https://github.com/nkootstra/tapas/compare/v0.7.45...v0.7.46) - 2026-09-22
 
 ### Patch changes
