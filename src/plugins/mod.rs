@@ -126,15 +126,21 @@ pub fn manage(action: Management<'_>, stdout: &mut dyn Write) -> io::Result<i32>
                     "plugin path must be absolute",
                 ));
             }
-            check_conformance(&fs::canonicalize(path)?, "check", stdout)?;
+            check_conformance(&fs::canonicalize(path)?, "check", None, stdout)?;
         }
         Management::Test { id } => {
             let id = valid_id(id)?;
             let state = read_state("plugins.json")?;
-            let path = state["plugins"][id]["path"]
+            let plugin = &state["plugins"][id];
+            let path = plugin["path"]
                 .as_str()
                 .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "plugin is not trusted"))?;
-            check_conformance(Path::new(path), id, stdout)?;
+            let expected = if plugin["pinned"] == true {
+                plugin["sha256"].as_str()
+            } else {
+                None
+            };
+            check_conformance(Path::new(path), id, expected, stdout)?;
         }
         Management::Trust {
             id,
@@ -945,7 +951,12 @@ fn read_to_end_bounded(reader: &mut impl Read, limit: usize) -> io::Result<Vec<u
     Ok(bytes)
 }
 
-fn check_conformance(path: &Path, id: &str, stdout: &mut dyn Write) -> io::Result<()> {
+fn check_conformance(
+    path: &Path,
+    id: &str,
+    expected_digest: Option<&str>,
+    stdout: &mut dyn Write,
+) -> io::Result<()> {
     #[derive(Clone, Copy)]
     enum Expected {
         Transform,
@@ -984,7 +995,12 @@ fn check_conformance(path: &Path, id: &str, stdout: &mut dyn Write) -> io::Resul
         ),
     ];
     let path = trusted_plugin_path(path)?;
-    let digest = sha256(&path)?;
+    // For a pinned plugin, snapshot the pinned bytes: `create` verifies the copy
+    // against this digest, so a changed file is rejected before it can execute.
+    let digest = match expected_digest {
+        Some(expected) => expected.to_owned(),
+        None => sha256(&path)?,
+    };
     let directory = state_dir()?;
     fs::create_dir_all(&directory)?;
     let snapshot = ExecutableSnapshot::create(&path, &digest, &directory)?;
