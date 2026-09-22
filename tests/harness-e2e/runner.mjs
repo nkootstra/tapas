@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { LLMock } from "@copilotkit/aimock";
+
+import { createRunner } from "./run.mjs";
 
 const harness = process.env.TAPAS_HARNESS;
 assert.match(harness ?? "", /^(claude|codex|opencode)$/, "set TAPAS_HARNESS");
@@ -60,6 +61,8 @@ const environment = {
   DISABLE_ERROR_REPORTING: "1",
   OPENCODE_DISABLE_AUTOUPDATE: "1",
 };
+
+const run = createRunner({ repository, environment, artifactRoot, timeoutMs });
 
 let succeeded = false;
 const mock = new LLMock({ port: 0, strict: true, journalMaxEntries: 20 });
@@ -359,47 +362,4 @@ async function saveHarnessConfiguration(phase) {
     }
     await writeFile(join(artifactRoot, `${phase}-${name}`), contents);
   }
-}
-
-async function run(command, args, options = {}) {
-  const label = options.label ?? command.split("/").at(-1);
-  const result = await new Promise((resolvePromise, rejectPromise) => {
-    const child = spawn(command, args, {
-      cwd: options.cwd ?? repository,
-      env: environment,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    const stdout = [];
-    const stderr = [];
-    const timeout = setTimeout(() => {
-      child.kill("SIGTERM");
-      setTimeout(() => child.kill("SIGKILL"), 2_000).unref();
-    }, timeoutMs);
-    child.stdout.on("data", (chunk) => stdout.push(chunk));
-    child.stderr.on("data", (chunk) => stderr.push(chunk));
-    child.on("error", (error) => {
-      clearTimeout(timeout);
-      rejectPromise(error);
-    });
-    child.on("close", (code, signal) => {
-      clearTimeout(timeout);
-      resolvePromise({
-        code,
-        signal,
-        stdout: Buffer.concat(stdout).toString("utf8"),
-        stderr: Buffer.concat(stderr).toString("utf8"),
-      });
-    });
-  });
-
-  await Promise.all([
-    writeFile(join(artifactRoot, `${label}.stdout.log`), result.stdout),
-    writeFile(join(artifactRoot, `${label}.stderr.log`), result.stderr),
-  ]);
-  assert.equal(
-    result.code,
-    0,
-    `${label} exited with ${result.code ?? result.signal}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`,
-  );
-  return result;
 }
