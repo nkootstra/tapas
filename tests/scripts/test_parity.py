@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import pathlib
 import subprocess
 import sys
@@ -14,6 +15,21 @@ import parity  # noqa: E402
 
 
 class ParityFixtureTests(unittest.TestCase):
+    def test_a_wrapper_case_does_not_claim_pipe_detector_coverage(self) -> None:
+        cases = json.loads(
+            (
+                pathlib.Path(__file__).resolve().parents[2]
+                / "tests/regression/cases.json"
+            ).read_text(encoding="utf-8")
+        )["cases"]
+        case = next(entry for entry in cases if entry["id"] == "smoke:git-add-error")
+        self.assertEqual(case["mode"], "wrapper")
+        self.assertEqual(
+            [cover for cover in case["covers"] if cover.startswith("pipe_detector:")],
+            [],
+            "a wrapper case cannot claim pipe-detector coverage",
+        )
+
     def test_missing_fixtures_are_reported_before_execution(self) -> None:
         case = {
             "stdin": {"fixture": "fixtures/input.txt"},

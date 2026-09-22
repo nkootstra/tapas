@@ -2576,30 +2576,7 @@
       "covers": [
         "claude_eligibility:git",
         "wrapper_dispatch:git",
-        "git_subcommand:add",
-        "pipe_detector:git_branch",
-        "pipe_detector:git_reflog",
-        "pipe_detector:git_show",
-        "pipe_detector:GitDiffPipe",
-        "pipe_detector:GitLogCompact",
-        "pipe_detector:git_commit",
-        "pipe_detector:git_merge",
-        "pipe_detector:git_blame",
-        "pipe_detector:cargo_test",
-        "pipe_detector:jest",
-        "pipe_detector:js_test",
-        "pipe_detector:tsc",
-        "pipe_detector:go_test",
-        "pipe_detector:pytest",
-        "pipe_detector:kubectl_compact",
-        "pipe_detector:docker_compact",
-        "pipe_detector:npm_install",
-        "pipe_detector:tree",
-        "pipe_detector:ls_compact",
-        "pipe_detector:FindCompactPipe",
-        "pipe_detector:DuCompactPipe",
-        "pipe_detector:CurlCompactPipe",
-        "pipe_detector:GenericCompactPipe"
+        "git_subcommand:add"
       ],
       "env": {
         "set": {
