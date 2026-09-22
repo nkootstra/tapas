@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.36](https://github.com/nkootstra/tapas/compare/v0.7.35...v0.7.36) - 2026-09-22
+
+### Patch changes
+
+- preserve rspec errors outside examples ([#103](https://github.com/nkootstra/tapas/pull/103))
+
 ## [0.7.35](https://github.com/nkootstra/tapas/compare/v0.7.34...v0.7.35) - 2026-09-22
 
 ### Patch changes
