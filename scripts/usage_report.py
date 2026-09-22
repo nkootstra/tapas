@@ -239,12 +239,69 @@ def _embedded_commands(value: str, *, javascript: bool = False) -> Iterator[str]
         yield from _commands_from_arguments(parsed)
         return
     if javascript:
-        for match in re.finditer(
-            r"tools\.exec_command\s*\(\s*\{[^{}]*?['\"]?(?:command|cmd)['\"]?\s*:\s*(['\"])(.*?)\1",
-            value,
-            re.DOTALL,
-        ):
-            yield match.group(2).replace(r'\"', '"').replace(r"\n", "\n")
+        yield from _javascript_commands(value)
+
+
+_JS_KEY = re.compile(r"(?:['\"]?(?:command|cmd)['\"]?)\s*:\s*", re.DOTALL)
+
+
+def _javascript_commands(value: str) -> Iterator[str]:
+    """Extract `command`/`cmd` string literals from `tools.exec_command` calls.
+
+    The literal is scanned with escape handling so an escaped quote does not end
+    it early, and escapes are decoded in one pass so a shell `\\n` stays distinct
+    from a JavaScript newline escape. A non-literal argument is skipped.
+    """
+
+    search = 0
+    needle = "tools.exec_command"
+    while True:
+        call = value.find(needle, search)
+        if call == -1:
+            return
+        search = call + len(needle)
+        brace = value.find("{", search)
+        if brace == -1:
+            return
+        match = _JS_KEY.search(value, brace + 1)
+        if match is None:
+            continue
+        if value.find("}", brace + 1, match.start()) != -1:
+            continue
+        literal = _javascript_string(value, match.end())
+        if literal is not None:
+            yield literal
+
+
+def _javascript_string(value: str, index: int) -> str | None:
+    while index < len(value) and value[index].isspace():
+        index += 1
+    if index >= len(value) or value[index] not in "'\"":
+        return None
+    quote = value[index]
+    index += 1
+    output: list[str] = []
+    while index < len(value):
+        character = value[index]
+        if character == "\\":
+            index += 1
+            if index >= len(value):
+                return None
+            escaped = value[index]
+            if escaped in {"n", "t", "r", "b", "f"}:
+                output.append({"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f"}[escaped])
+            elif escaped in {"\\", "'", '"', "/"}:
+                output.append(escaped)
+            else:
+                # Keep unsupported escapes literal rather than guessing.
+                output.append("\\" + escaped)
+            index += 1
+            continue
+        if character == quote:
+            return "".join(output)
+        output.append(character)
+        index += 1
+    return None
 
 
 def _commands_from_object(value: Any) -> Iterator[str]:

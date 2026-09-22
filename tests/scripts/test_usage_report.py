@@ -198,6 +198,35 @@ class UsageReportTests(unittest.TestCase):
 
         self.assertEqual(commands, ["git status", "cargo test"])
 
+    def test_javascript_command_extraction_handles_escaped_quotes(self) -> None:
+        cases = [
+            (
+                r'await tools.exec_command({cmd: "git log --format=\"%h\""})',
+                ['git log --format="%h"'],
+            ),
+            (
+                r"await tools.exec_command({cmd: 'echo \'hi\''})",
+                ["echo 'hi'"],
+            ),
+            (
+                r'await tools.exec_command({command: "printf \\n"})',
+                [r"printf \n"],
+            ),
+            (
+                'await tools.exec_command({cmd: "git status"});\n'
+                'await tools.exec_command({cmd: "git diff"});',
+                ["git diff", "git status"],
+            ),
+        ]
+        for line, expected in cases:
+            record = {
+                "type": "custom_tool_call",
+                "name": "functions.exec",
+                "input": line,
+            }
+            commands = list(usage_report.commands_from_json_line(json.dumps(record)))
+            self.assertEqual(commands, expected, line)
+
     def test_jsonl_extraction_preserves_repeated_tool_calls(self) -> None:
         tool_calls = [
             {
