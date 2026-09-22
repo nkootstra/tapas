@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.41](https://github.com/nkootstra/tapas/compare/v0.7.40...v0.7.41) - 2026-09-22
+
+### Patch changes
+
+- record hook ownership before progress output ([#113](https://github.com/nkootstra/tapas/pull/113))
+
 ## [0.7.40](https://github.com/nkootstra/tapas/compare/v0.7.39...v0.7.40) - 2026-09-22
 
 ### Patch changes
