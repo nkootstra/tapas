@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.44](https://github.com/nkootstra/tapas/compare/v0.7.43...v0.7.44) - 2026-09-22
+
+### Patch changes
+
+- retry a text-busy hook self-check exec ([#120](https://github.com/nkootstra/tapas/pull/120))
+
 ## [0.7.43](https://github.com/nkootstra/tapas/compare/v0.7.42...v0.7.43) - 2026-09-22
 
 ### Patch changes
