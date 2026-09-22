@@ -8,6 +8,7 @@ VERSION=""
 HEAD_SHA=""
 CLEAN_PR=0
 DRY_RUN=0
+STAGED=""
 
 usage() {
     echo "usage: install.sh [--pr NUMBER] [--version TAG] [--clean-dev-builds [--dry-run]]" >&2
@@ -93,7 +94,7 @@ sha256() {
 }
 
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/tapas-install.XXXXXX")"
-trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
+trap 'rm -rf "$TMP_DIR"; [ -z "$STAGED" ] || rm -f "$STAGED"' EXIT HUP INT TERM
 
 API="https://api.github.com/repos/$REPOSITORY"
 curl -fsSL "$API" >/dev/null
@@ -175,8 +176,12 @@ print(metadata.get("version_label", metadata["version"]))
 PY
 )"
 
-cp "$TMP_DIR/unpacked/tapas" "$INSTALL_DIR/$BINARY_NAME"
-chmod 755 "$INSTALL_DIR/$BINARY_NAME"
-echo "installed $VERSION_LABEL as $INSTALL_DIR/$BINARY_NAME"
+DESTINATION="$INSTALL_DIR/$BINARY_NAME"
+STAGED="$(mktemp "$INSTALL_DIR/.$BINARY_NAME.XXXXXX")"
+cp "$TMP_DIR/unpacked/tapas" "$STAGED"
+chmod 755 "$STAGED"
+mv -f "$STAGED" "$DESTINATION"
+STAGED=""
+echo "installed $VERSION_LABEL as $DESTINATION"
 echo "version: $BUILD_LABEL"
 echo "run: $BINARY_NAME --version"

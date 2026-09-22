@@ -82,6 +82,150 @@ class DistributionTests(unittest.TestCase):
                 self.assertEqual(result.stdout, "<--pr>\n<123>\n<argument with spaces>\n")
                 self.assertEqual(sorted(path.name for path in root.iterdir()), ["curl"])
 
+    def test_install_script_replaces_the_binary_atomically(self) -> None:
+        import hashlib
+        import platform
+        import shutil
+        import tarfile
+
+        system = platform.system()
+        machine = platform.machine()
+        if system == "Darwin" and machine in ("arm64", "aarch64"):
+            target = "aarch64-apple-darwin"
+        elif system == "Linux" and machine in ("x86_64", "amd64"):
+            target = "x86_64-unknown-linux-musl"
+        elif system == "Linux" and machine in ("arm64", "aarch64"):
+            target = "aarch64-unknown-linux-musl"
+        else:
+            self.skipTest(f"unsupported platform {system} {machine}")
+
+        new_binary = "#!/bin/sh\nprintf 'new\\n'\n"
+
+        def run_installer(
+            corrupt_checksum: bool, failing_copy: bool = False
+        ) -> tuple[subprocess.CompletedProcess[str], pathlib.Path, pathlib.Path]:
+            directory = tempfile.mkdtemp()
+            root = pathlib.Path(directory)
+            fixtures = root / "fixtures"
+            fixtures.mkdir()
+            install_dir = root / "install"
+            install_dir.mkdir()
+
+            unpacked = root / "unpacked"
+            unpacked.mkdir()
+            (unpacked / "tapas").write_text(new_binary, encoding="utf-8")
+            (unpacked / "tapas").chmod(0o755)
+            (unpacked / "BUILD-METADATA.json").write_text(
+                json.dumps(
+                    {"target": target, "version": "0.9.0", "version_label": "0.9.0"}
+                ),
+                encoding="utf-8",
+            )
+            asset = fixtures / "asset"
+            with tarfile.open(asset, "w:gz") as archive:
+                archive.add(unpacked / "tapas", arcname="tapas")
+                archive.add(
+                    unpacked / "BUILD-METADATA.json", arcname="BUILD-METADATA.json"
+                )
+            digest = hashlib.sha256(asset.read_bytes()).hexdigest()
+            if corrupt_checksum:
+                digest = "0" * 64
+
+            (fixtures / "repo").write_text("{}", encoding="utf-8")
+            (fixtures / "release").write_text("{}", encoding="utf-8")
+            (fixtures / "releases").write_text(
+                json.dumps([{"tag_name": "v0.9.0", "draft": False, "prerelease": False}]),
+                encoding="utf-8",
+            )
+            (fixtures / "sums").write_text(
+                f"{digest}  tapas-{target}.tar.gz\n", encoding="utf-8"
+            )
+
+            curl = root / "curl"
+            curl.write_text(
+                textwrap.dedent(
+                    """\
+                    #!/bin/sh
+                    url=""
+                    out=""
+                    while [ "$#" -gt 0 ]; do
+                        case "$1" in
+                            -o) out="$2"; shift 2 ;;
+                            -*) shift ;;
+                            *) url="$1"; shift ;;
+                        esac
+                    done
+                    case "$url" in
+                        *per_page=100*) content=releases ;;
+                        */releases/tags/*) content=release ;;
+                        *SHA256SUMS) content=sums ;;
+                        *tapas-*.tar.gz) content=asset ;;
+                        *) content=repo ;;
+                    esac
+                    if [ -n "$out" ]; then cat "$FIXTURES/$content" > "$out"; else cat "$FIXTURES/$content"; fi
+                    """
+                ),
+                encoding="utf-8",
+            )
+            curl.chmod(0o755)
+
+            if failing_copy:
+                # A copy that corrupts its destination and fails, modelling an
+                # interrupted replacement.
+                fake_cp = root / "cp"
+                fake_cp.write_text(
+                    "#!/bin/sh\nfor last in \"$@\"; do :; done\nprintf partial > \"$last\"\nexit 1\n",
+                    encoding="utf-8",
+                )
+                fake_cp.chmod(0o755)
+
+            (install_dir / "tapas").write_text("old-binary\n", encoding="utf-8")
+
+            environment = {
+                **os.environ,
+                "PATH": f"{root}:{os.environ['PATH']}",
+                "TMPDIR": directory,
+                "TAPAS_INSTALL_DIR": str(install_dir),
+                "FIXTURES": str(fixtures),
+            }
+            result = subprocess.run(
+                ["sh", str(ROOT / "install.sh")],
+                env=environment,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            return result, install_dir, root
+
+        result, install_dir, first_root = run_installer(corrupt_checksum=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((install_dir / "tapas").read_text(encoding="utf-8"), new_binary)
+        # Only the installed binary remains; no staging file is left behind.
+        self.assertEqual(sorted(path.name for path in install_dir.iterdir()), ["tapas"])
+
+        result, install_dir, second_root = run_installer(corrupt_checksum=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(
+            (install_dir / "tapas").read_text(encoding="utf-8"), "old-binary\n"
+        )
+        self.assertEqual(sorted(path.name for path in install_dir.iterdir()), ["tapas"])
+
+        result, install_dir, third_root = run_installer(
+            corrupt_checksum=False, failing_copy=True
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(
+            (install_dir / "tapas").read_text(encoding="utf-8"),
+            "old-binary\n",
+            "a failed copy corrupted the installed binary",
+        )
+        self.assertEqual(sorted(path.name for path in install_dir.iterdir()), ["tapas"])
+
+        shutil.rmtree(first_root)
+        shutil.rmtree(second_root)
+        shutil.rmtree(third_root)
+
     def test_install_scripts_have_valid_shell_syntax(self) -> None:
         for name in ("install.sh", "install-pr.sh"):
             result = subprocess.run(
