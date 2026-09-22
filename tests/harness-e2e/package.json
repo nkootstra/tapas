@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node runner.mjs"
+    "test": "node timeout.test.mjs && node runner.mjs"
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "2.1.222",
