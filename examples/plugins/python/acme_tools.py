@@ -35,12 +35,24 @@ compact_stdout = prefix.rstrip() + f" {count} ".encode() + unit + b"\n" + b"".jo
 )
 
 stderr_lines = stderr.splitlines(keepends=True)
-warnings = [line for line in stderr_lines if line.startswith(b"WARN ")]
-compact_stderr = b""
-if warnings:
-    compact_stderr += warnings[0].rstrip(b"\r\n")
-    compact_stderr += f" (repeated {len(warnings)} times)\n".encode()
-compact_stderr += b"".join(line for line in stderr_lines if not line.startswith(b"WARN "))
+compact_stderr = bytearray()
+index = 0
+while index < len(stderr_lines):
+    line = stderr_lines[index]
+    if line.startswith(b"WARN "):
+        end = index + 1
+        while end < len(stderr_lines) and stderr_lines[end] == line:
+            end += 1
+        if end - index > 1:
+            compact_stderr += line.rstrip(b"\r\n")
+            compact_stderr += f" (repeated {end - index} times)\n".encode()
+        else:
+            compact_stderr += line
+        index = end
+    else:
+        compact_stderr += line
+        index += 1
+compact_stderr = bytes(compact_stderr)
 
 response = {
     "version": 1,
