@@ -94,7 +94,10 @@ pub enum Dispatch {
     Original,
 }
 
-const HELLO_DEADLINE: Duration = Duration::from_secs(2);
+// A cold start (for example a Node-based plugin) can exceed two seconds on a
+// loaded runner, which would time out the handshake and silently fall back to
+// raw output. Allow more time while keeping a separate handshake bound.
+const HELLO_DEADLINE: Duration = Duration::from_secs(5);
 const TOTAL_DEADLINE: Duration = Duration::from_secs(10);
 const DIAGNOSTIC_LIMIT: usize = 64 * 1024;
 const HELLO_LIMIT: usize = 4 * 1024;
