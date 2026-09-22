@@ -132,10 +132,8 @@ class DistributionTests(unittest.TestCase):
                 digest = "0" * 64
 
             (fixtures / "repo").write_text("{}", encoding="utf-8")
-            (fixtures / "release").write_text("{}", encoding="utf-8")
-            (fixtures / "releases").write_text(
-                json.dumps([{"tag_name": "v0.9.0", "draft": False, "prerelease": False}]),
-                encoding="utf-8",
+            (fixtures / "release").write_text(
+                json.dumps({"tag_name": "v0.9.0"}), encoding="utf-8"
             )
             (fixtures / "sums").write_text(
                 f"{digest}  tapas-{target}.tar.gz\n", encoding="utf-8"
@@ -156,7 +154,8 @@ class DistributionTests(unittest.TestCase):
                         esac
                     done
                     case "$url" in
-                        *per_page=100*) content=releases ;;
+                        */releases/latest*) content=release ;;
+                        *per_page=100*) content=release ;;
                         */releases/tags/*) content=release ;;
                         *SHA256SUMS) content=sums ;;
                         *tapas-*.tar.gz) content=asset ;;
@@ -225,6 +224,55 @@ class DistributionTests(unittest.TestCase):
         shutil.rmtree(first_root)
         shutil.rmtree(second_root)
         shutil.rmtree(third_root)
+
+    def test_install_script_requests_the_stable_release_endpoint(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            log = root / "curl.log"
+            stable = root / "stable.json"
+            stable.write_text(json.dumps({"tag_name": "v0.9.0"}), encoding="utf-8")
+            curl = root / "curl"
+            curl.write_text(
+                textwrap.dedent(
+                    f"""\
+                    #!/bin/sh
+                    url=""
+                    out=""
+                    while [ "$#" -gt 0 ]; do
+                        case "$1" in
+                            -o) out="$2"; shift 2 ;;
+                            -*) shift ;;
+                            *) url="$1"; shift ;;
+                        esac
+                    done
+                    printf '%s\\n' "$url" >> {log}
+                    case "$url" in
+                        */releases/latest*) [ -z "$out" ] || cat {stable} > "$out" ;;
+                    esac
+                    exit 0
+                    """
+                ),
+                encoding="utf-8",
+            )
+            curl.chmod(0o755)
+
+            subprocess.run(
+                ["sh", str(ROOT / "install.sh")],
+                env={
+                    **os.environ,
+                    "PATH": f"{root}:{os.environ['PATH']}",
+                    "TMPDIR": directory,
+                    "TAPAS_INSTALL_DIR": str(root / "install"),
+                },
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            requested = log.read_text(encoding="utf-8")
+            self.assertIn("/releases/latest", requested)
+            self.assertNotIn("per_page=100", requested)
 
     def test_install_scripts_have_valid_shell_syntax(self) -> None:
         for name in ("install.sh", "install-pr.sh"):
