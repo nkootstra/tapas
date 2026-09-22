@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.35](https://github.com/nkootstra/tapas/compare/v0.7.34...v0.7.35) - 2026-09-22
+
+### Patch changes
+
+- compact every python body in cat output ([#101](https://github.com/nkootstra/tapas/pull/101))
+
 ## [0.7.34](https://github.com/nkootstra/tapas/compare/v0.7.33...v0.7.34) - 2026-09-22
 
 ### Patch changes
