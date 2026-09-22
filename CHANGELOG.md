@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.34](https://github.com/nkootstra/tapas/compare/v0.7.33...v0.7.34) - 2026-09-22
+
+### Patch changes
+
+- stop inflating generic repeat counts ([#99](https://github.com/nkootstra/tapas/pull/99))
+
 ## [0.7.33](https://github.com/nkootstra/tapas/compare/v0.7.32...v0.7.33) - 2026-09-21
 
 ### Patch changes
