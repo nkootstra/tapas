@@ -123,21 +123,17 @@ else
         RELEASE_JSON="$TMP_DIR/release.json"
         curl -fsSL "$API/releases/tags/$RELEASE_TAG" -o "$RELEASE_JSON"
     else
-        RELEASE_JSON="$TMP_DIR/releases.json"
-        curl -fsSL "$API/releases?per_page=100" -o "$RELEASE_JSON"
+        RELEASE_JSON="$TMP_DIR/release.json"
+        curl -fsSL "$API/releases/latest" -o "$RELEASE_JSON"
         RELEASE_TAG="$(python3 - "$RELEASE_JSON" <<'PY'
 import json, sys
 with open(sys.argv[1], encoding="utf-8") as handle:
-    releases = json.load(handle)
-for release in releases:
-    if not release.get("draft") and not release.get("prerelease"):
-        print(release["tag_name"])
-        break
-else:
+    release = json.load(handle)
+if release.get("draft") or release.get("prerelease"):
     raise SystemExit("no stable release found")
+print(release["tag_name"])
 PY
 )"
-        curl -fsSL "$API/releases/tags/$RELEASE_TAG" -o "$TMP_DIR/release.json"
     fi
     VERSION_LABEL="$RELEASE_TAG"
     BINARY_NAME="tapas"
