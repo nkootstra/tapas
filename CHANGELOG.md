@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.48](https://github.com/nkootstra/tapas/compare/v0.7.47...v0.7.48) - 2026-09-22
+
+### Patch changes
+
+- serialize setup writes and recheck before replacing ([#127](https://github.com/nkootstra/tapas/pull/127))
+
 ## [0.7.47](https://github.com/nkootstra/tapas/compare/v0.7.46...v0.7.47) - 2026-09-22
 
 ### Patch changes
