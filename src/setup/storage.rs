@@ -140,10 +140,103 @@ pub(super) fn write_atomic(path: &Path, content: &[u8], mode: u32) -> io::Result
     }
     result
 }
+/// Serializes Tapas setup writers for one target with an exclusive lock file.
+///
+/// An external editor does not take this lock, so a narrow race remains; the
+/// pre-write recheck in [`ensure_unchanged`] turns that race into a refusal.
+pub(super) struct SetupLock {
+    file: File,
+}
+
+impl SetupLock {
+    pub(super) fn acquire(ownership_path: &Path) -> io::Result<Self> {
+        Self::lock(ownership_path, false)?
+            .ok_or_else(|| io::Error::new(io::ErrorKind::WouldBlock, "another setup is running"))
+    }
+
+    fn lock(ownership_path: &Path, nonblocking: bool) -> io::Result<Option<Self>> {
+        let path = ownership_path.with_extension("lock");
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&path)?;
+        let operation = libc::LOCK_EX | if nonblocking { libc::LOCK_NB } else { 0 };
+        loop {
+            // SAFETY: `file` owns a valid descriptor for the lock file.
+            if unsafe { libc::flock(file.as_raw_fd(), operation) } == 0 {
+                return Ok(Some(Self { file }));
+            }
+            let error = io::Error::last_os_error();
+            if error.kind() == io::ErrorKind::Interrupted {
+                continue;
+            }
+            if nonblocking && error.kind() == io::ErrorKind::WouldBlock {
+                return Ok(None);
+            }
+            return Err(error);
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn try_acquire(ownership_path: &Path) -> io::Result<Option<Self>> {
+        Self::lock(ownership_path, true)
+    }
+}
+
+impl Drop for SetupLock {
+    fn drop(&mut self) {
+        // SAFETY: `self.file` owns a valid descriptor for the lock file.
+        let _ = unsafe { libc::flock(self.file.as_raw_fd(), libc::LOCK_UN) };
+    }
+}
+
+/// Fails when a managed file changed since it was read, so a concurrent edit is
+/// not silently overwritten.
+pub(super) fn ensure_unchanged(path: &Path, expected: Option<&[u8]>, limit: u64) -> io::Result<()> {
+    if read_optional(path, limit)?.as_deref() == expected {
+        return Ok(());
+    }
+    Err(io::Error::new(
+        io::ErrorKind::InvalidData,
+        "configuration changed during setup; rerun",
+    ))
+}
+
 use super::TEMP_SEQUENCE;
 use std::ffi::{OsStr, OsString};
 use std::fs::{self, File, OpenOptions, Permissions};
 use std::io::{self, Read, Write};
+use std::os::fd::AsRawFd;
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
+
+#[cfg(test)]
+mod tests {
+    use super::ensure_unchanged;
+    use std::fs;
+
+    #[test]
+    fn unchanged_detects_a_concurrent_edit() {
+        let directory = std::env::temp_dir().join(format!(
+            "tapas-ensure-unchanged-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&directory);
+        fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("settings.json");
+        fs::write(&path, b"{}\n").unwrap();
+
+        assert!(ensure_unchanged(&path, Some(b"{}\n"), 1024).is_ok());
+
+        fs::write(&path, b"{\"edited\":true}\n").unwrap();
+        assert!(ensure_unchanged(&path, Some(b"{}\n"), 1024).is_err());
+
+        fs::remove_dir_all(directory).unwrap();
+    }
+}

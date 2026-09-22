@@ -12,8 +12,8 @@ use super::ownership::{
     prepare_record_parent, read_ownership, record_bytes, write_hook_ownership,
 };
 use super::storage::{
-    existing_mode, read_optional, reject_symlink, restore_optional, write_atomic,
-    write_unique_backup,
+    SetupLock, ensure_unchanged, existing_mode, read_optional, reject_symlink, restore_optional,
+    write_atomic, write_unique_backup,
 };
 use super::transaction::Transaction;
 use super::{Action, MAX_CONFIG_BYTES, SetupLocation, Target, lossless};
@@ -26,6 +26,11 @@ pub(super) fn configure(
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> io::Result<i32> {
+    let _lock = if dry_run {
+        None
+    } else {
+        Some(SetupLock::acquire(&location.ownership_path)?)
+    };
     match action {
         Action::Setup => {
             let hook_command = hook_command(executable.as_os_str(), location.target);
@@ -262,6 +267,7 @@ fn setup(
         if dry_run {
             writeln!(stdout, "[dry-run] would update {}", config_path.display())?;
         } else {
+            ensure_unchanged(config_path, existing.as_deref(), MAX_CONFIG_BYTES)?;
             if let Err(error) =
                 write_atomic(config_path, &rendered, existing_mode(config_path, 0o600))
             {
@@ -572,6 +578,7 @@ fn unsetup_with_remove(
     }
 
     let original_mode = existing_mode(config_path, 0o600);
+    ensure_unchanged(config_path, Some(existing.as_slice()), MAX_CONFIG_BYTES)?;
     let unsetup_backup = write_unique_backup(config_path, Some(&existing))?;
     let config_result = if remove_config {
         fs::remove_file(config_path)
@@ -611,7 +618,7 @@ mod tests {
     use std::path::Path;
     use std::sync::atomic::Ordering;
 
-    use super::{configure, unsetup_with_remove, warn_on_replacement};
+    use super::{SetupLock, configure, unsetup_with_remove, warn_on_replacement};
     use crate::setup::hooks::hook_entry;
     use crate::setup::ownership::write_ownership;
     use crate::setup::{Action, SetupLocation, TEMP_SEQUENCE, Target};
@@ -888,6 +895,26 @@ mod tests {
                     .windows(b"--hook-eval".len())
                     .any(|part| part == b"--hook-eval")
         );
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn setup_lock_excludes_a_second_writer() {
+        let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let home = std::env::temp_dir().join(format!(
+            "tapas-setup-lock-test-{}-{sequence}",
+            std::process::id()
+        ));
+        let ownership_path = home.join(".tapas/setup/claude.owned");
+        fs::create_dir_all(ownership_path.parent().unwrap()).unwrap();
+
+        let first = SetupLock::acquire(&ownership_path).unwrap();
+        assert!(
+            SetupLock::try_acquire(&ownership_path).unwrap().is_none(),
+            "a second writer acquired the lock"
+        );
+        drop(first);
+        assert!(SetupLock::try_acquire(&ownership_path).unwrap().is_some());
         fs::remove_dir_all(home).unwrap();
     }
 }
