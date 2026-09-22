@@ -1403,3 +1403,66 @@ fn read_first_line(
     });
     receiver.recv_timeout(timeout).ok()
 }
+
+#[test]
+fn output_errors_reap_the_owned_process_group() {
+    let directory = common::unique_temp_dir(&std::env::temp_dir(), "tapas-reap-test");
+    let pid_file = directory.join("sleeper.pid");
+    let script = directory.join("spawner");
+    std::fs::write(
+        &script,
+        format!(
+            "#!/bin/sh\nsleep 15 &\necho $! > '{}'\nprintf 'output\\n'\n",
+            pid_file.display()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    struct BrokenPipeWriter;
+    impl Write for BrokenPipeWriter {
+        fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "broken pipe",
+            ))
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    let args = [script.as_os_str().to_owned()];
+    let result = run(
+        &args,
+        &mut BrokenPipeWriter,
+        &mut Vec::new(),
+        RunOptions {
+            raw: true,
+            explain: false,
+        },
+    );
+    assert!(
+        result.is_err(),
+        "the failing writer should surface an error"
+    );
+
+    let sleeper = std::fs::read_to_string(&pid_file)
+        .expect("the descendant PID")
+        .trim()
+        .parse::<libc::pid_t>()
+        .unwrap();
+    let gone = (0..150).any(|_| {
+        let alive = unsafe { libc::kill(sleeper, 0) } == 0;
+        if alive {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        !alive
+    });
+    if !gone {
+        unsafe { libc::kill(sleeper, libc::SIGKILL) };
+    }
+    assert!(gone, "the descendant survived the output error");
+
+    std::fs::remove_dir_all(directory).unwrap();
+}

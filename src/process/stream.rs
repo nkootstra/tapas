@@ -140,8 +140,7 @@ pub(super) fn run(
         })
     })();
     if result.is_err() {
-        let _ = child.kill();
-        let _ = child.wait();
+        unix::kill_process_group_and_reap(&mut child);
     }
     result
 }
