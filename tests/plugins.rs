@@ -404,6 +404,41 @@ fn pinned_plugin_with_changed_bytes_falls_back_to_raw_output() {
 }
 
 #[test]
+fn named_plugin_test_rejects_changed_pinned_bytes_before_execution() {
+    let directory = temp_dir();
+    let home = directory.join("home");
+    std::fs::create_dir(&home).unwrap();
+    let plugin = directory.join("demo");
+    executable(&plugin, b"#!/bin/sh\nexit 0\n");
+    let marker = directory.join("marker");
+    let plugin_path = plugin.to_str().unwrap();
+
+    assert!(
+        tapas(
+            &home,
+            &["--plugin", "trust", "demo", "--pin", "--", plugin_path]
+        )
+        .status
+        .success()
+    );
+
+    // Replace the pinned plugin with code that would leave a marker if run.
+    executable(
+        &plugin,
+        format!("#!/bin/sh\nprintf ran > '{}'\nexit 0\n", marker.display()).as_bytes(),
+    );
+
+    let output = tapas(&home, &["--plugin", "test", "demo"]);
+    assert!(
+        !output.status.success(),
+        "the changed pinned plugin should be rejected"
+    );
+    assert!(!marker.exists(), "the replacement code ran");
+
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
 fn project_binding_is_inactive_until_its_exact_config_is_approved() {
     let directory = temp_dir();
     let home = directory.join("home");
