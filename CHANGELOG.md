@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.37](https://github.com/nkootstra/tapas/compare/v0.7.36...v0.7.37) - 2026-09-22
+
+### Patch changes
+
+- bound json nesting depth ([#105](https://github.com/nkootstra/tapas/pull/105))
+
 ## [0.7.36](https://github.com/nkootstra/tapas/compare/v0.7.35...v0.7.36) - 2026-09-22
 
 ### Patch changes
