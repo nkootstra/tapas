@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.45](https://github.com/nkootstra/tapas/compare/v0.7.44...v0.7.45) - 2026-09-22
+
+### Patch changes
+
+- keep heredoc bodies out of the usage report ([#119](https://github.com/nkootstra/tapas/pull/119))
+
 ## [0.7.44](https://github.com/nkootstra/tapas/compare/v0.7.43...v0.7.44) - 2026-09-22
 
 ### Patch changes
