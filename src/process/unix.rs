@@ -216,6 +216,19 @@ pub(crate) fn spawn_with_text_busy_retry(command: &mut Command) -> io::Result<Ch
     unreachable!("the bounded spawn loop always returns")
 }
 
+/// Kills the child's process group and reaps the direct child.
+///
+/// Used on output/drain errors so descendants that inherited the pipes do not
+/// survive after Tapas returns an error. The child leads its own group (set at
+/// spawn), so a negative PID targets only that group, never the caller's.
+pub fn kill_process_group_and_reap(child: &mut Child) {
+    if let Ok(pid) = libc::pid_t::try_from(child.id()) {
+        // SAFETY: negative pid targets the child's dedicated process group.
+        let _ = unsafe { libc::kill(-pid, libc::SIGKILL) };
+    }
+    let _ = child.wait();
+}
+
 pub fn wait_for_child(child: &mut Child, forwarder: &SignalForwarder) -> io::Result<ExitStatus> {
     loop {
         forwarder.forward_pending()?;

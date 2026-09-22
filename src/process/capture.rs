@@ -70,8 +70,7 @@ pub fn run_captured(
     let (mut child, forwarder) = unix::spawn_process_group(&mut command)?;
     let result = drain_child(&mut child, &forwarder, mode, raw_stdout, raw_stderr);
     if result.is_err() {
-        let _ = child.kill();
-        let _ = child.wait();
+        unix::kill_process_group_and_reap(&mut child);
     }
     result
 }
