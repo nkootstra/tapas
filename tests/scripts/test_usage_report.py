@@ -50,6 +50,41 @@ class UsageReportTests(unittest.TestCase):
             [("git", ["status"]), ("cargo", ["test"])],
         )
 
+    def test_heredoc_bodies_are_not_read_as_commands(self) -> None:
+        payload = "SYNTHETIC_SECRET_DO_NOT_USE"
+        commands = [
+            f"cat <<EOF\n{payload}\nEOF",
+            f"cat <<'EOF'\n{payload}\nEOF",
+            f'cat <<"EOF"\n{payload}\nEOF',
+            f"cat <<-EOF\n\t{payload}\n\tEOF",
+            f"cat <<EOF\n{payload}\nEOF\nls",
+        ]
+        for command in commands:
+            self.assertIsNone(usage_report.normalize_invocation(command), command)
+
+        # A here-string has no body and is still read.
+        self.assertIsNotNone(usage_report.normalize_invocation('cat <<< "text"'))
+
+        rows = usage_report.normalize_rows(
+            [("opencode", commands[0]), ("opencode", "git status")]
+        )
+        report = usage_report.build_report(
+            rows,
+            usage_report.parse_catalog(
+                """
+                pub const AUTO_WRAP_COMMANDS: &[&str] = &["git"];
+                pub const WRAPPER_COMMANDS: &[&str] = &["git"];
+                pub const GIT_SUBCOMMANDS: &[&str] = &["status"];
+                pub const TRANSPARENT_RUNNERS: &[&str] = &[];
+                pub const COMPACT_ROUTES: &[&str] = &[];
+                """
+            ),
+        )
+        rendered = json.dumps(report)
+        self.assertNotIn(payload, rendered)
+        self.assertNotIn("EOF", rendered)
+        self.assertEqual(report["total_invocations"], 1)
+
     def test_collectors_read_opencode_and_jsonl_tool_calls(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)

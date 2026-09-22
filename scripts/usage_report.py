@@ -111,6 +111,15 @@ def _split_shell_commands(command: str) -> list[str] | None:
             index += 1
             continue
 
+        if (
+            command.startswith("<<", index)
+            and not command.startswith("<<<", index)
+            and command[index - 1 : index] != "<"
+        ):
+            # A heredoc body is not shell syntax this splitter models. Skip the
+            # whole invocation so payload text never reaches the report.
+            return None
+
         operator = next(
             (
                 candidate
