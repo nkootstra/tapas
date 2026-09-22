@@ -649,6 +649,31 @@ fn rspec_progress_and_documentation_preserve_failures_and_summaries() {
 }
 
 #[test]
+fn rspec_errors_outside_examples_are_preserved() {
+    let stderr = concat!(
+        "An error occurred while loading ./spec/example_spec.rb.\n",
+        "Failure/Error: require \"missing_dependency\"\n",
+        "LoadError:\n",
+        "  cannot load such file -- missing_dependency\n",
+        "# ./spec/example_spec.rb:1\n",
+        "Finished in 0.0001 seconds (files took 0.1 seconds to load)\n",
+        "0 examples, 0 failures, 1 error occurred outside of examples\n",
+    );
+
+    let output =
+        test_tools::dispatch_streams_argv(&[b"rspec"], b"", stderr.as_bytes(), 1, false).unwrap();
+
+    assert_eq!(
+        output,
+        StreamFilterOutput::new(
+            Vec::new(),
+            stderr.as_bytes().to_vec(),
+            EvidenceClass::ByteExact
+        )
+    );
+}
+
+#[test]
 fn dotnet_test_compacts_recognized_diagnostics_and_summary_on_either_stream() {
     let failure = fixture("dotnet_test_failed.txt");
     let expected_start = failure

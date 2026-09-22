@@ -44,9 +44,19 @@ pub(super) fn compact(input: &[u8]) -> Option<Vec<u8>> {
     let summary = input[finished..]
         .split(|byte| *byte == b'\n')
         .find(|line| rspec_summary(line))?;
-    let _ = summary;
-    let start = line_start(input, b"Failures:").unwrap_or(finished);
-    Some(input[start..].to_vec())
+    if let Some(failures) = line_start(input, b"Failures:") {
+        return Some(input[failures..].to_vec());
+    }
+    // Without a per-example failure block, only a clean summary proves the
+    // preamble is safe to drop. A load error or a before-suite error must be
+    // preserved whole.
+    summary_reports_success(summary).then(|| input[finished..].to_vec())
+}
+
+fn summary_reports_success(line: &[u8]) -> bool {
+    find_subslice(line, b" 0 failures").is_some()
+        && find_subslice(line, b"error").is_none()
+        && find_subslice(line, b"Failure").is_none()
 }
 
 fn line_start(input: &[u8], prefix: &[u8]) -> Option<usize> {
