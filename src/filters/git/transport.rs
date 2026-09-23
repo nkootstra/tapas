@@ -78,17 +78,29 @@ pub(super) fn apply_pull(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
     let mut fast_forward = false;
     let mut merge_commit = false;
     let mut summary = None;
+    let mut rows: Vec<Vec<u8>> = Vec::new();
     for line in stdout.split(|byte| *byte == b'\n') {
-        if let Some(range) = line.strip_prefix(b"Updating ") {
+        let trimmed = line.trim_ascii();
+        if let Some(range) = trimmed.strip_prefix(b"Updating ") {
             updating_range = Some(range);
-        } else if line == b"Fast-forward" || line.starts_with(b"Fast forward") {
+        } else if trimmed == b"Fast-forward" || trimmed.starts_with(b"Fast forward") {
             fast_forward = true;
-        } else if line.starts_with(b"Merge made by") {
+        } else if trimmed.starts_with(b"Merge made by") {
             merge_commit = true;
-        } else if find_subslice(line, b" file").is_some()
-            && find_subslice(line, b" changed").is_some()
+        } else if find_subslice(trimmed, b" file").is_some()
+            && find_subslice(trimmed, b" changed").is_some()
         {
-            summary = Some(line);
+            summary = Some(trimmed);
+        } else if find_subslice(trimmed, b" | ").is_some()
+            || trimmed.starts_with(b"create mode ")
+            || trimmed.starts_with(b"delete mode ")
+            || trimmed.starts_with(b"rename ")
+            || trimmed.starts_with(b"copy ")
+            || trimmed.starts_with(b"mode change ")
+        {
+            // Keep per-file rows so the changed paths survive; the count
+            // summary alone does not identify them.
+            rows.push(trimmed.to_vec());
         }
     }
     if fast_forward {
@@ -106,8 +118,12 @@ pub(super) fn apply_pull(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
         }
         output.push(b'\n');
     }
+    for row in rows {
+        output.extend_from_slice(&row);
+        output.push(b'\n');
+    }
     if let Some(summary) = summary {
-        write_summary(&mut output, summary.trim_ascii_start());
+        write_summary(&mut output, summary);
     }
     output
 }
