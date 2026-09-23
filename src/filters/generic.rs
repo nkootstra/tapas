@@ -27,46 +27,51 @@ pub fn matches(input: &[u8]) -> bool {
 }
 
 pub(crate) fn apply_matched(input: &[u8]) -> Result<FilterOutput, FilterError> {
-    let mut cleaned = Vec::<Vec<u8>>::new();
+    // Store cleaned lines in one buffer with offsets instead of one Vec per
+    // line: a newline-heavy input would otherwise allocate a descriptor per
+    // (often empty) line. The trailing offset marks the end of the last line.
+    let mut lines = Vec::new();
+    let mut offsets = Vec::new();
+    let mut start = 0;
     for raw in input.split(|byte| *byte == b'\n') {
-        let line = collapse_whitespace(trim_end(&strip_ansi(raw)));
-        cleaned.push(line);
+        lines.extend_from_slice(&collapse_whitespace(trim_end(&strip_ansi(raw))));
+        offsets.push(start);
+        start = lines.len();
     }
+    offsets.push(start);
+    let line = |index: usize| &lines[offsets[index]..offsets[index + 1]];
+    let line_count = offsets.len() - 1;
 
     let mut frequencies: HashMap<&[u8], usize> = HashMap::new();
-    for line in &cleaned {
-        if !line.is_empty() {
-            *frequencies.entry(line).or_default() += 1;
+    for index in 0..line_count {
+        let body = line(index);
+        if !body.is_empty() {
+            *frequencies.entry(body).or_default() += 1;
         }
     }
 
     let mut emitted = HashSet::<&[u8]>::new();
-    let capacity = cleaned
-        .iter()
-        .map(|line| line.len().saturating_add(1))
-        .sum::<usize>()
-        .min(input.len());
-    let mut output = Vec::with_capacity(capacity);
+    let mut output = Vec::with_capacity(lines.len().min(input.len()));
     let mut pending_blank = false;
     let mut index = 0;
-    while index < cleaned.len() {
-        if cleaned[index].is_empty() {
+    while index < line_count {
+        if line(index).is_empty() {
             pending_blank = true;
             index += 1;
             continue;
         }
         let mut end = index + 1;
-        while end < cleaned.len() && cleaned[end] == cleaned[index] {
+        while end < line_count && line(end) == line(index) {
             end += 1;
         }
-        let line = cleaned[index].as_slice();
+        let body = line(index);
         let run = end - index;
-        let global = frequencies[line];
+        let global = frequencies[body];
         // A line seen three or more times across the stream is emitted once with
         // its global count. A rarer line keeps every occurrence, collapsing a
         // consecutive run to its own count, so no count is ever inflated.
         let count = if global >= 3 {
-            if !emitted.insert(line) {
+            if !emitted.insert(body) {
                 pending_blank = false;
                 index = end;
                 continue;
@@ -78,7 +83,7 @@ pub(crate) fn apply_matched(input: &[u8]) -> Result<FilterOutput, FilterError> {
         if pending_blank && !output.is_empty() {
             output.push(b'\n');
         }
-        append_output_line(&mut output, line, count);
+        append_output_line(&mut output, body, count);
         pending_blank = false;
         index = end;
     }
