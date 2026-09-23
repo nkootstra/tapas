@@ -9,7 +9,7 @@ import { LLMock } from "@copilotkit/aimock";
 import { createRunner } from "./run.mjs";
 
 const harness = process.env.TAPAS_HARNESS;
-assert.match(harness ?? "", /^(claude|codex|opencode)$/, "set TAPAS_HARNESS");
+assert.match(harness ?? "", /^(claude|codex|opencode|opencode2)$/, "set TAPAS_HARNESS");
 
 const testRoot = dirname(fileURLToPath(import.meta.url));
 const repository = resolve(testRoot, "../..");
@@ -77,7 +77,7 @@ try {
   configureFixtures();
   await adapter.configure();
 
-  await runTapas("--setup", harness);
+  await runTapas("--setup", adapter.setupTarget ?? harness);
   await saveHarnessConfiguration("configured");
   const configured = await runHarness("configured");
   assert.match(configured.stdout, new RegExp(sentinel));
@@ -88,7 +88,7 @@ try {
     phase: "configured",
   });
 
-  await runTapas("--unsetup", harness);
+  await runTapas("--unsetup", adapter.setupTarget ?? harness);
   await saveHarnessConfiguration("unconfigured");
   mock.clearRequests();
   mock.resetMatchCounts();
@@ -180,6 +180,8 @@ function createHarnessAdapter(name) {
       return createCodexAdapter();
     case "opencode":
       return createOpenCodeAdapter();
+    case "opencode2":
+      return createOpenCodeV2Adapter();
     default:
       throw new Error(`unsupported harness: ${name}`);
   }
@@ -296,6 +298,37 @@ function createOpenCodeAdapter() {
       "aimock/tapas-ci",
       "--dir",
       workspace,
+      prompt,
+    ],
+    artifactPaths: () => [
+      [join(xdgConfigHome, "opencode/plugins/tapas.js"), "tapas.js"],
+      [join(xdgConfigHome, "opencode/opencode.json"), "opencode.json"],
+    ],
+  };
+}
+
+// OpenCode V2 beta. It installs as a separate `opencode2` binary and loads the
+// generated plugin's V2 default export. The beta API may change; this adapter
+// follows the current contract and is gated to keep it non-blocking.
+function createOpenCodeV2Adapter() {
+  const base = createOpenCodeAdapter();
+  return {
+    ...base,
+    binary: join(binaries, "opencode2"),
+    // V2 names the shell tool `shell`, not `bash`.
+    shellToolNames: ["shell"],
+    // Tapas installs one OpenCode plugin for both V1 and V2.
+    setupTarget: "opencode",
+    invocation: () => [
+      "run",
+      "--standalone",
+      "--format",
+      "json",
+      "--auto",
+      "--title",
+      "tapas-harness-e2e",
+      "--model",
+      "aimock/tapas-ci",
       prompt,
     ],
     artifactPaths: () => [
