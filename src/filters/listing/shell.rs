@@ -65,21 +65,30 @@ pub(super) fn env_is_listing(argv: &[&[u8]]) -> bool {
 
 pub(super) fn apply_env(stdout: &[u8], stderr: &[u8]) -> Vec<u8> {
     let mut output = Vec::with_capacity(stdout.len() + stderr.len());
+    let mut in_sensitive_value = false;
     for raw in stdout.split(|byte| *byte == b'\n') {
         if raw.is_empty() {
             continue;
         }
         let line = raw.strip_suffix(b"\r").unwrap_or(raw);
         let Some(separator) = line.iter().position(|byte| *byte == b'=') else {
-            output.extend_from_slice(line);
-            output.push(b'\n');
+            // A line without `=` after a sensitive key can only be part of its
+            // value, so redact it rather than leak a multiline secret.
+            if in_sensitive_value {
+                output.extend_from_slice(b"****");
+                output.push(b'\n');
+            } else {
+                output.extend_from_slice(line);
+                output.push(b'\n');
+            }
             continue;
         };
         let key = &line[..separator];
         let value = &line[separator + 1..];
+        in_sensitive_value = env_sensitive_key(key);
         output.extend_from_slice(key);
         output.push(b'=');
-        if env_sensitive_key(key) {
+        if in_sensitive_value {
             if value.len() <= 4 {
                 output.extend_from_slice(b"****");
             } else {

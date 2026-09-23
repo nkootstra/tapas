@@ -513,6 +513,44 @@ fn env_dispatch_masks_secrets_and_only_filters_listing_forms() {
 }
 
 #[test]
+fn env_masks_multiline_secret_values() {
+    let stdout = concat!(
+        "PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\n",
+        "SYNTHETIC_SECRET_BODY\n",
+        "-----END PRIVATE KEY-----\n",
+        "NORMAL=visible\n",
+    );
+
+    let output =
+        listing::dispatch_streams_argv(&[b"env"], stdout.as_bytes(), b"", 0, false).unwrap();
+
+    assert!(
+        !output
+            .stdout
+            .windows(b"SYNTHETIC_SECRET_BODY".len())
+            .any(|window| window == b"SYNTHETIC_SECRET_BODY"),
+        "{:?}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    assert!(
+        !output
+            .stdout
+            .windows(b"END PRIVATE KEY".len())
+            .any(|window| window == b"END PRIVATE KEY"),
+        "{:?}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    assert!(
+        output
+            .stdout
+            .windows(b"NORMAL=visible".len())
+            .any(|window| window == b"NORMAL=visible"),
+        "{:?}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+}
+
+#[test]
 fn lossless_exact_modes_unknown_shapes_and_parser_failures_are_byte_exact() {
     type BypassCase<'a> = (&'a [&'a [u8]], &'a [u8], bool);
 
