@@ -98,6 +98,8 @@ pub fn run(reader: &mut dyn Read, writer: &mut dyn Write) -> io::Result<()> {
         if retained.len() + read >= MAX_PIPE_INPUT_BYTES {
             writer.write_all(&retained)?;
             writer.write_all(&chunk[..read])?;
+            // Release the retained input before streaming the remainder.
+            drop(retained);
             io::copy(reader, writer)?;
             return Ok(());
         }

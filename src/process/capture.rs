@@ -235,8 +235,9 @@ impl<'a> DrainState<'a> {
             self.mode = DrainMode::Overflowed;
             self.raw_stdout.write_all(&self.stdout)?;
             self.raw_stderr.write_all(&self.stderr)?;
-            self.stdout.clear();
-            self.stderr.clear();
+            // Release the drained capacity; the buffers are no longer used.
+            self.stdout = Vec::new();
+            self.stderr = Vec::new();
         }
         Ok(())
     }
