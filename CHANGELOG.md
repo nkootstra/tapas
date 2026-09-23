@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.51](https://github.com/nkootstra/tapas/compare/v0.7.50...v0.7.51) - 2026-09-23
+
+### Patch changes
+
+- release capture buffers after switching to passthrough ([#136](https://github.com/nkootstra/tapas/pull/136))
+
 ## [0.7.50](https://github.com/nkootstra/tapas/compare/v0.7.49...v0.7.50) - 2026-09-23
 
 ### Patch changes
