@@ -77,7 +77,7 @@ try {
   configureFixtures();
   await adapter.configure();
 
-  await runTapas("--setup", harness);
+  await runTapas("--setup", adapter.setupTarget ?? harness);
   await saveHarnessConfiguration("configured");
   const configured = await runHarness("configured");
   assert.match(configured.stdout, new RegExp(sentinel));
@@ -88,7 +88,7 @@ try {
     phase: "configured",
   });
 
-  await runTapas("--unsetup", harness);
+  await runTapas("--unsetup", adapter.setupTarget ?? harness);
   await saveHarnessConfiguration("unconfigured");
   mock.clearRequests();
   mock.resetMatchCounts();
@@ -315,6 +315,8 @@ function createOpenCodeV2Adapter() {
   return {
     ...base,
     binary: join(binaries, "opencode2"),
+    // Tapas installs one OpenCode plugin for both V1 and V2.
+    setupTarget: "opencode",
     invocation: () => [
       "--standalone",
       "run",
