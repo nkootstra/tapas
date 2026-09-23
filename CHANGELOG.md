@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.49](https://github.com/nkootstra/tapas/compare/v0.7.48...v0.7.49) - 2026-09-23
+
+### Patch changes
+
+- redact multiline env secret values ([#131](https://github.com/nkootstra/tapas/pull/131))
+
 ## [0.7.48](https://github.com/nkootstra/tapas/compare/v0.7.47...v0.7.48) - 2026-09-22
 
 ### Patch changes
