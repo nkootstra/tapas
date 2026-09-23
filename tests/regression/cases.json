@@ -5125,7 +5125,13 @@
         },
         "stdout": {
           "byte_exact": false,
-          "facts": []
+          "facts": [
+            "test_login_flow",
+            "test_rate_limit",
+            "FAILED tests/test_api.py",
+            "assert 401 == 200",
+            "2 failed, 6 passed"
+          ]
         },
         "termination": {
           "exit_code": 1,

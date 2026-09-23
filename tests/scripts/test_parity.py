@@ -185,6 +185,58 @@ class ParityBaselineComparisonTests(unittest.TestCase):
             self.assertIn("baseline comparison: 1", proc.stdout)
             self.assertIn("all characterization cases passed", proc.stdout)
 
+    def test_an_empty_output_candidate_fails_a_case_with_facts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            candidate = root / "candidate"
+            candidate.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+            candidate.chmod(0o755)
+            cases = root / "cases.json"
+            cases.write_text(
+                """{
+  "cases": [{
+    "id": "comparison:facts",
+    "oracle": "smll",
+    "mode": "pipe",
+    "argv": ["unused"],
+    "stdin": {"base64": ""},
+    "env": {"set": {}, "unset": []},
+    "expect": {
+      "termination": {"exit_code": 1, "signal": null},
+      "stdout": {"facts": ["test_login_flow", "2 failed, 6 passed"], "byte_exact": false},
+      "stderr": {"facts": [], "byte_exact": false},
+      "incomplete_output": {"diagnostic_facts": []}
+    }
+  }]
+}
+""",
+                encoding="utf-8",
+            )
+
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS / "parity.py"),
+                    "--binary",
+                    str(candidate),
+                    "--tool",
+                    "tapas",
+                    "--cases",
+                    str(cases),
+                    "--contract",
+                    str(root),
+                    "--jobs",
+                    "1",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+            )
+
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("missing fact", proc.stderr)
+
     def test_stdout_stderr_and_exit_mismatches_are_actionable(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)
