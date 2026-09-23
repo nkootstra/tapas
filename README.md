@@ -158,7 +158,7 @@ declared transparent runner layers (for example `npx`, `pnpm exec`, `uv run`,
 or `uvx`). Ambiguous chains and a fifth runner layer are left unchanged.
 Codex keeps its narrower read-only allowlist.
 
-The OpenCode integration installs a dependency-free plugin at `${XDG_CONFIG_HOME:-$HOME/.config}/opencode/plugins/tapas.js`. The plugin invokes the absolute Tapas executable without a shell, changes only eligible Bash command text, preserves every other tool argument, and fails open to the original command if evaluation fails. The file carries both entrypoints: the V1 `Tapas` hook and a V2 default export with `id` and `setup(ctx)`, so `opencode` (V1) and `opencode2` (V2) both load it. The V2 plugin API is beta, so the V2 entrypoint targets the current beta contract and may need to track it.
+The OpenCode integration installs a dependency-free plugin at `${XDG_CONFIG_HOME:-$HOME/.config}/opencode/plugins/tapas.js`. The plugin invokes the absolute Tapas executable without a shell, changes only eligible Bash command text, preserves every other tool argument, and fails open to the original command if evaluation fails. OpenCode V1 and V2 both discover this one directory, so a single `tapas --setup opencode` covers both. The default export carries both entrypoints: `server()` for V1's `tool.execute.before` hook and `id`/`setup(ctx)` for V2's `ctx.tool.hook("execute.before", ...)`, sharing one rewrite core. `opencode` (V1) and `opencode2` (V2) load it independently. The V2 plugin API is beta, so the V2 entrypoint targets the current beta contract and may need to track it.
 
 Tapas detects recognized `smll` and `rtk` OpenCode integrations before installation. Without `--force`, setup warns and changes nothing. `tapas --setup opencode --force` removes only recognized user-level OpenCode plugin files, exact strict-JSON registration entries, and matching OpenCode ownership before installing Tapas in the same operation. Project, custom, inline, JSONC, modified, ambiguous, and symlinked conflicts remain hard blockers; Tapas never removes predecessor binaries, packages, caches, unrelated files, or non-empty directories. `--force` is intentionally invalid for Claude, Codex, and every unsetup command.
 
@@ -269,7 +269,7 @@ aimock locally and do not require provider credentials:
 ```sh
 cargo build --locked
 npm --prefix tests/harness-e2e ci
-for harness in claude codex opencode; do
+for harness in claude codex opencode opencode2; do
   TAPAS_HARNESS="$harness" npm --prefix tests/harness-e2e test
 done
 ```
