@@ -318,8 +318,8 @@ function createOpenCodeV2Adapter() {
     // Tapas installs one OpenCode plugin for both V1 and V2.
     setupTarget: "opencode",
     invocation: () => [
-      "--standalone",
       "run",
+      "--standalone",
       "--format",
       "json",
       "--auto",
@@ -327,8 +327,6 @@ function createOpenCodeV2Adapter() {
       "tapas-harness-e2e",
       "--model",
       "aimock/tapas-ci",
-      "--dir",
-      workspace,
       prompt,
     ],
     artifactPaths: () => [
