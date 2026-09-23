@@ -17,30 +17,47 @@ pub(super) fn generate(executable: &Path) -> Vec<u8> {
         br#";
 let warned = false;
 
+function rewrite(command, workdir) {
+  try {
+    const result = Bun.spawnSync([tapas, "--hook-eval", "opencode"], {
+      stdin: new TextEncoder().encode(
+        JSON.stringify({ cwd: workdir, tool_input: { command } }),
+      ),
+      stdout: "pipe",
+      stderr: "ignore",
+      timeout: 1000,
+      maxBuffer: 65536,
+    });
+    const text = result.exitCode === 0 ? result.stdout.toString() : "";
+    const updated = text.endsWith("\n") ? text.slice(0, -1) : "";
+    return updated || command;
+  } catch (error) {
+    if (!warned) {
+      warned = true;
+      console.warn("Tapas OpenCode hook failed; command left unchanged");
+    }
+    return command;
+  }
+}
+
+// OpenCode V1 entrypoint.
 export const Tapas = async () => ({
   "tool.execute.before": async (input, output) => {
     if (input.tool !== "bash" || typeof output.args?.command !== "string") return;
-    try {
-      const result = Bun.spawnSync([tapas, "--hook-eval", "opencode"], {
-        stdin: new TextEncoder().encode(
-          JSON.stringify({ cwd: output.args.workdir, tool_input: { command: output.args.command } }),
-        ),
-        stdout: "pipe",
-        stderr: "ignore",
-        timeout: 1000,
-        maxBuffer: 65536,
-      });
-      const text = result.exitCode === 0 ? result.stdout.toString() : "";
-      const command = text.endsWith("\n") ? text.slice(0, -1) : "";
-      if (command) output.args.command = command;
-    } catch (error) {
-      if (!warned) {
-        warned = true;
-        console.warn("Tapas OpenCode hook failed; command left unchanged");
-      }
-    }
+    output.args.command = rewrite(output.args.command, output.args.workdir);
   },
 });
+
+// OpenCode V2 entrypoint: default export with a stable id and setup(ctx).
+export default {
+  id: "tapas",
+  async setup(ctx) {
+    await ctx.tool.hook("execute.before", (event) => {
+      if (event.tool !== "bash" || typeof event.input?.command !== "string") return;
+      event.input.command = rewrite(event.input.command, event.input.workdir);
+    });
+  },
+};
 "#,
     );
     output
@@ -94,30 +111,47 @@ mod tests {
             "const tapas = \"/tmp/tapas\";\n",
             "let warned = false;\n",
             "\n",
+            "function rewrite(command, workdir) {\n",
+            "  try {\n",
+            "    const result = Bun.spawnSync([tapas, \"--hook-eval\", \"opencode\"], {\n",
+            "      stdin: new TextEncoder().encode(\n",
+            "        JSON.stringify({ cwd: workdir, tool_input: { command } }),\n",
+            "      ),\n",
+            "      stdout: \"pipe\",\n",
+            "      stderr: \"ignore\",\n",
+            "      timeout: 1000,\n",
+            "      maxBuffer: 65536,\n",
+            "    });\n",
+            "    const text = result.exitCode === 0 ? result.stdout.toString() : \"\";\n",
+            "    const updated = text.endsWith(\"\\n\") ? text.slice(0, -1) : \"\";\n",
+            "    return updated || command;\n",
+            "  } catch (error) {\n",
+            "    if (!warned) {\n",
+            "      warned = true;\n",
+            "      console.warn(\"Tapas OpenCode hook failed; command left unchanged\");\n",
+            "    }\n",
+            "    return command;\n",
+            "  }\n",
+            "}\n",
+            "\n",
+            "// OpenCode V1 entrypoint.\n",
             "export const Tapas = async () => ({\n",
             "  \"tool.execute.before\": async (input, output) => {\n",
             "    if (input.tool !== \"bash\" || typeof output.args?.command !== \"string\") return;\n",
-            "    try {\n",
-            "      const result = Bun.spawnSync([tapas, \"--hook-eval\", \"opencode\"], {\n",
-            "        stdin: new TextEncoder().encode(\n",
-            "          JSON.stringify({ cwd: output.args.workdir, tool_input: { command: output.args.command } }),\n",
-            "        ),\n",
-            "        stdout: \"pipe\",\n",
-            "        stderr: \"ignore\",\n",
-            "        timeout: 1000,\n",
-            "        maxBuffer: 65536,\n",
-            "      });\n",
-            "      const text = result.exitCode === 0 ? result.stdout.toString() : \"\";\n",
-            "      const command = text.endsWith(\"\\n\") ? text.slice(0, -1) : \"\";\n",
-            "      if (command) output.args.command = command;\n",
-            "    } catch (error) {\n",
-            "      if (!warned) {\n",
-            "        warned = true;\n",
-            "        console.warn(\"Tapas OpenCode hook failed; command left unchanged\");\n",
-            "      }\n",
-            "    }\n",
+            "    output.args.command = rewrite(output.args.command, output.args.workdir);\n",
             "  },\n",
             "});\n",
+            "\n",
+            "// OpenCode V2 entrypoint: default export with a stable id and setup(ctx).\n",
+            "export default {\n",
+            "  id: \"tapas\",\n",
+            "  async setup(ctx) {\n",
+            "    await ctx.tool.hook(\"execute.before\", (event) => {\n",
+            "      if (event.tool !== \"bash\" || typeof event.input?.command !== \"string\") return;\n",
+            "      event.input.command = rewrite(event.input.command, event.input.workdir);\n",
+            "    });\n",
+            "  },\n",
+            "};\n",
         );
 
         assert_eq!(generate(Path::new("/tmp/tapas")), expected.as_bytes());

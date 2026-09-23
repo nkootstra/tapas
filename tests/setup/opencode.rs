@@ -9,7 +9,9 @@ use std::path::Path;
 #[cfg(target_os = "linux")]
 use std::process::Command;
 
-use super::support::{TestHome, assert_opencode_plugin_behavior, tapas_with_env};
+use super::support::{
+    TestHome, assert_opencode_plugin_behavior, assert_opencode_v2_plugin_behavior, tapas_with_env,
+};
 
 #[test]
 fn opencode_setup_is_idempotent_and_unsetup_removes_only_tapas() {
@@ -41,6 +43,7 @@ fn opencode_setup_is_idempotent_and_unsetup_removes_only_tapas() {
             .any(|p| p == b"--hook-eval")
     );
     assert_opencode_plugin_behavior(&plugin);
+    assert_opencode_v2_plugin_behavior(&plugin);
 
     let repeated = tapas_with_env(
         &home,

@@ -158,7 +158,7 @@ declared transparent runner layers (for example `npx`, `pnpm exec`, `uv run`,
 or `uvx`). Ambiguous chains and a fifth runner layer are left unchanged.
 Codex keeps its narrower read-only allowlist.
 
-The OpenCode integration installs a dependency-free stable V1 plugin at `${XDG_CONFIG_HOME:-$HOME/.config}/opencode/plugins/tapas.js`. The plugin invokes the absolute Tapas executable without a shell, changes only eligible Bash command text, preserves every other tool argument, and fails open to the original command if evaluation fails. OpenCode V2 beta is not supported.
+The OpenCode integration installs a dependency-free plugin at `${XDG_CONFIG_HOME:-$HOME/.config}/opencode/plugins/tapas.js`. The plugin invokes the absolute Tapas executable without a shell, changes only eligible Bash command text, preserves every other tool argument, and fails open to the original command if evaluation fails. The file carries both entrypoints: the V1 `Tapas` hook and a V2 default export with `id` and `setup(ctx)`, so `opencode` (V1) and `opencode2` (V2) both load it. The V2 plugin API is beta, so the V2 entrypoint targets the current beta contract and may need to track it.
 
 Tapas detects recognized `smll` and `rtk` OpenCode integrations before installation. Without `--force`, setup warns and changes nothing. `tapas --setup opencode --force` removes only recognized user-level OpenCode plugin files, exact strict-JSON registration entries, and matching OpenCode ownership before installing Tapas in the same operation. Project, custom, inline, JSONC, modified, ambiguous, and symlinked conflicts remain hard blockers; Tapas never removes predecessor binaries, packages, caches, unrelated files, or non-empty directories. `--force` is intentionally invalid for Claude, Codex, and every unsetup command.
 
@@ -291,7 +291,7 @@ The command catalog in `src/catalog.rs` is tapas-owned and audited for internal 
 
 ## Current scope
 
-`0.3.0` covers command, pipe, process, streaming, and user-level integrations for Claude, Codex, and stable OpenCode V1. Stats, history, discovery, failure tee storage, and other agent integrations are intentionally deferred to later Tapas versions.
+`0.3.0` covers command, pipe, process, streaming, and user-level integrations for Claude, Codex, and OpenCode (V1 and the V2 beta). Stats, history, discovery, failure tee storage, and other agent integrations are intentionally deferred to later Tapas versions.
 
 ## License
 

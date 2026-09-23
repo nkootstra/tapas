@@ -141,3 +141,65 @@ if (noWorkdir.args.command !== "'/tmp/tapas' git status") throw new Error("stati
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+/// Runtime contract for the OpenCode V2 plugin entrypoint.
+///
+/// V2 loads a default export with `id` and `setup(ctx)`, and registers
+/// `ctx.tool.hook("execute.before", (event) => ...)`. The event carries the
+/// wrapped arguments under `event.input` (verified against the V2 runtime, whose
+/// before-event is `{ tool, sessionID, agent, messageID, id, input }`).
+pub(crate) fn assert_opencode_v2_plugin_behavior(plugin: &std::path::Path) {
+    if Command::new("bun").arg("--version").output().is_err() {
+        assert!(
+            std::env::var_os("TAPAS_REQUIRE_BUN").is_none(),
+            "Bun is required for the OpenCode plugin runtime contract"
+        );
+        return;
+    }
+    let url = format!("file://{}", plugin.display());
+    let script = r#"
+const plugin = (await import(process.env.TAPAS_PLUGIN_URL)).default;
+if (!plugin || typeof plugin.setup !== "function") throw new Error("missing default setup()");
+if (typeof plugin.id !== "string" || !plugin.id) throw new Error("missing stable id");
+let handler = null;
+const ctx = {
+  options: {},
+  tool: { hook: (name, callback) => { if (name !== "execute.before") throw new Error("unexpected hook " + name); handler = callback; } },
+};
+await plugin.setup(ctx);
+if (typeof handler !== "function") throw new Error("tool hook not registered");
+
+let calls = 0;
+Bun.spawnSync = (_argv, options) => {
+  calls += 1;
+  const stdin = new TextDecoder().decode(options.stdin);
+  if (!stdin.includes('"command":"git status"') || !stdin.includes('"cwd":"/work"')) throw new Error("bad stdin");
+  return { exitCode: 0, stdout: { toString: () => "'/tmp/tapas' git status\n" } };
+};
+const other = { tool: "read", input: { command: "git status", workdir: "/work" } };
+await handler(other);
+if (calls !== 0 || other.input.command !== "git status") throw new Error("non-bash mutated");
+const success = { tool: "bash", input: { command: "git status", workdir: "/work", timeout: 123 } };
+await handler(success);
+if (success.input.command !== "'/tmp/tapas' git status") throw new Error("rewrite missing");
+if (success.input.workdir !== "/work" || success.input.timeout !== 123) throw new Error("other input changed");
+Bun.spawnSync = () => ({ exitCode: 1, stdout: { toString: () => "ignored\n" } });
+const failed = { tool: "bash", input: { command: "git status", workdir: "/work" } };
+await handler(failed);
+if (failed.input.command !== "git status") throw new Error("nonzero spawn did not fail open");
+Bun.spawnSync = () => { throw new Error("spawn failed"); };
+const thrown = { tool: "bash", input: { command: "git status", workdir: "/work" } };
+await handler(thrown);
+if (thrown.input.command !== "git status") throw new Error("exception did not fail open");
+"#;
+    let output = Command::new("bun")
+        .args(["-e", script])
+        .env("TAPAS_PLUGIN_URL", url)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "generated OpenCode V2 plugin failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}

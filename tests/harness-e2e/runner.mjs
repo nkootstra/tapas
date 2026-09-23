@@ -9,7 +9,7 @@ import { LLMock } from "@copilotkit/aimock";
 import { createRunner } from "./run.mjs";
 
 const harness = process.env.TAPAS_HARNESS;
-assert.match(harness ?? "", /^(claude|codex|opencode)$/, "set TAPAS_HARNESS");
+assert.match(harness ?? "", /^(claude|codex|opencode|opencode2)$/, "set TAPAS_HARNESS");
 
 const testRoot = dirname(fileURLToPath(import.meta.url));
 const repository = resolve(testRoot, "../..");
@@ -180,6 +180,8 @@ function createHarnessAdapter(name) {
       return createCodexAdapter();
     case "opencode":
       return createOpenCodeAdapter();
+    case "opencode2":
+      return createOpenCodeV2Adapter();
     default:
       throw new Error(`unsupported harness: ${name}`);
   }
@@ -286,6 +288,35 @@ function createOpenCodeAdapter() {
       );
     },
     invocation: () => [
+      "run",
+      "--format",
+      "json",
+      "--auto",
+      "--title",
+      "tapas-harness-e2e",
+      "--model",
+      "aimock/tapas-ci",
+      "--dir",
+      workspace,
+      prompt,
+    ],
+    artifactPaths: () => [
+      [join(xdgConfigHome, "opencode/plugins/tapas.js"), "tapas.js"],
+      [join(xdgConfigHome, "opencode/opencode.json"), "opencode.json"],
+    ],
+  };
+}
+
+// OpenCode V2 beta. It installs as a separate `opencode2` binary and loads the
+// generated plugin's V2 default export. The beta API may change; this adapter
+// follows the current contract and is gated to keep it non-blocking.
+function createOpenCodeV2Adapter() {
+  const base = createOpenCodeAdapter();
+  return {
+    ...base,
+    binary: join(binaries, "opencode2"),
+    invocation: () => [
+      "--standalone",
       "run",
       "--format",
       "json",
