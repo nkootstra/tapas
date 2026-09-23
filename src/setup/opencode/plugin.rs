@@ -51,12 +51,13 @@ async function server() {
 }
 
 // OpenCode V2 entrypoint: a stable id and setup(ctx). V1 ignores `setup`.
+// V2 names the shell tool `shell` (and also accepts `bash`).
 export default {
   id: "tapas",
   server,
   async setup(ctx) {
     await ctx.tool.hook("execute.before", (event) => {
-      if (event.tool !== "bash" || typeof event.input?.command !== "string") return;
+      if ((event.tool !== "shell" && event.tool !== "bash") || typeof event.input?.command !== "string") return;
       event.input.command = rewrite(event.input.command, event.input.workdir);
     });
   },
@@ -148,12 +149,13 @@ mod tests {
             "}\n",
             "\n",
             "// OpenCode V2 entrypoint: a stable id and setup(ctx). V1 ignores `setup`.\n",
+            "// V2 names the shell tool `shell` (and also accepts `bash`).\n",
             "export default {\n",
             "  id: \"tapas\",\n",
             "  server,\n",
             "  async setup(ctx) {\n",
             "    await ctx.tool.hook(\"execute.before\", (event) => {\n",
-            "      if (event.tool !== \"bash\" || typeof event.input?.command !== \"string\") return;\n",
+            "      if ((event.tool !== \"shell\" && event.tool !== \"bash\") || typeof event.input?.command !== \"string\") return;\n",
             "      event.input.command = rewrite(event.input.command, event.input.workdir);\n",
             "    });\n",
             "  },\n",

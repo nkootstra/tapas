@@ -178,17 +178,19 @@ Bun.spawnSync = (_argv, options) => {
 };
 const other = { tool: "read", input: { command: "git status", workdir: "/work" } };
 await handler(other);
-if (calls !== 0 || other.input.command !== "git status") throw new Error("non-bash mutated");
-const success = { tool: "bash", input: { command: "git status", workdir: "/work", timeout: 123 } };
-await handler(success);
-if (success.input.command !== "'/tmp/tapas' git status") throw new Error("rewrite missing");
-if (success.input.workdir !== "/work" || success.input.timeout !== 123) throw new Error("other input changed");
+if (calls !== 0 || other.input.command !== "git status") throw new Error("non-shell mutated");
+for (const tool of ["shell", "bash"]) {
+  const success = { tool, input: { command: "git status", workdir: "/work", timeout: 123 } };
+  await handler(success);
+  if (success.input.command !== "'/tmp/tapas' git status") throw new Error("rewrite missing for " + tool);
+  if (success.input.workdir !== "/work" || success.input.timeout !== 123) throw new Error("other input changed");
+}
 Bun.spawnSync = () => ({ exitCode: 1, stdout: { toString: () => "ignored\n" } });
-const failed = { tool: "bash", input: { command: "git status", workdir: "/work" } };
+const failed = { tool: "shell", input: { command: "git status", workdir: "/work" } };
 await handler(failed);
 if (failed.input.command !== "git status") throw new Error("nonzero spawn did not fail open");
 Bun.spawnSync = () => { throw new Error("spawn failed"); };
-const thrown = { tool: "bash", input: { command: "git status", workdir: "/work" } };
+const thrown = { tool: "shell", input: { command: "git status", workdir: "/work" } };
 await handler(thrown);
 if (thrown.input.command !== "git status") throw new Error("exception did not fail open");
 "#;

@@ -315,6 +315,8 @@ function createOpenCodeV2Adapter() {
   return {
     ...base,
     binary: join(binaries, "opencode2"),
+    // V2 names the shell tool `shell`, not `bash`.
+    shellToolNames: ["shell"],
     // Tapas installs one OpenCode plugin for both V1 and V2.
     setupTarget: "opencode",
     invocation: () => [
