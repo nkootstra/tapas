@@ -40,17 +40,20 @@ function rewrite(command, workdir) {
   }
 }
 
-// OpenCode V1 entrypoint.
-export const Tapas = async () => ({
-  "tool.execute.before": async (input, output) => {
-    if (input.tool !== "bash" || typeof output.args?.command !== "string") return;
-    output.args.command = rewrite(output.args.command, output.args.workdir);
-  },
-});
+// OpenCode V1 entrypoint: V1 reads `server()` from the default export.
+async function server() {
+  return {
+    "tool.execute.before": async (input, output) => {
+      if (input.tool !== "bash" || typeof output.args?.command !== "string") return;
+      output.args.command = rewrite(output.args.command, output.args.workdir);
+    },
+  };
+}
 
-// OpenCode V2 entrypoint: default export with a stable id and setup(ctx).
+// OpenCode V2 entrypoint: a stable id and setup(ctx). V1 ignores `setup`.
 export default {
   id: "tapas",
+  server,
   async setup(ctx) {
     await ctx.tool.hook("execute.before", (event) => {
       if (event.tool !== "bash" || typeof event.input?.command !== "string") return;
@@ -134,17 +137,20 @@ mod tests {
             "  }\n",
             "}\n",
             "\n",
-            "// OpenCode V1 entrypoint.\n",
-            "export const Tapas = async () => ({\n",
-            "  \"tool.execute.before\": async (input, output) => {\n",
-            "    if (input.tool !== \"bash\" || typeof output.args?.command !== \"string\") return;\n",
-            "    output.args.command = rewrite(output.args.command, output.args.workdir);\n",
-            "  },\n",
-            "});\n",
+            "// OpenCode V1 entrypoint: V1 reads `server()` from the default export.\n",
+            "async function server() {\n",
+            "  return {\n",
+            "    \"tool.execute.before\": async (input, output) => {\n",
+            "      if (input.tool !== \"bash\" || typeof output.args?.command !== \"string\") return;\n",
+            "      output.args.command = rewrite(output.args.command, output.args.workdir);\n",
+            "    },\n",
+            "  };\n",
+            "}\n",
             "\n",
-            "// OpenCode V2 entrypoint: default export with a stable id and setup(ctx).\n",
+            "// OpenCode V2 entrypoint: a stable id and setup(ctx). V1 ignores `setup`.\n",
             "export default {\n",
             "  id: \"tapas\",\n",
+            "  server,\n",
             "  async setup(ctx) {\n",
             "    await ctx.tool.hook(\"execute.before\", (event) => {\n",
             "      if (event.tool !== \"bash\" || typeof event.input?.command !== \"string\") return;\n",

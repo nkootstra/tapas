@@ -98,7 +98,7 @@ pub(crate) fn assert_opencode_plugin_behavior(plugin: &std::path::Path) {
     let url = format!("file://{}", plugin.display());
     let script = r#"
 const plugin = await import(process.env.TAPAS_PLUGIN_URL);
-const hook = (await plugin.Tapas())["tool.execute.before"];
+const hook = (await plugin.default.server())["tool.execute.before"];
 let calls = 0;
 Bun.spawnSync = (_argv, options) => {
   calls += 1;
