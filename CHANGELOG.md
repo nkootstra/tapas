@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.7.52](https://github.com/nkootstra/tapas/compare/v0.7.51...v0.7.52) - 2026-09-23
+
+### Patch changes
+
+- store generic lines in one buffer with offsets ([#138](https://github.com/nkootstra/tapas/pull/138))
+
 ## [0.7.51](https://github.com/nkootstra/tapas/compare/v0.7.50...v0.7.51) - 2026-09-23
 
 ### Patch changes
