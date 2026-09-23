@@ -1230,7 +1230,7 @@ fn git_pull_and_push_compaction_keeps_descriptors_separate() {
     for (subcommand, expected_stdout, expected_stderr) in [
         (
             "pull",
-            b"@ fast-forward 43fe7da..2cee6f5\n+1/-0 files=1\n".as_slice(),
+            b"@ fast-forward 43fe7da..2cee6f5\nd.txt | 1 +\n+1/-0 files=1\n".as_slice(),
             b"< 43fe7da..2cee6f5 main -> origin/main\n".as_slice(),
         ),
         ("push", b"".as_slice(), b"+ new main -> main\n".as_slice()),

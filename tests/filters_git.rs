@@ -1328,7 +1328,7 @@ fn stream_dispatch_matches_pinned_argv_only_command_helpers() {
         )
         .unwrap(),
         StreamFilterOutput::new(
-            b"@ fast-forward 43fe7da..2cee6f5\n+1/-0 files=1\n".to_vec(),
+            b"@ fast-forward 43fe7da..2cee6f5\nd.txt | 1 +\ncreate mode 100644 d.txt\n+1/-0 files=1\n".to_vec(),
             b"< 43fe7da..2cee6f5 main       -> origin/main\n".to_vec(),
             EvidenceClass::FactComplete,
         ),
@@ -1376,7 +1376,7 @@ fn pull_and_push_fail_open_only_on_the_unrecognized_source_stream() {
         git::dispatch_streams_argv(&[b"git", b"pull"], &pull_stdout, unknown_stderr, 0, false,)
             .unwrap(),
         StreamFilterOutput::new(
-            b"@ fast-forward 43fe7da..2cee6f5\n+1/-0 files=1\n".to_vec(),
+            b"@ fast-forward 43fe7da..2cee6f5\nd.txt | 1 +\ncreate mode 100644 d.txt\n+1/-0 files=1\n".to_vec(),
             unknown_stderr.to_vec(),
             EvidenceClass::FactComplete,
         ),
@@ -1467,7 +1467,7 @@ fn stdout_only_dispatch_compacts_argv_only_helpers_without_owning_stderr() {
         )
         .unwrap(),
         tapas::filters::FilterOutput::new(
-            b"@ fast-forward 43fe7da..2cee6f5\n+1/-0 files=1\n".to_vec(),
+            b"@ fast-forward 43fe7da..2cee6f5\nd.txt | 1 +\ncreate mode 100644 d.txt\n+1/-0 files=1\n".to_vec(),
             EvidenceClass::FactComplete,
         )
     );
@@ -1616,6 +1616,33 @@ fn graphite_unrecognized_alias_malformed_exact_and_failed_routes_are_byte_exact(
             git::dispatch_streams_argv(argv, stdout, stderr, exit_code, lossless).unwrap(),
             StreamFilterOutput::passthrough(stdout, stderr),
             "argv {argv:?}",
+        );
+    }
+}
+
+#[test]
+fn pull_keeps_rename_deletion_and_mode_rows() {
+    let stdout = concat!(
+        "Updating 1111111..2222222\n",
+        "Fast-forward\n",
+        " old.txt => new.txt | 0\n",
+        " a.txt | 1 -\n",
+        " mode change 100644 => 100755 b.sh\n",
+        " 3 files changed, 1 deletion(-)\n",
+    );
+
+    let output =
+        git::dispatch_streams_argv(&[b"git", b"pull"], stdout.as_bytes(), b"", 0, false).unwrap();
+
+    for row in [
+        b"old.txt => new.txt".as_slice(),
+        b"a.txt | 1 -",
+        b"mode change 100644 => 100755 b.sh",
+    ] {
+        assert!(
+            output.stdout.windows(row.len()).any(|window| window == row),
+            "{:?}",
+            String::from_utf8_lossy(&output.stdout)
         );
     }
 }
