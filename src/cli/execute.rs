@@ -58,7 +58,11 @@ pub(super) fn run(
         Invocation::Deferred(flag) => {
             stderr.write_all(b"tapas: option ")?;
             write!(stderr, "{flag:?}")?;
-            stderr.write_all(b" is not available in Tapas 0.3.0\n\n")?;
+            write!(
+                stderr,
+                " is not available in Tapas {}\n\n",
+                env!("CARGO_PKG_VERSION")
+            )?;
             spec::write_help(stderr)?;
             Ok(2)
         }
