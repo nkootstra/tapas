@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.8.1](https://github.com/nkootstra/tapas/compare/v0.8.0...v0.8.1) - 2026-09-24
+
+### Patch changes
+
+- report the running version in deferred option errors
+
 ## [0.8.0](https://github.com/nkootstra/tapas/compare/v0.7.52...v0.8.0) - 2026-09-23
 
 ### Minor changes
