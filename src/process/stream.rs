@@ -21,6 +21,10 @@ pub(super) struct StreamedOutput {
     pub displayed_bytes: usize,
     pub incomplete: bool,
     pub filter_name: &'static str,
+    /// Whether any line was rewritten or dropped on the way out. Set when the
+    /// stream ever left raw passthrough, so a byte-count delta is not the only
+    /// evidence of compaction.
+    pub changed: bool,
 }
 
 pub(super) fn run(
@@ -137,6 +141,7 @@ pub(super) fn run(
             displayed_bytes,
             incomplete,
             filter_name: kind.filter_name(),
+            changed: stdout_side.compacted || stderr_side.compacted,
         })
     })();
     if result.is_err() {
@@ -236,6 +241,7 @@ struct StreamSide {
     line: Vec<u8>,
     processor: Processor,
     raw_passthrough: bool,
+    compacted: bool,
 }
 
 impl StreamSide {
@@ -261,6 +267,7 @@ impl StreamSide {
             line: Vec::new(),
             processor,
             raw_passthrough,
+            compacted: false,
         }
     }
 
@@ -299,6 +306,10 @@ impl StreamSide {
     }
 
     fn emit_line(&mut self, writer: &mut dyn Write) -> io::Result<()> {
+        // Every processed line funnels through here, so any emitted line counts
+        // as compaction evidence even when the rewritten bytes happen to match
+        // the raw line length.
+        self.compacted = true;
         let line = std::mem::take(&mut self.line);
         let result = self.processor.feed_line(&line, writer);
         self.line = line;
@@ -541,5 +552,57 @@ mod tests {
             side.finish(&mut output).unwrap();
             assert_eq!(output, input);
         }
+    }
+
+    #[test]
+    fn processed_lines_mark_the_side_as_compacted() {
+        let mut side = StreamSide::new(StreamKind::Gh);
+        assert!(!side.compacted, "a fresh side has compacted nothing");
+
+        let mut output = Vec::new();
+        side.feed(b"\x1b[31mwaiting\x1b[0m   \n", &mut output)
+            .unwrap();
+        side.finish(&mut output).unwrap();
+
+        assert_eq!(output, b"waiting\n");
+        assert!(side.compacted, "a rewritten line is compaction evidence");
+    }
+
+    #[test]
+    fn raw_passthrough_sides_stay_uncompacted() {
+        // preserve_metadata routes bytes straight through, so nothing should
+        // be reported as compacted even though lines were observed.
+        let mut side = StreamSide::new(StreamKind::Logs {
+            compose: false,
+            docker: true,
+            preserve_metadata: true,
+        });
+
+        let mut output = Vec::new();
+        side.feed(b"plain log line\n", &mut output).unwrap();
+        side.finish(&mut output).unwrap();
+
+        assert_eq!(output, b"plain log line\n");
+        assert!(!side.compacted, "passthrough must not claim compaction");
+    }
+
+    #[test]
+    fn idle_flush_compaction_is_recorded() {
+        // Transitions emitted only on idle flush still count, so a stream that
+        // never rewrites a line inline cannot hide its compaction.
+        let mut side = StreamSide::new(StreamKind::Jest);
+        let mut output = Vec::new();
+        side.feed(
+            b"PASS src/app.test.ts\nTest Suites: 1 passed, 1 total\n",
+            &mut output,
+        )
+        .unwrap();
+        side.idle_flush(&mut output).unwrap();
+        side.finish(&mut output).unwrap();
+
+        assert!(
+            side.compacted,
+            "idle-flushed transitions count as compaction"
+        );
     }
 }

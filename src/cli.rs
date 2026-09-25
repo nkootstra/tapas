@@ -1,6 +1,7 @@
 use std::ffi::OsString;
 use std::io::{self, Read, Write};
 
+mod compaction;
 mod execute;
 mod invocation;
 pub(crate) mod spec;
