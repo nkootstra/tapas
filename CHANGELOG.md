@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.9.0](https://github.com/nkootstra/tapas/compare/v0.8.1...v0.9.0) - 2026-09-26
+
+### Minor changes
+
+- record and report command compaction savings ([#145](https://github.com/nkootstra/tapas/pull/145))
+
 ## [0.8.1](https://github.com/nkootstra/tapas/compare/v0.8.0...v0.8.1) - 2026-09-24
 
 ### Patch changes
