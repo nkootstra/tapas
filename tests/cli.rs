@@ -964,3 +964,178 @@ fn stream_environment_names_do_not_disrupt_non_streaming_execution() {
     assert_eq!(configured.stdout, baseline.stdout);
     assert_eq!(configured.stderr, baseline.stderr);
 }
+
+fn unique_metrics_path(label: &str) -> std::path::PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock after epoch")
+        .as_nanos();
+    std::env::temp_dir().join(format!("tapas-metrics-{label}-{nanos}.jsonl"))
+}
+
+/// The recorder writes single-line JSON with a fixed key order and no nested
+/// objects, so substring checks are sufficient and keep the test dependency
+/// set unchanged.
+fn metric_field(line: &str, key: &str) -> String {
+    let needle = format!("\"{key}\":");
+    let start = line
+        .find(&needle)
+        .unwrap_or_else(|| panic!("missing {key:?} in {line:?}"))
+        + needle.len();
+    let rest = &line[start..];
+    let end = rest.find([',', '}']).unwrap_or(rest.len());
+    rest[..end].trim_matches('"').to_owned()
+}
+
+fn metric_lines(path: &std::path::Path) -> Vec<String> {
+    fs::read_to_string(path)
+        .expect("read metrics file")
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
+#[test]
+fn compaction_metrics_are_recorded_only_when_the_path_is_set() {
+    let path = unique_metrics_path("unset");
+
+    let unset = tapas(&["git", "status"]);
+    assert!(unset.status.success());
+    assert!(!path.exists(), "no metrics file without the env var");
+
+    let empty = tapas_with_stdin(
+        &["git", "status"],
+        b"",
+        &[("TAPAS_COMPACTION_METRICS_PATH", "")],
+    );
+    assert!(empty.status.success());
+    assert!(!path.exists(), "empty env var records nothing");
+}
+
+#[test]
+fn compaction_metrics_report_byte_deltas_and_change_flag() {
+    let path = unique_metrics_path("deltas");
+    let path_text = path.to_str().expect("UTF-8 metrics path");
+
+    let compacted = tapas_with_stdin(
+        &["git", "status"],
+        b"",
+        &[("TAPAS_COMPACTION_METRICS_PATH", path_text)],
+    );
+    assert!(compacted.status.success());
+
+    let passthrough = tapas_with_stdin(
+        &["--raw", "git", "status"],
+        b"",
+        &[("TAPAS_COMPACTION_METRICS_PATH", path_text)],
+    );
+    assert!(passthrough.status.success());
+
+    let lines = metric_lines(&path);
+    assert_eq!(lines.len(), 2, "both runs append: {lines:?}");
+
+    let filtered = &lines[0];
+    assert_eq!(metric_field(filtered, "command"), "git");
+    assert_eq!(metric_field(filtered, "filter_name"), "git");
+    assert_eq!(metric_field(filtered, "changed"), "true");
+    assert_eq!(metric_field(filtered, "capture_complete"), "true");
+    let raw_bytes: usize = metric_field(filtered, "raw_bytes")
+        .parse()
+        .expect("raw_bytes");
+    let displayed: usize = metric_field(filtered, "displayed_bytes")
+        .parse()
+        .expect("displayed_bytes");
+    assert!(
+        displayed < raw_bytes,
+        "filtered run must shrink: {filtered:?}"
+    );
+
+    let raw = &lines[1];
+    assert_eq!(metric_field(raw, "command"), "git");
+    assert_eq!(metric_field(raw, "filter_name"), "passthrough");
+    assert_eq!(
+        metric_field(raw, "changed"),
+        "false",
+        "raw is not compaction"
+    );
+    assert_eq!(
+        metric_field(raw, "displayed_bytes"),
+        metric_field(raw, "raw_bytes"),
+        "raw mode is byte-exact: {raw:?}"
+    );
+
+    fs::remove_file(&path).ok();
+}
+
+#[test]
+fn compaction_metrics_append_concurrent_runs_without_interleaving() {
+    let path = unique_metrics_path("concurrent");
+    let path_text = path.to_str().expect("UTF-8 metrics path").to_owned();
+
+    let mut children = Vec::new();
+    for _ in 0..8 {
+        let child = Command::new(env!("CARGO_BIN_EXE_tapas"))
+            .args(["git", "status"])
+            .env_clear()
+            .envs([("TAPAS_COMPACTION_METRICS_PATH", path_text.as_str())])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn concurrent tapas");
+        children.push(child);
+    }
+    for mut child in children {
+        assert!(child.wait().expect("wait for concurrent tapas").success());
+    }
+
+    let lines = metric_lines(&path);
+    assert_eq!(lines.len(), 8, "every run appends exactly one line");
+    for line in &lines {
+        assert_eq!(metric_field(line, "command"), "git");
+        assert!(
+            line.starts_with('{') && line.ends_with('}'),
+            "no interleaving"
+        );
+    }
+
+    fs::remove_file(&path).ok();
+}
+
+#[test]
+fn compaction_metrics_never_change_command_behavior() {
+    let path = unique_metrics_path("behavior");
+    let path_text = path.to_str().expect("UTF-8 metrics path");
+
+    // Use a command with stable output: `git status` text changes with the
+    // working tree, which would make this assertion flaky.
+    let baseline = tapas(&["git", "log", "--oneline", "-n", "1"]);
+    let recorded = tapas_with_stdin(
+        &["git", "log", "--oneline", "-n", "1"],
+        b"",
+        &[("TAPAS_COMPACTION_METRICS_PATH", path_text)],
+    );
+
+    assert_eq!(recorded.status.code(), baseline.status.code());
+    assert_eq!(recorded.stdout, baseline.stdout, "stdout must not change");
+    assert_eq!(recorded.stderr, baseline.stderr, "stderr must not change");
+
+    fs::remove_file(&path).ok();
+}
+
+#[test]
+fn compaction_metrics_failure_to_open_is_silent() {
+    // A directory cannot be opened for append; telemetry must stay quiet and
+    // the wrapped command must still succeed.
+    let dir_text = std::env::temp_dir();
+    let dir_text = dir_text.to_str().expect("UTF-8 temp dir");
+
+    let output = tapas_with_stdin(
+        &["git", "status"],
+        b"",
+        &[("TAPAS_COMPACTION_METRICS_PATH", dir_text)],
+    );
+
+    assert!(output.status.success(), "command must still succeed");
+    assert!(output.stderr.is_empty(), "no telemetry complaints");
+}

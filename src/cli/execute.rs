@@ -129,7 +129,10 @@ fn run_process(
             explain: true,
         },
     };
-    crate::process::run(command, stdout, stderr, options).map(|report| report.exit_code)
+    crate::process::run(command, stdout, stderr, options).map(|report| {
+        super::compaction::record_if_enabled(&report);
+        report.exit_code
+    })
 }
 
 fn rewrite(command: &[OsString], stdout: &mut dyn Write) -> io::Result<i32> {

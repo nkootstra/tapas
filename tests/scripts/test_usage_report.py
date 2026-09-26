@@ -350,6 +350,10 @@ class UsageReportTests(unittest.TestCase):
                     "compaction_coverage": "catalogued-route",
                     "runtime_dispatchable_count": 1,
                     "runner_chains": [],
+                    "measured_invocations": 0,
+                    "saved_invocations": 0,
+                    "saved_bytes": 0,
+                    "saved_tokens": 0,
                 },
                 {
                     "command": "pytest",
@@ -358,6 +362,10 @@ class UsageReportTests(unittest.TestCase):
                     "compaction_coverage": "catalogued-route",
                     "runtime_dispatchable_count": 1,
                     "runner_chains": [{"chain": ["npx"], "count": 1}],
+                    "measured_invocations": 0,
+                    "saved_invocations": 0,
+                    "saved_bytes": 0,
+                    "saved_tokens": 0,
                 },
             ],
         )
@@ -478,6 +486,10 @@ class UsageReportTests(unittest.TestCase):
                     "compaction_coverage": "not-catalogued",
                     "runtime_dispatchable_count": 0,
                     "runner_chains": [{"chain": ["npx"], "count": 1}],
+                    "measured_invocations": 0,
+                    "saved_invocations": 0,
+                    "saved_bytes": 0,
+                    "saved_tokens": 0,
                 }
             ],
         )
@@ -515,6 +527,189 @@ class UsageReportTests(unittest.TestCase):
             report["runner_chains"],
             [{"chain": ["pnpm exec"], "count": 2, "runtime_dispatchable_count": 0}],
         )
+
+    def test_savings_are_not_reported_without_a_metrics_file(self) -> None:
+        catalog = usage_report.parse_catalog(
+            """
+            pub const AUTO_WRAP_COMMANDS: &[&str] = &["git"];
+            pub const WRAPPER_COMMANDS: &[&str] = &["git"];
+            pub const GIT_SUBCOMMANDS: &[&str] = &["status"];
+            pub const TRANSPARENT_RUNNERS: &[&str] = &[];
+            """
+        )
+        report = usage_report.build_report(
+            usage_report.normalize_rows([("opencode", "git status")]), catalog
+        )
+
+        self.assertEqual(report["compaction_candidates"], [])
+        self.assertEqual(report["total_saved_bytes"], 0)
+        self.assertEqual(report["total_saved_tokens"], 0)
+        self.assertIn("no metrics recorded", usage_report.format_text(report))
+
+    def test_metrics_are_aggregated_by_command_with_savings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "metrics.jsonl"
+            path.write_text(
+                "\n".join(
+                    json.dumps(record)
+                    for record in [
+                        {
+                            "command": "git",
+                            "filter_name": "git",
+                            "raw_bytes": 1000,
+                            "displayed_bytes": 100,
+                            "changed": True,
+                        },
+                        {
+                            "command": "git",
+                            "filter_name": "git",
+                            "raw_bytes": 500,
+                            "displayed_bytes": 100,
+                            "changed": True,
+                        },
+                        {
+                            "command": "ls",
+                            "filter_name": "passthrough",
+                            "raw_bytes": 200,
+                            "displayed_bytes": 200,
+                            "changed": False,
+                        },
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            metrics = usage_report.load_compaction_metrics(path)
+
+        self.assertEqual(metrics["git"]["invocations"], 2)
+        self.assertEqual(metrics["git"]["saved_invocations"], 2)
+        self.assertEqual(metrics["git"]["saved_bytes"], 1300)
+        self.assertEqual(metrics["ls"]["saved_bytes"], 0)
+        self.assertEqual(metrics["ls"]["saved_invocations"], 0)
+
+    def test_unchanged_or_expanded_runs_do_not_count_as_savings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "metrics.jsonl"
+            path.write_text(
+                "\n".join(
+                    json.dumps(record)
+                    for record in [
+                        # Flagged changed but no byte delta: nothing saved.
+                        {
+                            "command": "git",
+                            "raw_bytes": 100,
+                            "displayed_bytes": 100,
+                            "changed": True,
+                        },
+                        # Output grew; savings must clamp at zero, never negative.
+                        {
+                            "command": "git",
+                            "raw_bytes": 100,
+                            "displayed_bytes": 300,
+                            "changed": True,
+                        },
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            metrics = usage_report.load_compaction_metrics(path)
+
+        self.assertEqual(metrics["git"]["saved_bytes"], 0)
+        self.assertEqual(metrics["git"]["saved_invocations"], 0)
+
+    def test_malformed_metric_lines_are_skipped_without_failing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "metrics.jsonl"
+            path.write_text(
+                '{"command":"git","raw_bytes":100,"displayed_bytes":10,"changed":true}\n'
+                "not json at all\n"
+                '{"command":"","raw_bytes":1,"displayed_bytes":1}\n'
+                '{"command":"git","raw_bytes":"oops","displayed_bytes":10}\n'
+                "[1,2,3]\n"
+                '{"command":"ls","raw_bytes":50,"displayed_bytes":5,"changed":true}\n',
+                encoding="utf-8",
+            )
+            metrics = usage_report.load_compaction_metrics(path)
+
+        self.assertEqual(sorted(metrics), ["git", "ls"])
+        self.assertEqual(metrics["git"]["saved_bytes"], 90)
+        self.assertEqual(metrics["ls"]["saved_bytes"], 45)
+
+    def test_missing_metrics_file_is_not_an_error(self) -> None:
+        self.assertEqual(
+            usage_report.load_compaction_metrics(pathlib.Path("/nonexistent/metrics.jsonl")),
+            {},
+        )
+        self.assertEqual(usage_report.load_compaction_metrics(None), {})
+
+    def test_candidates_rank_by_saved_bytes_and_estimate_tokens(self) -> None:
+        catalog = usage_report.parse_catalog(
+            """
+            pub const AUTO_WRAP_COMMANDS: &[&str] = &["git", "ls"];
+            pub const WRAPPER_COMMANDS: &[&str] = &["git", "ls"];
+            pub const GIT_SUBCOMMANDS: &[&str] = &["status"];
+            pub const TRANSPARENT_RUNNERS: &[&str] = &[];
+            """
+        )
+        metrics = {
+            "git": {
+                "command": "git",
+                "invocations": 3,
+                "saved_invocations": 3,
+                "raw_bytes": 4000,
+                "displayed_bytes": 1000,
+                "saved_bytes": 3000,
+            },
+            "ls": {
+                "command": "ls",
+                "invocations": 5,
+                "saved_invocations": 2,
+                "raw_bytes": 10000,
+                "displayed_bytes": 9500,
+                "saved_bytes": 500,
+            },
+        }
+        # Session history is intentionally empty: metrics stand alone.
+        report = usage_report.build_report([], catalog, compaction_metrics=metrics)
+
+        self.assertEqual(
+            [record["command"] for record in report["compaction_candidates"]],
+            ["git", "ls"],
+        )
+        self.assertEqual(report["total_saved_bytes"], 3500)
+        self.assertEqual(
+            report["total_saved_tokens"],
+            3500 // usage_report.ESTIMATED_BYTES_PER_TOKEN,
+        )
+        self.assertEqual(report["compaction_candidates"][0]["saved_tokens"], 750)
+
+    def test_text_report_summarizes_savings(self) -> None:
+        catalog = usage_report.parse_catalog(
+            """
+            pub const AUTO_WRAP_COMMANDS: &[&str] = &["git"];
+            pub const WRAPPER_COMMANDS: &[&str] = &["git"];
+            pub const GIT_SUBCOMMANDS: &[&str] = &["status"];
+            pub const TRANSPARENT_RUNNERS: &[&str] = &[];
+            """
+        )
+        metrics = {
+            "git": {
+                "command": "git",
+                "invocations": 2,
+                "saved_invocations": 2,
+                "raw_bytes": 2000,
+                "displayed_bytes": 200,
+                "saved_bytes": 1800,
+            }
+        }
+        report = usage_report.build_report([], catalog, compaction_metrics=metrics)
+        text = usage_report.format_text(report)
+
+        self.assertIn("Savings:", text)
+        self.assertIn("1800 bytes saved of 2000 (90.0%)", text)
+        self.assertIn("git: 1800 bytes", text)
 
 
 if __name__ == "__main__":

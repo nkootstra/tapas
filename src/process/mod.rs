@@ -26,6 +26,9 @@ pub struct RunOptions {
 #[derive(Debug)]
 pub struct RunReport {
     pub exit_code: i32,
+    /// Basename of the logical command that ran, used as the key when grouping
+    /// compaction metrics across invocations.
+    pub command: String,
     pub input_bytes: usize,
     pub displayed_bytes: usize,
     pub diagnostic_bytes: usize,
@@ -35,6 +38,10 @@ pub struct RunReport {
     pub evidence: EvidenceClass,
     pub capture_complete: bool,
     pub capture_overflowed: bool,
+    /// Whether filtering altered the bytes that reached the caller. Inherited
+    /// and passthrough runs never compact, so they report `false` even though
+    /// their byte counters are populated.
+    pub changed: bool,
 }
 
 pub fn run(
@@ -45,6 +52,9 @@ pub fn run(
 ) -> io::Result<RunReport> {
     let invocation = classify(argv);
     let logical = invocation.logical_argv;
+    // Report the command the user asked for, not a transparent runner that was
+    // unwrapped on the way to it, so metrics group under a stable key.
+    let command = command_name(logical);
     let lossless = crate::environment::flag_on("TAPAS_LOSSLESS");
     let exact_output = requests_exact_output(logical);
     // Keep the outer runner visible for lifecycle decisions. A transparent
@@ -63,6 +73,7 @@ pub fn run(
         let diagnostic_bytes = write_incomplete_diagnostic(streamed.incomplete, stderr)?;
         let report = RunReport {
             exit_code: streamed.exit_code,
+            command: command.clone(),
             input_bytes: streamed.input_bytes,
             displayed_bytes: streamed.displayed_bytes + diagnostic_bytes,
             diagnostic_bytes,
@@ -72,6 +83,7 @@ pub fn run(
             evidence: EvidenceClass::FactComplete,
             capture_complete: !streamed.incomplete,
             capture_overflowed: false,
+            changed: streamed.changed,
         };
         return return_report(report, stderr, options.explain);
     }
@@ -85,6 +97,7 @@ pub fn run(
     if unfiltered && unix::outputs_are_tty() {
         let report = RunReport {
             exit_code: capture::run_inherited(argv)?,
+            command: command.clone(),
             input_bytes: 0,
             displayed_bytes: 0,
             diagnostic_bytes: 0,
@@ -94,6 +107,7 @@ pub fn run(
             evidence: EvidenceClass::ByteExact,
             capture_complete: true,
             capture_overflowed: false,
+            changed: false,
         };
         return return_report(report, stderr, options.explain);
     }
@@ -120,6 +134,7 @@ pub fn run(
         let diagnostic_bytes = write_incomplete_diagnostic(captured.incomplete, stderr)?;
         let report = RunReport {
             exit_code: captured.exit_code,
+            command: command.clone(),
             input_bytes: captured.input_bytes,
             displayed_bytes: captured.input_bytes + diagnostic_bytes,
             diagnostic_bytes,
@@ -129,6 +144,7 @@ pub fn run(
             evidence: EvidenceClass::ByteExact,
             capture_complete: !captured.incomplete,
             capture_overflowed: captured.overflowed,
+            changed: false,
         };
         return return_report(report, stderr, options.explain);
     }
@@ -139,6 +155,7 @@ pub fn run(
         let diagnostic_bytes = write_incomplete_diagnostic(true, stderr)?;
         let report = RunReport {
             exit_code: captured.exit_code,
+            command: command.clone(),
             input_bytes: captured.input_bytes,
             displayed_bytes: captured.input_bytes + diagnostic_bytes,
             diagnostic_bytes,
@@ -148,6 +165,7 @@ pub fn run(
             evidence: EvidenceClass::ByteExact,
             capture_complete: false,
             capture_overflowed: false,
+            changed: false,
         };
         return return_report(report, stderr, options.explain);
     }
@@ -162,6 +180,7 @@ pub fn run(
             &captured.stdout,
             &captured.stderr,
         );
+        let plugin_transformed = matches!(dispatched, crate::plugins::Dispatch::Transformed(_));
         let (visible_stdout, visible_stderr, filter_name, evidence, plugin_disposition) =
             match dispatched {
                 crate::plugins::Dispatch::Transformed(output) => (
@@ -190,6 +209,7 @@ pub fn run(
         };
         let report = RunReport {
             exit_code: captured.exit_code,
+            command: command.clone(),
             input_bytes: captured.input_bytes,
             displayed_bytes: visible_stdout.len() + visible_stderr.len() + diagnostic_bytes,
             diagnostic_bytes,
@@ -199,6 +219,7 @@ pub fn run(
             evidence,
             capture_complete: true,
             capture_overflowed: false,
+            changed: plugin_transformed,
         };
         return return_report(report, stderr, options.explain);
     }
@@ -246,6 +267,7 @@ pub fn run(
     };
     let report = RunReport {
         exit_code: captured.exit_code,
+        command,
         input_bytes: captured.input_bytes,
         displayed_bytes: visible_stdout.len() + visible_stderr.len() + diagnostic_bytes,
         diagnostic_bytes,
@@ -255,6 +277,7 @@ pub fn run(
         evidence,
         capture_complete: true,
         capture_overflowed: false,
+        changed: changed && !failure_fell_open,
     };
     return_report(report, stderr, options.explain)
 }
@@ -501,6 +524,14 @@ fn write_explain(report: &RunReport, stderr: &mut dyn Write) -> io::Result<()> {
         saved,
         report.exit_code,
     )
+}
+
+fn command_name(argv: &[OsString]) -> String {
+    argv.first()
+        .and_then(|program| crate::catalog::command_basename(program.as_os_str()))
+        .map_or_else(String::new, |program| {
+            program.to_string_lossy().into_owned()
+        })
 }
 
 fn no_output_hint(argv: &[OsString], exit_code: i32) -> Vec<u8> {

@@ -287,6 +287,21 @@ declared compact route, and report transparent runner chains up to the same
 four-layer runtime limit. A catalogued command without a declared compact
 route is reported separately from an unlisted command.
 
+Measure how many bytes compaction actually saved:
+
+```sh
+export TAPAS_COMPACTION_METRICS_PATH="$HOME/.local/share/tapas/metrics.jsonl"
+git status            # one JSON line appended per wrapped command
+python3 scripts/usage_report.py --compaction-metrics "$TAPAS_COMPACTION_METRICS_PATH"
+```
+
+Recording is opt-in and off unless `TAPAS_COMPACTION_METRICS_PATH` names a
+file; the CLI behaves identically either way. Each run appends one line with
+the command, filter, evidence class, raw and displayed byte counts, and whether
+the output changed. The report aggregates those lines into per-command savings
+and a ranked candidate list. Token counts are a coarse estimate from the byte
+total, meant for ranking rather than billing.
+
 The command catalog in `src/catalog.rs` is tapas-owned and audited for internal consistency: every auto-wrap command must be backed by a filter family and behavior test, every git subcommand must have a dispatch arm and behavior coverage, and every declared compact, exact-output, and inherited/stream policy must point to meaningful test or regression coverage. The regression corpus under `tests/regression/` is static test data, grown alongside new filters.
 
 ## Current scope

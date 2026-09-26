@@ -62,6 +62,9 @@ PNPM_RUNNER_BOOLEAN_OPTIONS = {
     "--aggregate-output", "--use-stderr",
 }
 MAX_RUNNER_LAYERS = 4
+# Rough byte-to-token divisor for the savings estimate. Intentionally coarse:
+# it exists to rank candidates, not to predict billing.
+ESTIMATED_BYTES_PER_TOKEN = 4
 
 
 def basename(value: str) -> str:
@@ -384,6 +387,59 @@ def collect_jsonl(root: pathlib.Path, source: str) -> list[tuple[str, str]]:
     return rows
 
 
+def load_compaction_metrics(path: pathlib.Path | None) -> dict[str, dict[str, Any]]:
+    """Aggregate recorder output into per-command savings totals.
+
+    The metrics file holds one JSON object per wrapped command run, written by
+    the CLI when `TAPAS_COMPACTION_METRICS_PATH` is set. Malformed lines are
+    skipped so a partially written or hand-edited file cannot break the report.
+    """
+
+    if path is None or not path.is_file():
+        return {}
+    metrics: dict[str, dict[str, Any]] = {}
+    try:
+        with path.open(encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(record, dict):
+                    continue
+                command = record.get("command")
+                raw_bytes = record.get("raw_bytes")
+                displayed_bytes = record.get("displayed_bytes")
+                if not isinstance(command, str) or not command:
+                    continue
+                if not isinstance(raw_bytes, int) or not isinstance(displayed_bytes, int):
+                    continue
+                entry = metrics.setdefault(
+                    command,
+                    {
+                        "command": command,
+                        "invocations": 0,
+                        "saved_invocations": 0,
+                        "raw_bytes": 0,
+                        "displayed_bytes": 0,
+                        "saved_bytes": 0,
+                    },
+                )
+                saved = max(raw_bytes - displayed_bytes, 0)
+                entry["invocations"] += 1
+                entry["raw_bytes"] += raw_bytes
+                entry["displayed_bytes"] += displayed_bytes
+                entry["saved_bytes"] += saved
+                if bool(record.get("changed")) and saved > 0:
+                    entry["saved_invocations"] += 1
+    except OSError:
+        return metrics
+    return metrics
+
+
 def normalize_rows(rows: Iterable[tuple[str, str]]) -> list[dict[str, Any]]:
     normalized: list[dict[str, Any]] = []
     for source, raw in rows:
@@ -632,13 +688,19 @@ def _effective_invocation(
     }
 
 
-def build_report(rows: Iterable[dict[str, Any]], catalog: dict[str, set[str]], minimum: int = 1) -> dict[str, Any]:
+def build_report(
+    rows: Iterable[dict[str, Any]],
+    catalog: dict[str, set[str]],
+    minimum: int = 1,
+    compaction_metrics: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     rows = list(rows)
     commands = collections.Counter(row["command"] for row in rows)
     rows_by_command: dict[str, list[dict[str, Any]]] = collections.defaultdict(list)
     for row in rows:
         rows_by_command[row["command"]].append(row)
     sources = collections.Counter(row["source"] for row in rows)
+    measured = compaction_metrics or {}
     command_records = []
     transparent_prefixes = [runner.split() for runner in catalog["TRANSPARENT_RUNNERS"]]
     compact_commands = {
@@ -729,6 +791,7 @@ def build_report(rows: Iterable[dict[str, Any]], catalog: dict[str, set[str]], m
         chains = collections.Counter(
             tuple(row["runner_chain"]) for row in matching if row["runner_chain"]
         )
+        metric = measured.get(command)
         effective_records.append(
             {
                 "command": command,
@@ -742,6 +805,12 @@ def build_report(rows: Iterable[dict[str, Any]], catalog: dict[str, set[str]], m
                     {"chain": list(chain), "count": chain_count}
                     for chain, chain_count in sorted(chains.items())
                 ],
+                "measured_invocations": metric["invocations"] if metric else 0,
+                "saved_invocations": metric["saved_invocations"] if metric else 0,
+                "saved_bytes": metric["saved_bytes"] if metric else 0,
+                "saved_tokens": (
+                    metric["saved_bytes"] // ESTIMATED_BYTES_PER_TOKEN if metric else 0
+                ),
             }
         )
     chain_counts: collections.Counter[tuple[str, ...]] = collections.Counter()
@@ -760,6 +829,30 @@ def build_report(rows: Iterable[dict[str, Any]], catalog: dict[str, set[str]], m
         for chain, count in sorted(chain_counts.items())
         if count >= minimum
     ]
+    # Metrics stand alone: a recorder file is meaningful even when the session
+    # history is empty or unavailable, so candidates are built from measured
+    # commands directly rather than from session-derived records.
+    compaction_candidates = sorted(
+        (
+            {
+                "command": command,
+                "measured_invocations": entry["invocations"],
+                "saved_invocations": entry["saved_invocations"],
+                "saved_bytes": entry["saved_bytes"],
+                "saved_tokens": entry["saved_bytes"] // ESTIMATED_BYTES_PER_TOKEN,
+            }
+            for command, entry in measured.items()
+            if entry["saved_bytes"] > 0
+        ),
+        key=lambda record: (-record["saved_bytes"], -record["saved_invocations"]),
+    )
+    measured_records = [
+        record
+        for record in effective_records
+        if record["measured_invocations"]
+    ]
+    total_raw = sum(entry["raw_bytes"] for entry in measured.values())
+    total_saved = sum(entry["saved_bytes"] for entry in measured.values())
     return {
         "total_invocations": len(rows),
         "sources": dict(sources),
@@ -768,6 +861,11 @@ def build_report(rows: Iterable[dict[str, Any]], catalog: dict[str, set[str]], m
         "unlisted_commands": [record for record in command_records if record["coverage"] == "unlisted"],
         "unlisted_git_subcommands": [record for record in git_records if record["coverage"] == "unlisted"],
         "effective_commands": effective_records,
+        "measured_commands": measured_records,
+        "compaction_candidates": compaction_candidates,
+        "total_saved_bytes": total_saved,
+        "total_saved_tokens": total_saved // ESTIMATED_BYTES_PER_TOKEN,
+        "total_raw_bytes": total_raw,
         "unlisted_effective_commands": [
             record
             for record in effective_records
@@ -775,7 +873,6 @@ def build_report(rows: Iterable[dict[str, Any]], catalog: dict[str, set[str]], m
         ],
         "runner_chains": runner_chain_records,
     }
-
 
 def format_text(report: dict[str, Any]) -> str:
     lines = [f"Total invocations: {report['total_invocations']}", "Sources:"]
@@ -804,6 +901,28 @@ def format_text(report: dict[str, Any]) -> str:
         f"(runtime-dispatchable={record['runtime_dispatchable_count']})"
         for record in report["runner_chains"]
     )
+    candidates = report.get("compaction_candidates", [])
+    if candidates:
+        total_raw = report.get("total_raw_bytes", 0)
+        total_saved = report.get("total_saved_bytes", 0)
+        ratio = (total_saved * 100 / total_raw) if total_raw else 0.0
+        lines.append("Savings:")
+        lines.append(
+            f"  total: {total_saved} bytes saved of {total_raw} "
+            f"({ratio:.1f}%), ~{report.get('total_saved_tokens', 0)} tokens"
+        )
+        lines.append("Compaction candidates:")
+        lines.extend(
+            f"  {record['command']}: {record['saved_bytes']} bytes "
+            f"(~{record['saved_tokens']} tokens) over "
+            f"{record['saved_invocations']} of {record['measured_invocations']} runs"
+            for record in candidates
+        )
+    else:
+        lines.append(
+            "Savings: no metrics recorded "
+            "(set TAPAS_COMPACTION_METRICS_PATH and pass --compaction-metrics)"
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -813,6 +932,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--codex-root", type=pathlib.Path, default=DEFAULT_CODEX_ROOT)
     parser.add_argument("--claude-root", type=pathlib.Path, default=DEFAULT_CLAUDE_ROOT)
     parser.add_argument("--catalog", type=pathlib.Path, default=ROOT / "src/catalog.rs")
+    parser.add_argument(
+        "--compaction-metrics",
+        type=pathlib.Path,
+        default=None,
+        help="JSONL file written by TAPAS_COMPACTION_METRICS_PATH",
+    )
     parser.add_argument("--minimum", type=int, default=1)
     parser.add_argument("--format", choices=("text", "json"), default="text")
     return parser.parse_args(argv)
@@ -832,7 +957,12 @@ def main(argv: list[str] | None = None) -> int:
     raw_rows.extend(collect_opencode(args.opencode_db))
     raw_rows.extend(collect_jsonl(args.codex_root, "codex"))
     raw_rows.extend(collect_jsonl(args.claude_root, "claude"))
-    report = build_report(normalize_rows(raw_rows), catalog, args.minimum)
+    report = build_report(
+        normalize_rows(raw_rows),
+        catalog,
+        args.minimum,
+        load_compaction_metrics(args.compaction_metrics),
+    )
     if args.format == "json":
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
