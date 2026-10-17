@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.9.1](https://github.com/nkootstra/tapas/compare/v0.9.0...v0.9.1) - 2026-10-17
+
+### Patch changes
+
+- leave git unwrapped in Claude Code worktrees ([#147](https://github.com/nkootstra/tapas/pull/147))
+
 ## [0.9.0](https://github.com/nkootstra/tapas/compare/v0.8.1...v0.9.0) - 2026-09-26
 
 ### Minor changes
