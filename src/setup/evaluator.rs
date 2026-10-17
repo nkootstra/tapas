@@ -42,6 +42,9 @@ pub fn hook_eval_for_target(
     let Some(command) = event_command(&value) else {
         return Ok(0);
     };
+    if target == Target::Claude && runs_git_in_claude_worktree(command, &value) {
+        return Ok(0);
+    }
     let dynamic = target != Target::Codex
         && !accepts_command(target, command)
         && value
@@ -124,6 +127,27 @@ pub fn hook_eval_for_target(
 
 fn accepts_command(target: Target, command: &[u8]) -> bool {
     eligible(command) && (target != Target::Codex || codex_read_only(command))
+}
+
+// Claude Code refuses git behind any launcher in a worktree-isolated session,
+// because it cannot prove the launcher keeps git on that worktree.
+fn runs_git_in_claude_worktree(command: &[u8], value: &Value) -> bool {
+    let Some(Value::String(cwd)) = value.get(b"cwd") else {
+        return false;
+    };
+    let in_worktree = std::path::Path::new(std::ffi::OsStr::from_bytes(cwd))
+        .ancestors()
+        .any(|path| {
+            path.file_name() == Some(std::ffi::OsStr::new("worktrees"))
+                && path.parent().and_then(std::path::Path::file_name)
+                    == Some(std::ffi::OsStr::new(".claude"))
+        });
+    in_worktree
+        && shell_words(command).is_some_and(|words| {
+            words
+                .first()
+                .is_some_and(|program| crate::catalog::command_basename_bytes(program) == b"git")
+        })
 }
 
 fn accepts_hook_event(target: Target, value: &Value) -> bool {

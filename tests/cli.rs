@@ -730,6 +730,50 @@ fn claude_hook_updates_only_simple_supported_commands_without_granting_authority
 }
 
 #[test]
+fn claude_hook_leaves_git_unwrapped_inside_claude_worktrees() {
+    let event = |cwd: &str, command: &str| {
+        format!(r#"{{"cwd":"{cwd}","tool_input":{{"command":"{command}"}}}}"#)
+    };
+    for cwd in [
+        "/repo/.claude/worktrees/feature",
+        "/repo/.claude/worktrees/feature/src",
+    ] {
+        for command in ["git status", "/usr/bin/git status --short"] {
+            let output = tapas_with_stdin(
+                &["--hook-eval", "claude"],
+                event(cwd, command).as_bytes(),
+                &[],
+            );
+            assert!(output.status.success());
+            assert!(output.stdout.is_empty(), "{cwd}: {command}");
+            assert!(output.stderr.is_empty());
+        }
+    }
+
+    for (cwd, command) in [
+        ("/repo", "git status"),
+        ("/repo/worktrees/feature", "git status"),
+        ("/repo/.claude/worktrees/feature", "cargo build"),
+    ] {
+        let output = tapas_with_stdin(
+            &["--hook-eval", "claude"],
+            event(cwd, command).as_bytes(),
+            &[],
+        );
+        assert!(output.status.success());
+        assert!(!output.stdout.is_empty(), "{cwd}: {command}");
+    }
+
+    let opencode = tapas_with_stdin(
+        &["--hook-eval", "opencode"],
+        event("/repo/.claude/worktrees/feature", "git status").as_bytes(),
+        &[],
+    );
+    assert!(opencode.status.success());
+    assert!(!opencode.stdout.is_empty());
+}
+
+#[test]
 fn codex_hook_allows_only_the_rewritten_command() {
     let eligible = tapas_with_stdin(
         &["--hook-eval", "codex"],
