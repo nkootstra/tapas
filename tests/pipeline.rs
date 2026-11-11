@@ -90,7 +90,7 @@ fn json_passthrough_and_generic_text_compaction_match_the_oracle() {
 
     let mut noisy = Vec::new();
     for _ in 0..300 {
-        noisy.extend_from_slice(b"\x1b[32mbuild    complete\x1b[0m   \n\n");
+        noisy.extend_from_slice(b"\x1b[32mbuild    complete\x1b[0m   \n");
     }
     let compact = pipeline::filter_bytes(&noisy);
     let rendered = String::from_utf8(compact).unwrap();
@@ -100,7 +100,7 @@ fn json_passthrough_and_generic_text_compaction_match_the_oracle() {
 
     let dispatch = pipeline::filter(&noisy);
     assert_eq!(dispatch.filter_name, "generic");
-    assert_eq!(dispatch.evidence, EvidenceClass::FactComplete);
+    assert_eq!(dispatch.evidence, EvidenceClass::PotentiallyLossy);
 
     let repeated_invalid = b"invalid \xff\xfe diagnostic\n".repeat(300);
     assert_eq!(
@@ -113,10 +113,10 @@ fn json_passthrough_and_generic_text_compaction_match_the_oracle() {
 fn generic_compaction_does_not_double_count_a_line_seen_twice() {
     let pad = " ".repeat(4100);
     for (input, expected) in [
-        (format!("A\nB\nA\n{pad}\n"), "A\nB\nA\n"),
-        (format!("A\nA\nB\n{pad}\n"), "A ×2\nB\n"),
-        (format!("A\nB\nA\nB\n{pad}\n"), "A\nB\nA\nB\n"),
-        (format!("A\nB\nA\nC\nA\n{pad}\n"), "A ×3\nB\nC\n"),
+        (format!("A\nB\nA\n{pad}\n"), "A\nB\nA\n\n"),
+        (format!("A\nA\nB\n{pad}\n"), "A ×2\nB\n\n"),
+        (format!("A\nB\nA\nB\n{pad}\n"), "A\nB\nA\nB\n\n"),
+        (format!("A\nB\nA\nC\nA\n{pad}\n"), "A\nB\nA\nC\nA\n\n"),
     ] {
         assert_eq!(
             pipeline::filter_bytes(input.as_bytes()),
@@ -124,6 +124,52 @@ fn generic_compaction_does_not_double_count_a_line_seen_twice() {
             "{input:?}"
         );
     }
+}
+
+fn numbered_prose(prefix: &str, count: usize) -> String {
+    (0..count)
+        .map(|index| {
+            format!("{prefix} paragraph {index} explains one more detail of the change.\n")
+        })
+        .collect()
+}
+
+#[test]
+fn generic_compaction_keeps_every_markdown_fence() {
+    let mut markdown = String::from("# Guide\n\n");
+    for block in 0..5 {
+        markdown.push_str(&numbered_prose(&format!("Section {block}"), 20));
+        markdown.push_str("\n```rust\n");
+        markdown.push_str(&format!("fn example_{block}() {{\n    run();\n}}\n"));
+        markdown.push_str("```\n\n");
+    }
+    assert!(markdown.len() > 4 * 1024);
+
+    let dispatch = pipeline::filter(markdown.as_bytes());
+    assert_eq!(dispatch.filter_name, "generic");
+    let rendered = String::from_utf8(dispatch.bytes.into_owned()).unwrap();
+    assert_eq!(rendered.lines().filter(|line| *line == "```").count(), 5);
+    assert_eq!(
+        rendered
+            .lines()
+            .filter(|line| line.starts_with("```"))
+            .count(),
+        10
+    );
+    assert_eq!(rendered, markdown);
+    assert_eq!(dispatch.evidence, EvidenceClass::FactComplete);
+}
+
+#[test]
+fn generic_compaction_collapses_only_consecutive_runs_and_keeps_blank_lines() {
+    let pad = " ".repeat(4100);
+    let input = format!("\nA\nA\nA\n\nB\n\n\nA\nB\n{pad}\n");
+    let dispatch = pipeline::filter(input.as_bytes());
+    assert_eq!(
+        String::from_utf8(dispatch.bytes.into_owned()).unwrap(),
+        "\nA ×3\n\nB\n\nA\nB\n\n"
+    );
+    assert_eq!(dispatch.evidence, EvidenceClass::PotentiallyLossy);
 }
 
 #[test]

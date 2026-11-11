@@ -39,6 +39,9 @@ pub fn hook_eval_for_target(
     if !accepts_hook_event(target, &value) {
         return Ok(0);
     }
+    if runs_in_background(&value) {
+        return Ok(0);
+    }
     let Some(command) = event_command(&value) else {
         return Ok(0);
     };
@@ -148,6 +151,17 @@ fn runs_git_in_claude_worktree(command: &[u8], value: &Value) -> bool {
                 .first()
                 .is_some_and(|program| crate::catalog::command_basename_bytes(program) == b"git")
         })
+}
+
+// A background call is a server or long job whose output the agent polls
+// while it runs. Tapas would hold that output until exit, so leave it alone.
+fn runs_in_background(value: &Value) -> bool {
+    matches!(
+        value
+            .get(b"tool_input")
+            .and_then(|input| input.get(b"run_in_background")),
+        Some(Value::Bool(true))
+    )
 }
 
 fn accepts_hook_event(target: Target, value: &Value) -> bool {

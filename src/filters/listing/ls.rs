@@ -171,6 +171,10 @@ fn apply_ls_blocks(input: &[u8], columns: bool) -> Option<Vec<u8>> {
     }
 }
 
+/// A directory block with at most this many entries keeps every name; larger
+/// blocks keep the first three and report how many were omitted.
+const LIST_ALL_MAX_ENTRIES: usize = 50;
+
 fn flush_ls_segment(output: &mut Vec<u8>, header: Option<&[u8]>, entries: &[&[u8]]) {
     let real: Vec<_> = entries
         .iter()
@@ -192,13 +196,18 @@ fn flush_ls_segment(output: &mut Vec<u8>, header: Option<&[u8]>, entries: &[&[u8
         output.extend_from_slice(b"/ (");
         output.extend_from_slice(real.len().to_string().as_bytes());
         output.extend_from_slice(b" entries: ");
-        for (position, entry) in real.iter().take(3).enumerate() {
+        let shown = if real.len() <= LIST_ALL_MAX_ENTRIES {
+            real.len()
+        } else {
+            3
+        };
+        for (position, entry) in real.iter().take(shown).enumerate() {
             if position > 0 {
                 output.extend_from_slice(b", ");
             }
             output.extend_from_slice(entry);
         }
-        write_omission(output, real.len(), 3);
+        write_omission(output, real.len(), shown);
         output.push(b')');
     } else {
         for entry in real {
