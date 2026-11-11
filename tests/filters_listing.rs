@@ -57,8 +57,8 @@ fn grep_compacts_only_large_path_prefixed_multi_file_human_matches() {
     assert_eq!(output.evidence, EvidenceClass::PotentiallyLossy);
     for needle in [
         b"src/a.rs:0: needle alpha\n".as_slice(),
-        b"src/a.rs: ... 12 more matches\n",
-        b"src/b.rs: ... 12 more matches\n",
+        b"src/a.rs:9: needle alpha\nsrc/a.rs: ... 100 more matches\n",
+        b"src/b.rs:9: needle beta\nsrc/b.rs: ... 100 more matches\n",
     ] {
         assert!(
             output
@@ -124,7 +124,7 @@ fn grep_compacts_only_large_path_prefixed_multi_file_human_matches() {
     .unwrap();
     assert_eq!(terminated.evidence, EvidenceClass::PotentiallyLossy);
 
-    let colon_path_input = (0..10)
+    let colon_path_input = (0..110)
         .flat_map(|line| {
             [
                 format!("src/a:part.rs:{line}: needle alpha\n"),
@@ -153,6 +153,67 @@ fn grep_compacts_only_large_path_prefixed_multi_file_human_matches() {
     )
     .unwrap();
     assert_eq!(colon_pattern.evidence, EvidenceClass::PotentiallyLossy);
+}
+
+#[test]
+fn grep_keeps_every_line_of_a_moderate_multi_file_search() {
+    let input = (0..14)
+        .flat_map(|line| {
+            [
+                format!("/tmp/bench.old.txt:b{line} 1.{line}ms\n"),
+                format!("/tmp/bench.final.txt:b{line} 0.{line}ms\n"),
+            ]
+        })
+        .collect::<String>()
+        .into_bytes();
+    assert_eq!(input.iter().filter(|byte| **byte == b'\n').count(), 28);
+    let output = listing::dispatch_streams_argv(
+        &[
+            b"grep",
+            b"-E",
+            b"b6|b16|b13",
+            b"/tmp/bench.old.txt",
+            b"/tmp/bench.final.txt",
+        ],
+        &input,
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    assert_eq!(output.stdout, input);
+    assert_eq!(output.evidence, EvidenceClass::ByteExact);
+}
+
+#[test]
+fn ls_lists_every_name_of_small_directories_in_a_multi_directory_listing() {
+    let names = |prefix: &str| {
+        (0..9)
+            .map(|index| format!("{prefix}_{index:05}.jpg"))
+            .collect::<Vec<_>>()
+    };
+    let (first, second) = (names("f"), names("g"));
+    let input = format!(
+        "frames/10:\n{}\n\nframes/11:\n{}\n",
+        first.join("\n"),
+        second.join("\n")
+    );
+    let output = listing::dispatch_streams_argv(
+        &[b"ls", b"frames/10", b"frames/11"],
+        input.as_bytes(),
+        b"",
+        0,
+        false,
+    )
+    .unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    for name in first.iter().chain(&second) {
+        assert!(
+            stdout.contains(name.as_str()),
+            "{name} missing from {stdout}"
+        );
+    }
+    assert!(!stdout.contains("omitted"), "{stdout}");
 }
 
 #[test]
@@ -425,8 +486,10 @@ fn ls_column_dispatch_matches_the_pinned_fixture_output() {
 fn ls_block_modes_match_the_pinned_fixture_outputs() {
     let multi = fixture("ls_multi_dir.txt");
     let expected_multi = concat!(
-        "docs/ (7 entries: audits, brainstorms, drafts; 4 omitted; --raw for all)\n",
-        "src/ (18 entries: filter_catalog.zig, filters, history.zig; 15 omitted; --raw for all)\n",
+        "docs/ (7 entries: audits, brainstorms, drafts, plans, releases, remediation-plan.md, solutions)\n",
+        "src/ (18 entries: filter_catalog.zig, filters, history.zig, main.zig, pipe_filters.zig, ",
+        "pipeline.zig, setup_hooks.zig, setup_io.zig, setup_json.zig, setup.zig, signals.zig, ",
+        "stats.zig, tee.zig, util.zig, wrapper_git.zig, wrapper_io.zig, wrapper_util.zig, wrapper.zig)\n",
     );
     assert_eq!(
         listing::dispatch_streams_argv(&[b"ls", b"docs", b"src"], &multi, b"", 0, false)
