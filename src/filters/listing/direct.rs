@@ -7,9 +7,9 @@ pub(super) fn dispatch(input: StreamFilterInput<'_>) -> StreamFilterDecision {
     if input.lossless || crate::invocation_policy::requests_passthrough(input.argv) {
         return StreamFilterDecision::Passthrough;
     }
+    // `head` and `tail` read files, so they always pass through byte-exact.
     match command_basename(input.argv[0]) {
         b"diff" => dispatch_diff(input),
-        b"head" | b"tail" => dispatch_file_slice(input),
         _ => StreamFilterDecision::Passthrough,
     }
 }
@@ -173,92 +173,6 @@ fn compact_unified_diff(input: &[u8]) -> Option<Vec<u8>> {
 fn valid_unified_range(value: &[u8]) -> bool {
     let value = value.strip_prefix(b"-").unwrap_or(value);
     valid_line_range(value)
-}
-
-fn dispatch_file_slice(input: StreamFilterInput<'_>) -> StreamFilterDecision {
-    if input.exit_code != 0
-        || input.argv.len() != 2
-        || input.argv[1].starts_with(b"-")
-        || !looks_like_text_file(input.argv[1])
-    {
-        return StreamFilterDecision::Passthrough;
-    }
-    let Some(stdout) = compact_text_slice(input.stdout) else {
-        return StreamFilterDecision::Passthrough;
-    };
-    StreamFilterDecision::Applied(StreamFilterOutput::new(
-        stdout,
-        input.stderr.to_vec(),
-        EvidenceClass::PotentiallyLossy,
-    ))
-}
-
-fn compact_text_slice(input: &[u8]) -> Option<Vec<u8>> {
-    std::str::from_utf8(input).ok()?;
-    if input
-        .iter()
-        .any(|byte| *byte == 0 || *byte < b' ' && !matches!(*byte, b'\n' | b'\r' | b'\t'))
-    {
-        return None;
-    }
-    let lines = logical_lines(input);
-    if lines.len() <= 8 {
-        return None;
-    }
-    let omitted = lines.len() - 7;
-    let mut output = Vec::with_capacity(input.len());
-    for line in &lines[..4] {
-        output.extend_from_slice(line);
-        output.push(b'\n');
-    }
-    output.extend_from_slice(b"... ");
-    output.extend_from_slice(omitted.to_string().as_bytes());
-    output.extend_from_slice(b" lines omitted ...\n");
-    for line in &lines[lines.len() - 3..] {
-        output.extend_from_slice(line);
-        output.push(b'\n');
-    }
-    Some(output)
-}
-
-fn looks_like_text_file(path: &[u8]) -> bool {
-    let Some(extension) = path.rsplit(|byte| *byte == b'.').next() else {
-        return false;
-    };
-    [
-        b"txt".as_slice(),
-        b"md",
-        b"rs",
-        b"zig",
-        b"go",
-        b"py",
-        b"ts",
-        b"tsx",
-        b"js",
-        b"jsx",
-        b"java",
-        b"kt",
-        b"c",
-        b"h",
-        b"cpp",
-        b"rb",
-        b"sh",
-        b"zsh",
-        b"fish",
-        b"yaml",
-        b"yml",
-        b"toml",
-        b"json",
-        b"xml",
-        b"html",
-        b"css",
-        b"sql",
-        b"env",
-        b"ini",
-        b"cfg",
-        b"conf",
-    ]
-    .contains(&extension)
 }
 
 fn logical_lines(input: &[u8]) -> Vec<&[u8]> {

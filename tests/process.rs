@@ -104,6 +104,7 @@ fn tapas(args: &[&str], stdin: &[u8], env: &[(&str, &str)]) -> Output {
         .env_remove("TAPAS_LOSSLESS")
         .env_remove("TAPAS_STREAM")
         .env_remove("TAPAS_RAW")
+        .env_remove("TAPAS_CAT_OUTLINE")
         .envs(env.iter().copied())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -1467,5 +1468,89 @@ fn output_errors_reap_the_owned_process_group() {
     }
     assert!(gone, "the descendant survived the output error");
 
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+fn system_output(program: &str, path: &Path) -> Vec<u8> {
+    let output = Command::new(program)
+        .arg(path)
+        .output()
+        .expect("run the system file reader");
+    assert!(output.status.success(), "{program} {}", path.display());
+    output.stdout
+}
+
+#[test]
+fn file_readers_pass_file_content_through_byte_exact() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let directory = common::unique_temp_dir(&std::env::temp_dir(), "tapas-file-readers");
+    // Shaped like an agent read where an arrow-function body came back as
+    // `// ... (52 lines)` and the agent had to read the file again.
+    let mut reducer = String::from("type State = { count: number };\n\n");
+    reducer.push_str("const step = (state: State, event: { kind: string }) => {\n");
+    for index in 0..52 {
+        reducer.push_str(&format!(
+            "  if (event.kind === \"k{index}\") return {{ count: {index} }};\n"
+        ));
+    }
+    reducer.push_str("};\n\nexport default step;\n");
+    let chat_stream = directory.join("chat-stream.ts");
+    std::fs::write(&chat_stream, reducer).unwrap();
+
+    let paths = [
+        root.join("README.md"),
+        root.join("src/cli/compaction.rs"),
+        chat_stream,
+    ];
+    for path in &paths {
+        let argument = path.to_str().expect("UTF-8 path");
+        for program in ["cat", "head", "tail"] {
+            let wrapped = tapas(&[program, argument], b"", &[]);
+            assert!(wrapped.status.success(), "{program} {argument}");
+            let expected = system_output(program, path);
+            assert!(
+                wrapped.stdout == expected,
+                "tapas {program} {argument} altered the file content ({} bytes, expected {})",
+                wrapped.stdout.len(),
+                expected.len(),
+            );
+        }
+    }
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn cat_outline_elides_function_bodies_only_when_opted_in() {
+    let directory = common::unique_temp_dir(&std::env::temp_dir(), "tapas-cat-outline");
+    let mut source = String::from("pub fn compute() {\n");
+    for index in 0..40 {
+        source.push_str(&format!("    let value_{index} = {index};\n"));
+    }
+    source.push_str("}\n");
+    let code = directory.join("lib.rs");
+    std::fs::write(&code, &source).unwrap();
+    let mut markdown = String::new();
+    for index in 0..80 {
+        markdown.push_str(&format!("## Step {index}\n\n```sh\nrun {index}\n```\n\n"));
+    }
+    let notes = directory.join("notes.md");
+    std::fs::write(&notes, &markdown).unwrap();
+    let code_argument = code.to_str().unwrap();
+    let notes_argument = notes.to_str().unwrap();
+
+    let default = tapas(&["cat", code_argument], b"", &[]);
+    assert_eq!(default.stdout, source.as_bytes());
+
+    let outlined = tapas(&["cat", code_argument], b"", &[("TAPAS_CAT_OUTLINE", "1")]);
+    let text = String::from_utf8(outlined.stdout).unwrap();
+    assert!(text.contains("pub fn compute() {"), "{text}");
+    assert!(text.contains("// ... ("), "{text}");
+    assert!(!text.contains("let value_20 = 20;"), "{text}");
+
+    // Outline mode never falls back to the generic de-duplicating filter.
+    for env in [&[][..], &[("TAPAS_CAT_OUTLINE", "1")][..]] {
+        let output = tapas(&["cat", notes_argument], b"", env);
+        assert_eq!(output.stdout, markdown.as_bytes(), "env {env:?}");
+    }
     std::fs::remove_dir_all(directory).unwrap();
 }
