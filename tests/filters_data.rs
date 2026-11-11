@@ -6,6 +6,33 @@ type StreamsCase<'a> = (&'a [&'a [u8]], &'a [u8], &'a [u8]);
 type ExitCase<'a> = (&'a [&'a [u8]], &'a [u8], i32);
 
 #[test]
+fn script_runner_object_output_keeps_its_indentation() {
+    let object = b"{\n  ok: 1,\n  nested: {\n    a: [ 1, 2, 3 ],\n  },\n}\n";
+    for argv in [
+        &[
+            b"bun".as_slice(),
+            b"-e",
+            b"console.log({ok:1,nested:{a:[1,2,3]}})",
+        ][..],
+        &[b"bun".as_slice(), b"--print", b"({ok:1})"][..],
+        &[b"bun".as_slice(), b"run", b"script.ts"][..],
+        &[b"bun".as_slice(), b"script.ts"][..],
+        &[b"bun".as_slice(), b"./scripts/check"][..],
+        &[
+            b"node".as_slice(),
+            b"-e",
+            b"console.log({ok:1,nested:{a:[1,2,3]}})",
+        ][..],
+    ] {
+        assert_eq!(
+            data::dispatch_streams_argv(argv, object, b"", 0, false).unwrap(),
+            StreamFilterOutput::new(object.to_vec(), Vec::new(), EvidenceClass::ByteExact),
+            "{argv:?}",
+        );
+    }
+}
+
+#[test]
 fn structured_json_dispatch_minifies_single_containers_byte_safely() {
     let input =
         b"\xef\xbb\xbf{\n  \"a\": \"x y\",\n  \"b\": [1, 2],\n  \"raw\": \"}\\\\\\\"{\"\n}\r\n";

@@ -103,7 +103,10 @@ pub(crate) fn dispatch_streams_decision(
         )));
     }
 
-    if is_columnar_command(command) && matches_columnar(stdout) {
+    if is_columnar_command(command)
+        && !(command == b"bun" && bun_runs_code(argv))
+        && matches_columnar(stdout)
+    {
         return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
             compact_columnar(stdout),
             stderr.to_vec(),
@@ -112,6 +115,21 @@ pub(crate) fn dispatch_streams_decision(
     }
 
     Ok(StreamFilterDecision::Unchanged)
+}
+
+/// `bun -e`, `bun run file` and `bun file` print program output (often
+/// indented `console.log` objects), not package-manager tables.
+fn bun_runs_code(argv: &[&[u8]]) -> bool {
+    argv.get(1..).unwrap_or_default().iter().any(|argument| {
+        matches!(*argument, b"-e" | b"--eval" | b"-p" | b"--print")
+            || argument.starts_with(b"--eval=")
+            || argument.starts_with(b"--print=")
+    }) || argv
+        .get(1..)
+        .unwrap_or_default()
+        .iter()
+        .find(|argument| !argument.starts_with(b"-"))
+        .is_some_and(|first| *first == b"run" || first.contains(&b'/') || first.contains(&b'.'))
 }
 
 /// Environment flag that opts `cat`, `bat` and `batcat` into function-body
