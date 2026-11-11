@@ -1209,7 +1209,10 @@ fn bare_git_output_remains_composable_with_content_filters() {
         run(&args, &mut stdout, &mut stderr, RunOptions::default()).expect("run bare Git command");
 
     assert_eq!(report.filter_name, "generic");
-    assert_eq!(report.evidence, tapas::filters::EvidenceClass::FactComplete);
+    assert_eq!(
+        report.evidence,
+        tapas::filters::EvidenceClass::PotentiallyLossy
+    );
     assert_eq!(stdout, "bare output ×600\n".as_bytes());
     assert!(stderr.is_empty());
 }
