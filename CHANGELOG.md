@@ -2,6 +2,18 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.10.2](https://github.com/nkootstra/tapas/compare/v0.10.1...v0.10.2) - 2026-11-11
+
+### Patch changes
+
+- rewrite only read-only commands in Claude Code auto mode ([#151](https://github.com/nkootstra/tapas/pull/151))
+
+## [0.10.1](https://github.com/nkootstra/tapas/compare/v0.10.0...v0.10.1) - 2026-11-11
+
+### Patch changes
+
+- collapse only consecutive repeats in the generic filter ([#150](https://github.com/nkootstra/tapas/pull/150))
+
 ## [0.10.0](https://github.com/nkootstra/tapas/compare/v0.9.1...v0.10.0) - 2026-11-11
 
 ### Minor changes
