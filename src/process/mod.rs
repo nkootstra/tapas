@@ -42,6 +42,22 @@ pub struct RunReport {
     /// and passthrough runs never compact, so they report `false` even though
     /// their byte counters are populated.
     pub changed: bool,
+    /// Net number of output lines the caller did not see: raw stdout and
+    /// stderr lines minus displayed lines, floored at zero. Runs that never
+    /// compact report zero.
+    pub lines_dropped: usize,
+}
+
+/// Lines across stdout and stderr, counted the way a reader would: every
+/// newline ends one, and trailing bytes without a newline form one more.
+fn output_lines(streams: [&[u8]; 2]) -> usize {
+    streams
+        .iter()
+        .map(|bytes| {
+            let newlines = bytes.iter().filter(|byte| **byte == b'\n').count();
+            newlines + usize::from(bytes.last().is_some_and(|byte| *byte != b'\n'))
+        })
+        .sum()
 }
 
 pub fn run(
@@ -84,6 +100,7 @@ pub fn run(
             capture_complete: !streamed.incomplete,
             capture_overflowed: false,
             changed: streamed.changed,
+            lines_dropped: streamed.lines_dropped,
         };
         return return_report(report, stderr, options.explain);
     }
@@ -108,6 +125,7 @@ pub fn run(
             capture_complete: true,
             capture_overflowed: false,
             changed: false,
+            lines_dropped: 0,
         };
         return return_report(report, stderr, options.explain);
     }
@@ -145,6 +163,7 @@ pub fn run(
             capture_complete: !captured.incomplete,
             capture_overflowed: captured.overflowed,
             changed: false,
+            lines_dropped: 0,
         };
         return return_report(report, stderr, options.explain);
     }
@@ -166,12 +185,14 @@ pub fn run(
             capture_complete: false,
             capture_overflowed: false,
             changed: false,
+            lines_dropped: 0,
         };
         return return_report(report, stderr, options.explain);
     }
 
     if let Ok(Some(route)) = plugin_route {
         let id = route.id().to_owned();
+        let raw_lines = output_lines([&captured.stdout, &captured.stderr]);
         let dispatched = crate::plugins::dispatch(
             &route,
             argv,
@@ -207,6 +228,8 @@ pub fn run(
             stderr.write_all(&visible_stderr)?;
             0
         };
+        let lines_dropped =
+            raw_lines.saturating_sub(output_lines([&visible_stdout, &visible_stderr]));
         let report = RunReport {
             exit_code: captured.exit_code,
             command: command.clone(),
@@ -220,6 +243,7 @@ pub fn run(
             capture_complete: true,
             capture_overflowed: false,
             changed: plugin_transformed,
+            lines_dropped,
         };
         return return_report(report, stderr, options.explain);
     }
@@ -278,6 +302,8 @@ pub fn run(
         capture_complete: true,
         capture_overflowed: false,
         changed: changed && !failure_fell_open,
+        lines_dropped: output_lines([&captured.stdout, &captured.stderr])
+            .saturating_sub(output_lines([visible_stdout, visible_stderr])),
     };
     return_report(report, stderr, options.explain)
 }

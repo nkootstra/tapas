@@ -1040,21 +1040,151 @@ fn metric_lines(path: &std::path::Path) -> Vec<String> {
         .collect()
 }
 
+/// Run tapas the way an agent hook rewrite does: the hook writes the absolute
+/// path of the tapas executable, so the shell hands that path to tapas as
+/// `argv[0]`. `arg0` overrides it to emulate other launches. The environment
+/// is cleared so `HOME` is always the temporary directory given here.
+fn tapas_in_home(
+    args: &[&str],
+    arg0: Option<&str>,
+    home: &std::path::Path,
+    env: &[(&str, &str)],
+) -> Output {
+    use std::os::unix::process::CommandExt;
+
+    let mut command = Command::new(env!("CARGO_BIN_EXE_tapas"));
+    if let Some(arg0) = arg0 {
+        command.arg0(arg0);
+    }
+    command
+        .args(args)
+        .env_clear()
+        .env("HOME", home)
+        .envs(env.iter().copied())
+        .stdin(Stdio::null())
+        .output()
+        .expect("run tapas")
+}
+
+fn temp_home(label: &str) -> std::path::PathBuf {
+    let home = unique_metrics_path(label).with_extension("home");
+    fs::create_dir_all(&home).expect("create temp HOME");
+    home
+}
+
 #[test]
-fn compaction_metrics_are_recorded_only_when_the_path_is_set() {
-    let path = unique_metrics_path("unset");
+fn compaction_metrics_are_recorded_only_when_the_path_is_set_or_launched_by_a_hook() {
+    let home = temp_home("unset");
+    let default_path = home.join(".tapas/metrics.jsonl");
 
-    let unset = tapas(&["git", "status"]);
-    assert!(unset.status.success());
-    assert!(!path.exists(), "no metrics file without the env var");
+    // Typed by a person or an agent: argv[0] is the bare name, not the
+    // absolute path a hook rewrite writes.
+    let typed = tapas_in_home(&["git", "status"], Some("tapas"), &home, &[]);
+    assert!(typed.status.success());
+    assert!(
+        !default_path.exists(),
+        "no default metrics outside a hook rewrite"
+    );
 
-    let empty = tapas_with_stdin(
+    let empty = tapas_in_home(
         &["git", "status"],
-        b"",
+        Some("tapas"),
+        &home,
         &[("TAPAS_COMPACTION_METRICS_PATH", "")],
     );
     assert!(empty.status.success());
-    assert!(!path.exists(), "empty env var records nothing");
+    assert!(!default_path.exists(), "empty env var records nothing");
+
+    fs::remove_dir_all(&home).ok();
+}
+
+#[test]
+fn hook_rewritten_run_appends_one_line_to_the_default_metrics_file() {
+    let home = temp_home("hook-default");
+    let default_path = home.join(".tapas/metrics.jsonl");
+
+    let output = tapas_in_home(&["git", "status"], None, &home, &[]);
+    assert!(output.status.success());
+
+    let lines = metric_lines(&default_path);
+    assert_eq!(lines.len(), 1, "exactly one line per run: {lines:?}");
+    let line = &lines[0];
+    assert!(line.starts_with('{') && line.ends_with('}'), "{line:?}");
+    assert_eq!(metric_field(line, "command"), "git");
+    assert_eq!(metric_field(line, "hook"), "true");
+    assert_eq!(metric_field(line, "changed"), "true");
+    assert!(
+        ["byte_exact", "fact_complete", "potentially_lossy"]
+            .contains(&metric_field(line, "evidence").as_str()),
+        "{line:?}"
+    );
+    let dropped: usize = metric_field(line, "lines_dropped")
+        .parse()
+        .expect("lines_dropped is a count");
+    assert!(dropped > 0, "git status compaction drops lines: {line:?}");
+
+    let mode = fs::metadata(&default_path)
+        .expect("metrics file")
+        .permissions()
+        .mode();
+    assert_eq!(mode & 0o077, 0, "metrics file is private to the user");
+
+    fs::remove_dir_all(&home).ok();
+}
+
+#[test]
+fn hook_metrics_opt_out_and_explicit_path_override() {
+    let home = temp_home("hook-opt-out");
+    let default_path = home.join(".tapas/metrics.jsonl");
+
+    let opted_out = tapas_in_home(
+        &["git", "status"],
+        None,
+        &home,
+        &[("TAPAS_COMPACTION_METRICS", "0")],
+    );
+    assert!(opted_out.status.success());
+    assert!(!default_path.exists(), "opt-out records nothing");
+
+    let explicit = home.join("explicit.jsonl");
+    let overridden = tapas_in_home(
+        &["git", "status"],
+        None,
+        &home,
+        &[
+            ("TAPAS_COMPACTION_METRICS", "0"),
+            (
+                "TAPAS_COMPACTION_METRICS_PATH",
+                explicit.to_str().expect("UTF-8"),
+            ),
+        ],
+    );
+    assert!(overridden.status.success());
+    assert!(!default_path.exists(), "explicit path replaces the default");
+    assert_eq!(metric_lines(&explicit).len(), 1);
+
+    fs::remove_dir_all(&home).ok();
+}
+
+#[test]
+fn hook_metrics_write_failure_never_alters_the_command() {
+    // HOME is a regular file, so `~/.tapas/` cannot be created.
+    let home = unique_metrics_path("home-is-a-file");
+    fs::write(&home, b"").expect("create file HOME");
+
+    let baseline = tapas_in_home(
+        &["git", "log", "--oneline", "-n", "1"],
+        Some("tapas"),
+        &home,
+        &[],
+    );
+    let failing = tapas_in_home(&["git", "log", "--oneline", "-n", "1"], None, &home, &[]);
+
+    assert_eq!(failing.status.code(), baseline.status.code());
+    assert_eq!(failing.stdout, baseline.stdout, "stdout must not change");
+    assert_eq!(failing.stderr, baseline.stderr, "stderr must not change");
+
+    fs::remove_file(&home).ok();
 }
 
 #[test]

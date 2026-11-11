@@ -131,6 +131,9 @@ class Smoke:
         self.environment.pop("FORCE_COLOR", None)
         self.environment.pop("NO_COLOR", None)
         self.environment["CI"] = "1"
+        # The binary runs by absolute path, which tapas treats as a hook
+        # rewrite; keep smoke runs out of the user's default metrics file.
+        self.environment["TAPAS_COMPACTION_METRICS"] = "0"
         self.docker_available: bool | None = None
 
     def need(self, *commands: str) -> None:

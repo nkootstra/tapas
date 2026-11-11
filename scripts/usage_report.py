@@ -391,7 +391,8 @@ def load_compaction_metrics(path: pathlib.Path | None) -> dict[str, dict[str, An
     """Aggregate recorder output into per-command savings totals.
 
     The metrics file holds one JSON object per wrapped command run, written by
-    the CLI when `TAPAS_COMPACTION_METRICS_PATH` is set. Malformed lines are
+    the CLI to `~/.tapas/metrics.jsonl` for agent hook rewrites, or to
+    `TAPAS_COMPACTION_METRICS_PATH` when that is set. Malformed lines are
     skipped so a partially written or hand-edited file cannot break the report.
     """
 
@@ -921,7 +922,8 @@ def format_text(report: dict[str, Any]) -> str:
     else:
         lines.append(
             "Savings: no metrics recorded "
-            "(set TAPAS_COMPACTION_METRICS_PATH and pass --compaction-metrics)"
+            "(pass --compaction-metrics ~/.tapas/metrics.jsonl, or the file "
+            "named by TAPAS_COMPACTION_METRICS_PATH)"
         )
     return "\n".join(lines) + "\n"
 
@@ -936,7 +938,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--compaction-metrics",
         type=pathlib.Path,
         default=None,
-        help="JSONL file written by TAPAS_COMPACTION_METRICS_PATH",
+        help=(
+            "JSONL metrics file: ~/.tapas/metrics.jsonl for hook-driven runs, "
+            "or TAPAS_COMPACTION_METRICS_PATH"
+        ),
     )
     parser.add_argument("--minimum", type=int, default=1)
     parser.add_argument("--format", choices=("text", "json"), default="text")
