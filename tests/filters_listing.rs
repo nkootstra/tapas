@@ -669,9 +669,8 @@ fn direct_diff_owns_unknown_exact_non_utf8_and_failed_shapes_as_passthrough() {
 }
 
 #[test]
-fn direct_head_and_tail_compact_default_text_and_preserve_stderr() {
+fn direct_head_and_tail_pass_file_text_through_byte_exact() {
     let input = b"one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten\n";
-    let expected = b"one\ntwo\nthree\nfour\n... 3 lines omitted ...\neight\nnine\nten\n";
     for command in [b"head".as_slice(), b"tail"] {
         assert_eq!(
             listing::dispatch_streams_argv(
@@ -682,11 +681,7 @@ fn direct_head_and_tail_compact_default_text_and_preserve_stderr() {
                 false,
             )
             .unwrap(),
-            tapas::filters::StreamFilterOutput::new(
-                expected.to_vec(),
-                b"read warning\n".to_vec(),
-                EvidenceClass::PotentiallyLossy,
-            ),
+            tapas::filters::StreamFilterOutput::passthrough(input, b"read warning\n"),
             "command {command:?}",
         );
     }

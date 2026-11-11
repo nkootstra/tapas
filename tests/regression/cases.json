@@ -1638,9 +1638,9 @@
         }
       },
       "covers": [
-        "claude_eligibility:cat",
         "wrapper_dispatch:utilities",
-        "exact_output_bypass:lossless_or_raw"
+        "exact_output_bypass:lossless_or_raw",
+        "exact_output_bypass:file_reader_exact"
       ],
       "env": {
         "set": {
@@ -1658,11 +1658,11 @@
           "expected": false
         },
         "stderr": {
-          "byte_exact": false,
+          "byte_exact": true,
           "facts": []
         },
         "stdout": {
-          "byte_exact": false,
+          "byte_exact": true,
           "facts": []
         },
         "termination": {
@@ -3825,11 +3825,11 @@
           "expected": false
         },
         "stderr": {
-          "byte_exact": false,
+          "byte_exact": true,
           "facts": []
         },
         "stdout": {
-          "byte_exact": false,
+          "byte_exact": true,
           "facts": []
         },
         "termination": {
@@ -5419,11 +5419,11 @@
           "expected": false
         },
         "stderr": {
-          "byte_exact": false,
+          "byte_exact": true,
           "facts": []
         },
         "stdout": {
-          "byte_exact": false,
+          "byte_exact": true,
           "facts": []
         },
         "termination": {
