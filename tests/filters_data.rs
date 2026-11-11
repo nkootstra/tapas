@@ -416,7 +416,7 @@ fn is_pup_separator(line: &[u8]) -> bool {
 }
 
 #[test]
-fn cat_compacts_large_code_bodies_and_preserves_structure() {
+fn cat_outline_compacts_large_code_bodies_and_preserves_structure() {
     let mut input = Vec::new();
     input.extend_from_slice(
         b"use std::io;\n\npub struct Config {\n    value: u32,\n}\n\npub fn compute() {\n",
@@ -444,24 +444,47 @@ fn cat_compacts_large_code_bodies_and_preserves_structure() {
         "\n",
     );
     assert_eq!(
-        data::dispatch_streams_argv(
-            &[b"/bin/cat", b"src/lib.rs"],
-            &input,
-            b"warning \xff\n",
-            0,
-            false,
-        )
-        .unwrap(),
-        StreamFilterOutput::new(
+        data::outline_file_read(&[b"/bin/cat", b"src/lib.rs"], &input, b"warning \xff\n", 0),
+        Some(StreamFilterOutput::new(
             expected.as_bytes().to_vec(),
             b"warning \xff\n".to_vec(),
             EvidenceClass::PotentiallyLossy,
-        )
+        ))
     );
 }
 
 #[test]
-fn cat_marks_each_omitted_python_body() {
+fn file_readers_dispatch_byte_exact_without_the_outline_opt_in() {
+    let mut code = b"pub fn compute() {\n".to_vec();
+    for index in 0..40 {
+        code.extend_from_slice(format!("    let value_{index} = {index};\n").as_bytes());
+    }
+    code.extend_from_slice(b"}\n");
+    let mut markdown = Vec::new();
+    for index in 0..200 {
+        markdown.extend_from_slice(format!("## {index}\n\n```sh\nrun\n```\n\n").as_bytes());
+    }
+    assert!(code.len() > 512 && markdown.len() > 4096);
+    for (argv, stdout) in [
+        (&[b"cat".as_slice(), b"src/lib.rs"][..], code.as_slice()),
+        (&[b"bat".as_slice(), b"src/lib.rs"][..], code.as_slice()),
+        (&[b"batcat".as_slice(), b"src/lib.rs"][..], code.as_slice()),
+        (&[b"cat".as_slice(), b"README.md"][..], markdown.as_slice()),
+    ] {
+        assert_eq!(
+            data::dispatch_streams_argv(argv, stdout, b"", 0, false).unwrap(),
+            StreamFilterOutput::passthrough(stdout, b""),
+            "argv {argv:?}",
+        );
+    }
+    assert_eq!(
+        data::outline_file_read(&[b"cat", b"README.md"], &markdown, b"", 0),
+        None
+    );
+}
+
+#[test]
+fn cat_outline_marks_each_omitted_python_body() {
     let mut input = Vec::new();
     input.extend_from_slice(b"def first():\n");
     for index in 0..40 {
@@ -473,8 +496,7 @@ fn cat_marks_each_omitted_python_body() {
     }
     assert!(input.len() > 512);
 
-    let output =
-        data::dispatch_streams_argv(&[b"cat", b"example.py"], &input, b"", 0, false).unwrap();
+    let output = data::outline_file_read(&[b"cat", b"example.py"], &input, b"", 0).unwrap();
     let text = String::from_utf8(output.stdout).unwrap();
 
     assert!(text.contains("def first():"), "{text}");
@@ -511,11 +533,16 @@ fn cat_data_small_unknown_and_exact_invocations_are_byte_exact() {
             ),
             "argv {argv:?}",
         );
+        assert_eq!(
+            data::outline_file_read(argv, stdout, b"problem \xff\n", 0),
+            None,
+            "argv {argv:?}",
+        );
     }
 }
 
 #[test]
-fn bat_and_batcat_share_only_the_plain_cat_compaction_contract() {
+fn bat_and_batcat_share_only_the_plain_cat_outline_contract() {
     let input = fixture("bat_code.rs");
     assert!(input.len() > 512);
 
@@ -524,7 +551,7 @@ fn bat_and_batcat_share_only_the_plain_cat_compaction_contract() {
         &[b"batcat".as_slice(), b"src/lib.rs"][..],
         &[b"bat".as_slice()][..],
     ] {
-        let output = data::dispatch_streams_argv(argv, &input, b"", 0, false).unwrap();
+        let output = data::outline_file_read(argv, &input, b"", 0).expect("outline");
         assert_eq!(output.evidence, EvidenceClass::PotentiallyLossy, "{argv:?}");
         if argv.len() == 2 {
             assert!(
@@ -542,8 +569,11 @@ fn bat_and_batcat_share_only_the_plain_cat_compaction_contract() {
         &[b"batcat".as_slice(), b"--style=plain", b"src/lib.rs"][..],
         &[b"bat".as_slice(), b"one.rs", b"two.rs"][..],
     ] {
-        let output = data::dispatch_streams_argv(argv, &input, b"", 0, false).unwrap();
-        assert_eq!(output.evidence, EvidenceClass::ByteExact, "{argv:?}");
+        assert_eq!(
+            data::outline_file_read(argv, &input, b"", 0),
+            None,
+            "{argv:?}"
+        );
     }
 }
 
