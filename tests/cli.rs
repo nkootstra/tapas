@@ -846,6 +846,36 @@ fn claude_hook_in_auto_mode_rewrites_only_read_only_commands() {
 }
 
 #[test]
+fn claude_hook_leaves_background_commands_unwrapped() {
+    for input in [
+        br#"{"tool_input":{"command":"git status","run_in_background":true}}"#.as_slice(),
+        br#"{"cwd":"/repo","tool_input":{"command":"bun run --cwd apps/playground dev","run_in_background":true}}"#,
+    ] {
+        let output = tapas_with_stdin(&["--hook-eval", "claude"], input, &[]);
+        assert!(output.status.success());
+        assert!(
+            output.stdout.is_empty(),
+            "{}",
+            String::from_utf8_lossy(input)
+        );
+        assert!(output.stderr.is_empty());
+    }
+
+    for input in [
+        br#"{"tool_input":{"command":"git status","run_in_background":false}}"#.as_slice(),
+        br#"{"tool_input":{"command":"git status"}}"#,
+    ] {
+        let output = tapas_with_stdin(&["--hook-eval", "claude"], input, &[]);
+        assert!(output.status.success());
+        assert!(
+            !output.stdout.is_empty(),
+            "{}",
+            String::from_utf8_lossy(input)
+        );
+    }
+}
+
+#[test]
 fn codex_hook_allows_only_the_rewritten_command() {
     let eligible = tapas_with_stdin(
         &["--hook-eval", "codex"],
