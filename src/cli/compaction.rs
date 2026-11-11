@@ -102,12 +102,13 @@ fn record_metric(path: &Path, report: &RunReport, hook: bool) -> io::Result<()> 
 fn format_metric_line(report: &RunReport, hook: bool) -> String {
     format!(
         concat!(
-            "{{\"command\":\"{}\",\"filter_name\":\"{}\",\"evidence\":\"{}\",",
+            "{{\"ts\":{},\"command\":\"{}\",\"filter_name\":\"{}\",\"evidence\":\"{}\",",
             "\"raw_bytes\":{},\"displayed_bytes\":{},\"diagnostic_bytes\":{},",
             "\"lines_dropped\":{},",
             "\"changed\":{},\"exit_code\":{},\"capture_complete\":{},",
             "\"capture_overflowed\":{},\"hook\":{}}}\n"
         ),
+        unix_seconds(),
         escape_json_string(&report.command),
         escape_json_string(report.filter_name),
         evidence_label(report.evidence),
@@ -121,6 +122,14 @@ fn format_metric_line(report: &RunReport, hook: bool) -> String {
         report.capture_overflowed,
         hook,
     )
+}
+
+// Seconds since the Unix epoch, so lines can be ordered and matched to a
+// session. A clock set before the epoch records 0 rather than failing.
+fn unix_seconds() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs())
 }
 
 fn evidence_label(evidence: crate::filters::EvidenceClass) -> &'static str {

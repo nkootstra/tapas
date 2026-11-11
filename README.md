@@ -324,7 +324,7 @@ python3 scripts/usage_report.py --compaction-metrics "$TAPAS_COMPACTION_METRICS_
 
 Recording never changes the wrapped command's output or exit status, and a file
 that cannot be written is skipped silently. Each run appends one line with the
-command name (not its arguments), filter, evidence class, raw and displayed
+time of the run in Unix seconds, the command name (not its arguments), filter, evidence class, raw and displayed
 byte counts, net lines dropped from the output, whether the output changed,
 and whether a hook launched the run. The report aggregates those lines into
 per-command savings and a ranked candidate list. Token counts are a coarse

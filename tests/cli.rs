@@ -1169,6 +1169,17 @@ fn hook_rewritten_run_appends_one_line_to_the_default_metrics_file() {
     assert_eq!(metric_field(line, "command"), "git");
     assert_eq!(metric_field(line, "hook"), "true");
     assert_eq!(metric_field(line, "changed"), "true");
+    let recorded: u64 = metric_field(line, "ts")
+        .parse()
+        .expect("ts is Unix seconds");
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock after epoch")
+        .as_secs();
+    assert!(
+        recorded <= now && now - recorded < 300,
+        "ts is the time of the run: {line:?}"
+    );
     assert!(
         ["byte_exact", "fact_complete", "potentially_lossy"]
             .contains(&metric_field(line, "evidence").as_str()),
