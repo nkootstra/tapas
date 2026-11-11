@@ -180,12 +180,124 @@ pub(super) fn codex_command(command: &[u8], cwd: &[u8]) -> Option<CodexCommand> 
     })
 }
 
+/// Command forms the Claude hook may rewrite while Claude Code runs in auto
+/// mode. The auto-mode classifier reviews the command the model wrote; a
+/// launcher prefix on a mutating command reads to it as a bypass attempt and
+/// the call is denied, so only read-only forms are rewritten there. File
+/// readers such as `cat` are left out: wrapped reads of task output were denied
+/// as well.
+pub(super) fn claude_auto_read_only(command: &[u8]) -> bool {
+    let Some(words) = shell_words(command) else {
+        return false;
+    };
+    let program = crate::catalog::command_basename_bytes(&words[0]);
+    let arguments = &words[1..];
+    match program {
+        b"cat" => false,
+        b"df" | b"diff" | b"grep" | b"lsof" => true,
+        b"gh" => gh_read_only(arguments),
+        b"curl" => curl_read_only(arguments),
+        b"docker" => docker_read_only(arguments),
+        b"docker-compose" => compose_read_only(arguments),
+        _ => program_read_only(program, arguments),
+    }
+}
+
+fn gh_read_only(arguments: &[Vec<u8>]) -> bool {
+    let group = arguments.first().map(Vec::as_slice);
+    let action = arguments.get(1).map(Vec::as_slice);
+    match group {
+        Some(b"search" | b"status") => true,
+        Some(b"api") => !arguments[1..].iter().any(|argument| {
+            matches!(
+                argument.as_slice(),
+                b"--method" | b"--field" | b"--raw-field" | b"--input"
+            ) || argument.starts_with(b"--method=")
+                || argument.starts_with(b"--field=")
+                || argument.starts_with(b"--raw-field=")
+                || argument.starts_with(b"--input=")
+                || b"XfF"
+                    .iter()
+                    .any(|flag| short_cluster_has_flag(argument, *flag, GH_API_VALUE_SHORT_OPTIONS))
+        }),
+        Some(b"pr") => matches!(
+            action,
+            Some(b"checks" | b"diff" | b"list" | b"status" | b"view")
+        ),
+        Some(b"issue") => matches!(action, Some(b"list" | b"status" | b"view")),
+        Some(b"release" | b"run" | b"workflow") => matches!(action, Some(b"list" | b"view")),
+        Some(b"repo") => matches!(action, Some(b"view")),
+        _ => false,
+    }
+}
+
+/// `gh api` short options that take a value.
+const GH_API_VALUE_SHORT_OPTIONS: &[u8] = b"FfHpqtX";
+
+fn curl_read_only(arguments: &[Vec<u8>]) -> bool {
+    const WRITING_LONG: &[&[u8]] = &[
+        b"--config",
+        b"--cookie-jar",
+        b"--create-dirs",
+        b"--data",
+        b"--dump-header",
+        b"--form",
+        b"--json",
+        b"--libcurl",
+        b"--output",
+        b"--remote-name",
+        b"--request",
+        b"--trace",
+        b"--upload-file",
+    ];
+    !arguments.iter().any(|argument| {
+        WRITING_LONG
+            .iter()
+            .any(|option| argument.starts_with(option))
+            || b"cdDFKoOTX"
+                .iter()
+                .any(|flag| short_cluster_has_flag(argument, *flag, CURL_VALUE_SHORT_OPTIONS))
+    })
+}
+
+/// curl short options that take a value.
+const CURL_VALUE_SHORT_OPTIONS: &[u8] = b"AbcCdDeEFHKmoPQrtTuUwxXyYz";
+
+fn docker_read_only(arguments: &[Vec<u8>]) -> bool {
+    match arguments.first().map(Vec::as_slice) {
+        Some(b"compose") => compose_read_only(&arguments[1..]),
+        Some(subcommand) => matches!(
+            subcommand,
+            b"history"
+                | b"images"
+                | b"info"
+                | b"inspect"
+                | b"logs"
+                | b"port"
+                | b"ps"
+                | b"top"
+                | b"version"
+        ),
+        None => false,
+    }
+}
+
+fn compose_read_only(arguments: &[Vec<u8>]) -> bool {
+    matches!(
+        arguments.first().map(Vec::as_slice),
+        Some(b"config" | b"images" | b"logs" | b"ls" | b"ps" | b"version")
+    )
+}
+
 fn codex_words_read_only(words: &[Vec<u8>]) -> bool {
     let program = words[0].as_slice();
     if program.contains(&b'/') {
         return false;
     }
-    let arguments = &words[1..];
+    program_read_only(program, &words[1..])
+}
+
+fn program_read_only(program: &[u8], arguments: &[Vec<u8>]) -> bool {
     match program {
         b"cat" | b"du" | b"jq" | b"ls" | b"ps" => true,
         b"tree" => !arguments.iter().any(|argument| {
