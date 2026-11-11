@@ -771,6 +771,81 @@ fn claude_hook_leaves_git_unwrapped_inside_claude_worktrees() {
 }
 
 #[test]
+fn claude_hook_in_auto_mode_rewrites_only_read_only_commands() {
+    let event = |mode: &str, command: &str| {
+        format!(r#"{{"permission_mode":"{mode}","tool_input":{{"command":"{command}"}}}}"#)
+    };
+    let hook = |mode: &str, command: &str| {
+        let output = tapas_with_stdin(
+            &["--hook-eval", "claude"],
+            event(mode, command).as_bytes(),
+            &[],
+        );
+        assert!(output.status.success(), "{mode}: {command}");
+        assert!(output.stderr.is_empty(), "{mode}: {command}");
+        output.stdout
+    };
+
+    // Commands the auto-mode classifier denied once the hook had wrapped them,
+    // and the other mutating forms the classifier reviews.
+    let mutating = [
+        "cat /private/tmp/session/tasks/b1x2.output",
+        "gh pr create --title Title --body Body",
+        "git branch",
+        "git push",
+        "git commit -m message",
+        "git rm file.txt",
+        "gh api -X POST repos/owner/repo/issues",
+        "gh api -XPATCH repos/owner/repo",
+        "gh api repos/owner/repo/issues -f title=Title",
+        "curl -sL https://example.com/file.tgz -o file.tgz",
+        "curl -sLo file.tgz https://example.com/file.tgz",
+        "curl -O https://example.com/file.tgz",
+        "curl -X POST https://example.com/api",
+        "curl --data payload https://example.com/api",
+        "docker run --rm alpine true",
+        "docker exec container ls",
+        "find . -delete",
+    ];
+    for command in mutating {
+        assert!(hook("auto", command).is_empty(), "auto: {command}");
+    }
+
+    let read_only = [
+        "gh pr view 147",
+        "gh pr checks 147",
+        "gh run list",
+        "gh api repos/owner/repo/pulls",
+        "git status",
+        "git diff",
+        "git log --oneline",
+        "/usr/bin/git status --short",
+        "grep -rn needle src",
+        "rg needle",
+        "ls -la",
+        "curl -sL https://example.com",
+        "docker ps",
+        "docker logs container",
+    ];
+    for command in read_only {
+        assert!(!hook("auto", command).is_empty(), "auto: {command}");
+    }
+
+    // Outside auto mode the classifier does not review the call, so the
+    // supported catalog is rewritten as before.
+    for mode in ["default", "acceptEdits", "bypassPermissions", "dontAsk"] {
+        for command in [
+            "git push",
+            "gh pr create --title Title --body Body",
+            "docker run --rm alpine true",
+            "cargo build",
+        ] {
+            assert!(!hook(mode, command).is_empty(), "{mode}: {command}");
+        }
+    }
+}
+
+#[test]
 fn claude_hook_leaves_background_commands_unwrapped() {
     for input in [
         br#"{"tool_input":{"command":"git status","run_in_background":true}}"#.as_slice(),

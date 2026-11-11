@@ -3,7 +3,8 @@ use std::os::unix::ffi::{OsStrExt, OsStringExt};
 
 use super::Target;
 use super::hooks::{
-    codex_command, codex_read_only, eligible, event_command, shell_escape, shell_words,
+    claude_auto_read_only, codex_command, codex_read_only, eligible, event_command, shell_escape,
+    shell_words,
 };
 use super::json::{self, Value};
 
@@ -46,6 +47,9 @@ pub fn hook_eval_for_target(
         return Ok(0);
     };
     if target == Target::Claude && runs_git_in_claude_worktree(command, &value) {
+        return Ok(0);
+    }
+    if target == Target::Claude && in_auto_mode(&value) && !claude_auto_read_only(command) {
         return Ok(0);
     }
     let dynamic = target != Target::Codex
@@ -151,6 +155,14 @@ fn runs_git_in_claude_worktree(command: &[u8], value: &Value) -> bool {
                 .first()
                 .is_some_and(|program| crate::catalog::command_basename_bytes(program) == b"git")
         })
+}
+
+// Claude Code sends `permission_mode` with every PreToolUse event. In auto mode
+// a classifier reviews the command before the hook rewrites it and denies
+// mutating commands that arrive behind a launcher, so only read-only forms are
+// rewritten there.
+fn in_auto_mode(value: &Value) -> bool {
+    matches!(value.get(b"permission_mode"), Some(Value::String(mode)) if mode == b"auto")
 }
 
 // A background call is a server or long job whose output the agent polls

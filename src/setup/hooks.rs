@@ -180,12 +180,119 @@ pub(super) fn codex_command(command: &[u8], cwd: &[u8]) -> Option<CodexCommand> 
     })
 }
 
+/// Command forms the Claude hook may rewrite while Claude Code runs in auto
+/// mode. The auto-mode classifier reviews the command the model wrote; a
+/// launcher prefix on a mutating command reads to it as a bypass attempt and
+/// the call is denied, so only read-only forms are rewritten there. File
+/// readers such as `cat` are left out: wrapped reads of task output were denied
+/// as well.
+pub(super) fn claude_auto_read_only(command: &[u8]) -> bool {
+    let Some(words) = shell_words(command) else {
+        return false;
+    };
+    let program = crate::catalog::command_basename_bytes(&words[0]);
+    let form = |form: &str| {
+        form.split(' ').enumerate().all(|(index, word)| {
+            word.as_bytes()
+                == if index == 0 {
+                    Some(program)
+                } else {
+                    words.get(index).map(Vec::as_slice)
+                }
+                .unwrap_or_default()
+        })
+    };
+    if !CLAUDE_AUTO_FORMS.iter().any(|entry| form(entry)) {
+        return program != b"cat" && program_read_only(program, &words[1..]);
+    }
+    !CLAUDE_AUTO_REFUSED
+        .iter()
+        .filter(|(entry, ..)| form(entry))
+        .any(|(_, flags, values, long)| {
+            words[1..].iter().any(|argument| {
+                long.split(' ')
+                    .any(|option| argument.starts_with(option.as_bytes()))
+                    || flags
+                        .bytes()
+                        .any(|flag| short_cluster_has_flag(argument, flag, values.as_bytes()))
+            })
+        })
+}
+
+/// Read-only forms beyond the Codex allow-list, as leading words.
+const CLAUDE_AUTO_FORMS: &[&str] = &[
+    "curl",
+    "df",
+    "diff",
+    "grep",
+    "lsof",
+    "docker compose config",
+    "docker compose images",
+    "docker compose logs",
+    "docker compose ls",
+    "docker compose ps",
+    "docker compose version",
+    "docker history",
+    "docker images",
+    "docker info",
+    "docker inspect",
+    "docker logs",
+    "docker port",
+    "docker ps",
+    "docker top",
+    "docker version",
+    "docker-compose config",
+    "docker-compose images",
+    "docker-compose logs",
+    "docker-compose ls",
+    "docker-compose ps",
+    "docker-compose version",
+    "gh api",
+    "gh issue list",
+    "gh issue status",
+    "gh issue view",
+    "gh pr checks",
+    "gh pr diff",
+    "gh pr list",
+    "gh pr status",
+    "gh pr view",
+    "gh release list",
+    "gh release view",
+    "gh repo view",
+    "gh run list",
+    "gh run view",
+    "gh search",
+    "gh status",
+    "gh workflow list",
+    "gh workflow view",
+];
+
+/// Options that make an allowed form write: (form, short flags, short options
+/// that take a value, long option prefixes).
+const CLAUDE_AUTO_REFUSED: &[(&str, &str, &str, &str)] = &[
+    (
+        "curl",
+        "cdDFKoOTX",
+        "AbcCdDeEFHKmoPQrtTuUwxXyYz",
+        "--config --cookie-jar --create-dirs --data --dump-header --form --json --libcurl --output --remote-name --request --trace --upload-file",
+    ),
+    (
+        "gh api",
+        "XfF",
+        "FfHpqtX",
+        "--method --field --raw-field --input",
+    ),
+];
+
 fn codex_words_read_only(words: &[Vec<u8>]) -> bool {
     let program = words[0].as_slice();
     if program.contains(&b'/') {
         return false;
     }
-    let arguments = &words[1..];
+    program_read_only(program, &words[1..])
+}
+
+fn program_read_only(program: &[u8], arguments: &[Vec<u8>]) -> bool {
     match program {
         b"du" | b"jq" | b"ls" | b"ps" => true,
         b"tree" => !arguments.iter().any(|argument| {
