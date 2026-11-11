@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.11.0](https://github.com/nkootstra/tapas/compare/v0.10.2...v0.11.0) - 2026-11-11
+
+### Minor changes
+
+- record compaction metrics by default for hook-rewritten runs ([#154](https://github.com/nkootstra/tapas/pull/154))
+
 ## [0.10.2](https://github.com/nkootstra/tapas/compare/v0.10.1...v0.10.2) - 2026-11-11
 
 ### Patch changes
