@@ -2,6 +2,12 @@
 
 All notable changes to Tapas are recorded here.
 
+## [0.10.0](https://github.com/nkootstra/tapas/compare/v0.9.1...v0.10.0) - 2026-11-11
+
+### Minor changes
+
+- make file readers byte-exact ([#149](https://github.com/nkootstra/tapas/pull/149))
+
 ## [0.9.1](https://github.com/nkootstra/tapas/compare/v0.9.0...v0.9.1) - 2026-10-17
 
 ### Patch changes
