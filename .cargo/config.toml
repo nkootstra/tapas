@@ -1,0 +1,6 @@
+# Tests and `cargo run` start tapas by its absolute path, which looks like an
+# agent hook rewrite. Keep those runs out of the developer's default metrics
+# file under ~/.tapas/. Tests that cover recording clear the environment and
+# use a temporary HOME. An explicit TAPAS_COMPACTION_METRICS_PATH still records.
+[env]
+TAPAS_COMPACTION_METRICS = "0"

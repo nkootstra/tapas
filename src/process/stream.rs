@@ -25,6 +25,8 @@ pub(super) struct StreamedOutput {
     /// stream ever left raw passthrough, so a byte-count delta is not the only
     /// evidence of compaction.
     pub changed: bool,
+    /// Raw newlines read minus newlines written, floored at zero.
+    pub lines_dropped: usize,
 }
 
 pub(super) fn run(
@@ -65,6 +67,7 @@ pub(super) fn run(
         let mut stdout_idle = Instant::now();
         let mut stderr_idle = Instant::now();
         let mut input_bytes = 0usize;
+        let mut input_lines = 0usize;
         let mut incomplete = false;
 
         while stdout_open || stderr_open {
@@ -84,6 +87,7 @@ pub(super) fn run(
                     capture::read_available(&mut child_stdout, &mut stdout_buffer, |chunk| {
                         stdout_received = true;
                         input_bytes += chunk.len();
+                        input_lines += newlines(chunk);
                         stdout_side.feed(chunk, &mut stdout_count)
                     })?;
             }
@@ -92,6 +96,7 @@ pub(super) fn run(
                     capture::read_available(&mut child_stderr, &mut stderr_buffer, |chunk| {
                         stderr_received = true;
                         input_bytes += chunk.len();
+                        input_lines += newlines(chunk);
                         stderr_side.feed(chunk, &mut stderr_count)
                     })?;
             }
@@ -131,6 +136,7 @@ pub(super) fn run(
         stdout_count.flush()?;
         stderr_count.flush()?;
         let displayed_bytes = stdout_count.count + stderr_count.count;
+        let displayed_lines = stdout_count.lines + stderr_count.lines;
         let status = match child_status {
             Some(status) => status,
             None => unix::wait_for_child(&mut child, &forwarder)?,
@@ -142,6 +148,7 @@ pub(super) fn run(
             incomplete,
             filter_name: kind.filter_name(),
             changed: stdout_side.compacted || stderr_side.compacted,
+            lines_dropped: input_lines.saturating_sub(displayed_lines),
         })
     })();
     if result.is_err() {
@@ -217,18 +224,28 @@ impl StreamKind {
 struct CountingWriter<'a> {
     inner: &'a mut dyn Write,
     count: usize,
+    lines: usize,
 }
 
 impl<'a> CountingWriter<'a> {
     fn new(inner: &'a mut dyn Write) -> Self {
-        Self { inner, count: 0 }
+        Self {
+            inner,
+            count: 0,
+            lines: 0,
+        }
     }
+}
+
+fn newlines(bytes: &[u8]) -> usize {
+    bytes.iter().filter(|byte| **byte == b'\n').count()
 }
 
 impl Write for CountingWriter<'_> {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
         let written = self.inner.write(bytes)?;
         self.count += written;
+        self.lines += newlines(&bytes[..written]);
         Ok(written)
     }
 

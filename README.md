@@ -184,7 +184,7 @@ cargo build --locked --profile z
 cargo test --locked
 ```
 
-Runtime crates are limited to `libc` at the Unix process boundary and vetted `sha2` for plugin integrity. Tapas makes no telemetry or network calls at runtime.
+Runtime crates are limited to `libc` at the Unix process boundary and vetted `sha2` for plugin integrity. Tapas makes no telemetry or network calls at runtime; the compaction metrics described under "Verification" stay in a local file and are never sent anywhere.
 
 CI produces checksummed release-profile artifacts for:
 
@@ -300,20 +300,35 @@ declared compact route, and report transparent runner chains up to the same
 four-layer runtime limit. A catalogued command without a declared compact
 route is reported separately from an unlisted command.
 
-Measure how many bytes compaction actually saved:
+Measure how many bytes compaction actually saved. Commands that an agent hook
+rewrote (Claude Code, Codex, or OpenCode) are recorded by default to
+`~/.tapas/metrics.jsonl`:
+
+```sh
+python3 scripts/usage_report.py --compaction-metrics ~/.tapas/metrics.jsonl
+```
+
+The file is local, created with owner-only permissions, and never sent
+anywhere; Tapas still makes no network calls. Tapas recognises a hook rewrite
+by the absolute executable path the hook writes in front of the command, so a
+`tapas` command typed by a person or an agent is not recorded by default. Set
+`TAPAS_COMPACTION_METRICS=0` to turn the default off. To record every run,
+including typed ones, name a file explicitly; an explicit path always wins
+over the default and the opt-out:
 
 ```sh
 export TAPAS_COMPACTION_METRICS_PATH="$HOME/.local/share/tapas/metrics.jsonl"
-git status            # one JSON line appended per wrapped command
+tapas git status      # one JSON line appended per wrapped command
 python3 scripts/usage_report.py --compaction-metrics "$TAPAS_COMPACTION_METRICS_PATH"
 ```
 
-Recording is opt-in and off unless `TAPAS_COMPACTION_METRICS_PATH` names a
-file; the CLI behaves identically either way. Each run appends one line with
-the command, filter, evidence class, raw and displayed byte counts, and whether
-the output changed. The report aggregates those lines into per-command savings
-and a ranked candidate list. Token counts are a coarse estimate from the byte
-total, meant for ranking rather than billing.
+Recording never changes the wrapped command's output or exit status, and a file
+that cannot be written is skipped silently. Each run appends one line with the
+time of the run in Unix seconds, the command name (not its arguments), filter, evidence class, raw and displayed
+byte counts, net lines dropped from the output, whether the output changed,
+and whether a hook launched the run. The report aggregates those lines into
+per-command savings and a ranked candidate list. Token counts are a coarse
+estimate from the byte total, meant for ranking rather than billing.
 
 The command catalog in `src/catalog.rs` is tapas-owned and audited for internal consistency: every auto-wrap command must be backed by a filter family and behavior test, every git subcommand must have a dispatch arm and behavior coverage, and every declared compact, exact-output, and inherited/stream policy must point to meaningful test or regression coverage. The regression corpus under `tests/regression/` is static test data, grown alongside new filters.
 
