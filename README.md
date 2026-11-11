@@ -55,6 +55,19 @@ tapas --raw -- git diff
 TAPAS_LOSSLESS=1 tapas git diff
 ```
 
+File readers are always byte-exact. `tapas cat`, `tapas bat`, `tapas head`
+and `tapas tail` print file content unchanged, and the agent hooks no longer
+rewrite `cat`, `head`, `tail` or `wc`. To get an outline of a source file with
+function bodies replaced by `// ... (N lines)` markers, opt in explicitly:
+
+```sh
+TAPAS_CAT_OUTLINE=1 tapas cat src/lib.rs
+```
+
+The outline applies only to plain `cat`, `bat` and `batcat` reads of
+recognized source files over 512 bytes; Markdown, data and unknown files still
+pass through unchanged.
+
 Explain the selected filter and reduction for one command:
 
 ```sh

@@ -298,7 +298,7 @@ fn filters_report_the_canonical_commands_and_runners() {
 
 #[test]
 fn expanded_catalog_reports_and_rewrites_the_supported_commands() {
-    assert_eq!(tapas::catalog::AUTO_WRAP_COMMANDS.len(), 76);
+    assert_eq!(tapas::catalog::AUTO_WRAP_COMMANDS.len(), 72);
     assert_eq!(tapas::catalog::WRAPPER_COMMANDS.len(), 85);
     let filters = tapas(&["--filters"]);
     let filters = String::from_utf8(filters.stdout).expect("UTF-8 filters");
@@ -348,15 +348,12 @@ fn expanded_catalog_commands_rewrite_directly_and_through_transparent_runners() 
         "dotnet",
         "golangci-lint",
         "gt",
-        "head",
         "mypy",
         "prisma",
         "rake",
         "rspec",
         "rubocop",
         "ruff",
-        "tail",
-        "wc",
     ];
     let executable = env!("CARGO_BIN_EXE_tapas");
 
@@ -1016,6 +1013,35 @@ fn codex_hook_keeps_the_expanded_catalog_outside_its_read_only_allowlist() {
         assert!(output.status.success(), "command: {command}");
         assert!(output.stdout.is_empty(), "command: {command}");
         assert!(output.stderr.is_empty(), "command: {command}");
+    }
+}
+
+#[test]
+fn hooks_leave_plain_file_readers_unwrapped() {
+    for target in ["claude", "opencode", "codex"] {
+        for command in ["cat a.ts", "head a.ts", "tail a.ts", "wc -l a.ts"] {
+            let input = format!(
+                r#"{{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/tmp","tool_input":{{"command":"{command}"}}}}"#,
+            );
+            let output = tapas_with_stdin(
+                &["--hook-eval", target],
+                input.as_bytes(),
+                &[("PATH", "/usr/bin:/bin")],
+            );
+            assert!(
+                output.status.success(),
+                "target: {target}, command: {command}"
+            );
+            assert!(
+                output.stdout.is_empty(),
+                "target: {target}, command: {command}, output: {:?}",
+                String::from_utf8_lossy(&output.stdout),
+            );
+            assert!(
+                output.stderr.is_empty(),
+                "target: {target}, command: {command}"
+            );
+        }
     }
 }
 

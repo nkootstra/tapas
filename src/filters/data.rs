@@ -82,30 +82,17 @@ pub(crate) fn dispatch_streams_decision(
         )));
     }
 
-    if command == b"cat"
-        && stdout.len() > 512
-        && let Some(compact) = compact_cat(stdout, argv)
-    {
-        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
-            compact,
-            stderr.to_vec(),
-            EvidenceClass::PotentiallyLossy,
-        )));
-    }
-
-    if matches!(command, b"bat" | b"batcat")
-        && exit_code == 0
-        && stderr.is_empty()
-        && stdout.len() > 512
-        && std::str::from_utf8(stdout).is_ok()
-        && bat_is_plain(argv)
-        && let Some(compact) = compact_cat(stdout, argv)
-    {
-        return Ok(StreamFilterDecision::Applied(StreamFilterOutput::new(
-            compact,
-            Vec::new(),
-            EvidenceClass::PotentiallyLossy,
-        )));
+    // File readers are byte-exact: an agent reading a file needs its exact
+    // bytes. Function-body elision is an explicit opt-in, and no other filter
+    // (including the generic fallback) may touch file content.
+    if matches!(command, b"cat" | b"bat" | b"batcat") {
+        if !crate::environment::flag_on(CAT_OUTLINE_ENV) {
+            return Ok(StreamFilterDecision::Passthrough);
+        }
+        return Ok(outline_file_read(argv, stdout, stderr, exit_code)
+            .map_or(StreamFilterDecision::Passthrough, |output| {
+                StreamFilterDecision::Applied(output)
+            }));
     }
 
     if command == b"sqlite3" && matches_sqlite_table(stdout) {
@@ -125,6 +112,43 @@ pub(crate) fn dispatch_streams_decision(
     }
 
     Ok(StreamFilterDecision::Unchanged)
+}
+
+/// Environment flag that opts `cat`, `bat` and `batcat` into function-body
+/// elision. Without it, file readers pass their output through unchanged.
+pub const CAT_OUTLINE_ENV: &str = "TAPAS_CAT_OUTLINE";
+
+/// The opt-in outline of a file read: source files with function bodies
+/// replaced by `// ... (N lines)` markers. Returns `None` when the read is
+/// not a plain read of a recognised source file, so the caller keeps the
+/// original bytes.
+pub fn outline_file_read(
+    argv: &[&[u8]],
+    stdout: &[u8],
+    stderr: &[u8],
+    exit_code: i32,
+) -> Option<StreamFilterOutput> {
+    let command = command_basename(argv.first()?);
+    if crate::invocation_policy::requests_passthrough(argv) || stdout.len() <= 512 {
+        return None;
+    }
+    let (compact, stderr) = match command {
+        b"cat" => (compact_cat(stdout, argv)?, stderr.to_vec()),
+        b"bat" | b"batcat"
+            if exit_code == 0
+                && stderr.is_empty()
+                && std::str::from_utf8(stdout).is_ok()
+                && bat_is_plain(argv) =>
+        {
+            (compact_cat(stdout, argv)?, Vec::new())
+        }
+        _ => return None,
+    };
+    Some(StreamFilterOutput::new(
+        compact,
+        stderr,
+        EvidenceClass::PotentiallyLossy,
+    ))
 }
 
 fn bat_is_plain(argv: &[&[u8]]) -> bool {
